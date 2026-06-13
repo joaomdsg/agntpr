@@ -6,6 +6,7 @@ import (
 	"fmt"
 	stdlog "log"
 	"os/exec"
+	"strconv"
 	"strings"
 
 	"github.com/go-via/via"
@@ -119,7 +120,65 @@ func (c *LiveCard) AnalyzeDraft(ctx *via.Ctx) {
 		return
 	}
 	e.setAnalysis(&draftAnalysis{Draft: draft, Result: &a})
+	// A fresh analysis supersedes any pending rewrite from a prior update — the Lead is
+	// reading the current draft now, so a stale rewrite must never be re-pushed later.
+	e.setRewrite("")
 	c.Analysis.Write(ctx, "ok")
+}
+
+// UpdateDraft folds the Lead's answers to the clarifying questions back into the
+// draft: it runs a producer over the current draft + the answers (the rewrite seam,
+// the same haiku/warm read AnalyzeDraft uses) and swaps the editor to the rewritten
+// text. An empty draft or empty/malformed answer set is a silent no-op (nothing to
+// fold in). A failed or empty rewrite degrades calmly — the draft and the questions
+// are kept so the Lead can retry, never wiped. On success the stale analysis is
+// CLEARED (the questions were answered against a draft that no longer exists; the Lead
+// re-analyzes the new draft when ready — replace-only, no auto re-analyze). FIREWALL:
+// like AnalyzeDraft it writes only the off-economy caches, never the ledger.
+func (c *LiveCard) UpdateDraft(ctx *via.Ctx) {
+	cfg, log := readLiveState(c.Key)
+	if log == nil {
+		return
+	}
+	e := lookupLiveEntry(c.Key)
+	if e == nil {
+		return
+	}
+	draft := strings.TrimSpace(c.OrderPrompt.Read(ctx))
+	if draft == "" {
+		return // nothing to rewrite
+	}
+	var answers []assist.Answer
+	if err := json.Unmarshal([]byte(c.DraftAnswers.Read(ctx)), &answers); err != nil || len(answers) == 0 {
+		return // malformed or empty answers — nothing to fold in, never a crash
+	}
+	// Supersede any in-flight analyze so a stale read can't overwrite the rewrite's
+	// cleared-analysis state, and run the rewrite under a cancellable context.
+	runCtx := e.beginAnalysis()
+	prompt := assist.RewritePrompt(draft, answers)
+	resumeID := e.resumeSessionID()
+	raw, err := analyzeDraft(runCtx, cfg.RepoDir, prompt, resumeID)
+	// Same warm-resume fallback as AnalyzeDraft: a stale/missing warm session strands
+	// the rewrite even though a cold run would work — retry cold once before degrading.
+	if err != nil && resumeID != "" && runCtx.Err() == nil {
+		stdlog.Printf("authoring: resume rewrite failed (%v) — retrying cold", err)
+		raw, err = analyzeDraft(runCtx, cfg.RepoDir, prompt, "")
+	}
+	if runCtx.Err() != nil {
+		return // superseded by a newer run — let that one own the state
+	}
+	if err != nil {
+		stdlog.Printf("authoring: rewrite run failed: %v", err)
+		return // keep the draft and questions so the Lead can retry
+	}
+	newDraft := assist.ParseRewrite(raw)
+	if newDraft == "" {
+		stdlog.Printf("authoring: rewrite produced empty draft — keeping the current draft")
+		return // an empty rewrite would wipe the editor; treat as failure
+	}
+	e.setRewrite(newDraft)
+	e.setAnalysis(nil) // the questions were answered; the draft they flagged is gone
+	c.Rewrite.Write(ctx, newDraft)
 }
 
 // renderAuthoring is the authoring-assist surface: an editable Monaco editor as the
@@ -129,10 +188,12 @@ func (c *LiveCard) AnalyzeDraft(ctx *via.Ctx) {
 // place. da is the latest cached analysis (nil before the first run).
 func renderAuthoring(c *LiveCard) h.H {
 	var da *draftAnalysis
+	var rewrite string
 	if e := lookupLiveEntry(c.Key); e != nil {
 		da = e.analysisSnapshot()
+		rewrite = e.rewriteSnapshot()
 	}
-	parts := []h.H{h.Class("authoring"), composeSurface(da)}
+	parts := []h.H{h.Class("authoring"), composeSurface(da, rewrite)}
 	if p := renderAnalysisPanel(da); p != nil {
 		parts = append(parts, p)
 	}
@@ -147,16 +208,18 @@ func renderAuthoring(c *LiveCard) h.H {
 // answer-form pattern that works without data-bind and survives morphs). The
 // re-rendering bits (readiness, the highlights payload the editor decorates from) sit
 // OUTSIDE the shield so a fresh analysis updates them in place.
-func composeSurface(da *draftAnalysis) h.H {
+func composeSurface(da *draftAnalysis, rewrite string) h.H {
 	live := h.Div(
 		h.Class("compose__live"),
 		h.DataIgnoreMorph(),
 		h.Attr("aria-label", "author a live order"),
 		// The bridge: each button's CustomEvent carries the editor's value, which the
 		// handler assigns to $orderprompt INLINE (so the signal is present at post time)
-		// then @posts the action AnalyzeDraft/PlaceOrder reads.
+		// then @posts the action AnalyzeDraft/PlaceOrder reads. The update bridge also
+		// carries the gathered answers into $draftanswers for UpdateDraft.
 		h.Data("on:viaanalyze", "$orderprompt=evt.detail.draft;@post('/_action/AnalyzeDraft')"),
 		h.Data("on:viaplace", "$orderprompt=evt.detail.draft;@post('/_action/PlaceOrder')"),
+		h.Data("on:viaupdatedraft", "$orderprompt=evt.detail.draft;$draftanswers=evt.detail.answers;@post('/_action/UpdateDraft')"),
 		h.Div(h.ID("authoring-editor"), h.Class("compose__editor")),
 		h.Button(h.Type("button"), h.Class("pk-btn pk-btn--quiet compose__analyze"), h.Text("Analyze draft")),
 		h.Button(h.Type("button"), h.Class("pk-btn compose__place"), h.Text("Place order")),
@@ -186,6 +249,14 @@ func composeSurface(da *draftAnalysis) h.H {
 		Highlights []assist.Highlight `json:"highlights"`
 	}{Highlights: hl})
 	parts = append(parts, h.Script(h.Type("application/json"), h.ID("authoring-analysis-data"), h.Raw(string(payload))))
+	// The rewrite payload the editor swaps to: UpdateDraft stashes the producer's
+	// rewritten draft, and the editor's MutationObserver calls setValue when this
+	// payload changes to a non-empty draft (json.Marshal escapes <,>,& so it is safe
+	// inside the <script>). Empty before any update — the observer ignores empty.
+	rw, _ := json.Marshal(struct {
+		Draft string `json:"draft"`
+	}{Draft: rewrite})
+	parts = append(parts, h.Script(h.Type("application/json"), h.ID("authoring-rewrite-data"), h.Raw(string(rw))))
 	if tokenStore == nil || !tokenStore.Configured() {
 		parts = append(parts, h.Div(
 			h.Class("compose__needs-key"),
@@ -226,14 +297,55 @@ func renderAnalysisPanel(da *draftAnalysis) h.H {
 	}
 	if len(a.Questions) > 0 {
 		qs := []h.H{h.Class("analysis__questions")}
-		for _, q := range a.Questions {
-			qs = append(qs, h.Li(h.Class("analysis__question"), h.Text(q)))
+		for i, q := range a.Questions {
+			qs = append(qs, renderQuestion(i, q))
 		}
 		parts = append(parts,
-			h.Span(h.Class("analysis__questions-label"), h.Text("Answer these, then re-analyze:")),
-			h.Ul(qs...))
+			h.Span(h.Class("analysis__questions-label"), h.Text("Answer these, then update the draft:")),
+			h.Ul(qs...),
+			// One Update-draft control at the END (not per question): the Lead answers
+			// all the questions, then this single button gathers the picks + notes and the
+			// current draft into the viaupdatedraft bridge (see authoringEditorJS) so the
+			// producer rewrites the draft incorporating them. It is a plain button (no
+			// data-bind) — the delegated click handler fires it — so it survives morphs.
+			h.Button(h.Type("button"), h.Class("pk-btn analysis__update"), h.Text("Update draft")),
+		)
 	}
 	return h.Div(parts...)
+}
+
+// renderQuestion renders one clarifying question as an answerable form item: the
+// question text, its suggested answers as a choice set (radios when one answer
+// applies, checkboxes when several may — multiselect), and a free-text note input so
+// the Lead can add context or give a different answer entirely. Inputs are scoped to
+// this question by index (name="qans-<i>" / "qnote-<i>") so picks never bleed across
+// questions, and the JS gathers answers by that convention. A question with no
+// suggestions is still answerable via its note.
+func renderQuestion(i int, q assist.Question) h.H {
+	idx := strconv.Itoa(i)
+	item := []h.H{
+		h.Class("analysis__question"), h.Data("q", idx),
+		h.Span(h.Class("analysis__question-text"), h.Text(q.Q)),
+	}
+	if len(q.Suggestions) > 0 {
+		inputType := "radio"
+		if q.Multiselect {
+			inputType = "checkbox"
+		}
+		choices := []h.H{h.Class("analysis__choices")}
+		for _, s := range q.Suggestions {
+			choices = append(choices, h.Label(h.Class("analysis__choice"),
+				h.Input(h.Type(inputType), h.Attr("name", "qans-"+idx), h.Attr("value", s)),
+				h.Span(h.Class("analysis__choice-text"), h.Text(s)),
+			))
+		}
+		item = append(item, h.Div(choices...))
+	}
+	item = append(item, h.Input(
+		h.Type("text"), h.Class("analysis__note"), h.Attr("name", "qnote-"+idx),
+		h.Placeholder("add a note or a different answer"),
+	))
+	return h.Li(item...)
 }
 
 // authoringEditorJS mounts the EDITABLE Monaco editor (the single draft source),
@@ -304,6 +416,40 @@ const authoringEditorJS = `(function(){
     var dataEl = document.getElementById('authoring-analysis-data');
     if (dataEl && window.MutationObserver) {
       new MutationObserver(function(){ applyDecos(); if (ind) ind.dataset.state = 'idle'; }).observe(dataEl, { childList: true, characterData: true, subtree: true });
+    }
+    // The Update-draft control lives in the analysis panel (OUTSIDE the editor shield),
+    // so it re-renders with each fresh analysis — a DELEGATED click on document survives
+    // those re-renders. It gathers each question's picked suggestions + note into the
+    // {Q,Answers,Note} shape UpdateDraft decodes (scoped by the data-q index / qans-/
+    // qnote- name convention renderQuestion emits) and dispatches the bridge with the
+    // current draft + answers JSON.
+    document.addEventListener('click', function(ev){
+      var btn = ev.target.closest ? ev.target.closest('.analysis__update') : null;
+      if (!btn || !live) return;
+      var qs = document.querySelectorAll('.analysis__question'), answers = [];
+      for (var qi = 0; qi < qs.length; qi++) {
+        var qel = qs[qi], i = qel.getAttribute('data-q');
+        var qtextEl = qel.querySelector('.analysis__question-text');
+        var picks = [], checked = qel.querySelectorAll('input[name="qans-' + i + '"]:checked');
+        for (var ci = 0; ci < checked.length; ci++) picks.push(checked[ci].value);
+        var noteEl = qel.querySelector('input[name="qnote-' + i + '"]');
+        answers.push({ Q: qtextEl ? qtextEl.textContent : '', Answers: picks, Note: noteEl ? noteEl.value : '' });
+      }
+      live.dispatchEvent(new CustomEvent('viaupdatedraft', { detail: { draft: ed.getValue(), answers: JSON.stringify(answers) } }));
+    });
+    // The rewrite payload: when UpdateDraft pushes a new draft, swap the editor to it
+    // (only when non-empty and actually changed, so the initial empty payload never
+    // wipes the editor). Clearing lastAnalyzed lets the new draft be (re)analyzed.
+    function applyRewrite(){
+      var el = document.getElementById('authoring-rewrite-data');
+      if (!el) return;
+      var d = '';
+      try { d = (JSON.parse(el.textContent) || {}).draft || ''; } catch (e) { return; }
+      if (d && d !== ed.getValue()) { ed.setValue(d); lastAnalyzed = null; }
+    }
+    var rwEl = document.getElementById('authoring-rewrite-data');
+    if (rwEl && window.MutationObserver) {
+      new MutationObserver(applyRewrite).observe(rwEl, { childList: true, characterData: true, subtree: true });
     }
     applyDecos();
     ed.focus();

@@ -132,9 +132,36 @@ body {
 .board { display: flex; flex-direction: column; gap: var(--pk-sm); }
 /* the fleet view's one command: create a session. A calm inline input + button,
    in the surface idiom — no modal, no alarm. */
-.board-create { display: flex; gap: var(--pk-sm); align-items: baseline; margin-bottom: var(--pk-md); }
+.board-create { display: flex; flex-wrap: wrap; gap: var(--pk-sm); align-items: baseline; margin-bottom: var(--pk-md); }
 /* box CSS now lives on .pk-input / .pk-btn (multi-class); the semantic classes
    are kept as stable hooks for future per-surface nudges. */
+/* the repo pick: the chosen full path shows quietly in mono, beside the Browse
+   control that opens the server-side directory picker. */
+.board-create__repo { display: flex; gap: var(--pk-sm); align-items: baseline; }
+.board-create__selected { font-family: var(--pk-mono); font-size: var(--pk-font-xs); color: var(--pk-ink-dim); overflow-wrap: anywhere; }
+/* the server-side directory picker: a calm surface panel that drops to its own
+   full-width row below the create controls (so navigating the filesystem never
+   crowds them), scrollable when a directory is deep. */
+.board-create__browser {
+  flex-basis: 100%;
+  display: flex; flex-direction: column; gap: var(--pk-xs);
+  margin-top: var(--pk-sm); padding: var(--pk-sm);
+  background: var(--pk-surface-2); border: 1px solid var(--pk-line); border-radius: var(--pk-radius);
+  max-height: 320px; overflow-y: auto;
+}
+.board-create__browser-head { display: flex; gap: var(--pk-sm); align-items: center; margin-bottom: var(--pk-xs); }
+.board-create__browser-dir { flex: 1; font-family: var(--pk-mono); font-size: var(--pk-font-xs); color: var(--pk-ink-dim); overflow-wrap: anywhere; }
+/* the navigable rungs — up + child folders — read as a calm left-aligned list
+   (borderless, mono), the accent cueing the hover target, not a grid of buttons. */
+.board-create__browser-up,
+.board-create__browser-entry {
+  text-align: left; background: transparent; border: 0; cursor: pointer;
+  padding: var(--pk-xs) var(--pk-sm); border-radius: var(--pk-radius-sm);
+  font-family: var(--pk-mono); font-size: var(--pk-font-xs); color: var(--pk-ink);
+}
+.board-create__browser-up { color: var(--pk-ink-dim); }
+.board-create__browser-up:hover,
+.board-create__browser-entry:hover { background: var(--pk-surface); color: var(--pk-accent); }
 
 /* ---- the setup surface (the Anthropic key) ---- */
 .settings { display: flex; flex-direction: column; gap: var(--pk-md); }
@@ -158,7 +185,20 @@ body {
 .analysis__readiness[data-state="blocked"] { color: var(--pk-ink-dim); }
 .analysis__readiness[data-state="ready"] { color: var(--pk-balance); }
 .analysis__questions-label { color: var(--pk-ink-dim); font-size: var(--pk-font-sm); }
-.analysis__questions { margin: 0; padding-left: var(--pk-md); color: var(--pk-ink); }
+/* each question is now an answerable form block (text + choices + a note), so the
+   list drops its bullets and stacks the questions with a calm rhythm. */
+.analysis__questions { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--pk-sm); color: var(--pk-ink); }
+.analysis__question { display: flex; flex-direction: column; gap: var(--pk-xs); }
+.analysis__question-text { color: var(--pk-ink); }
+/* the suggested answers: a wrap of quiet pickable chips (radios for pick-one,
+   checkboxes for pick-any) — the native input stays, the label gives it a hit area. */
+.analysis__choices { display: flex; flex-wrap: wrap; gap: var(--pk-sm); }
+.analysis__choice { display: inline-flex; align-items: center; gap: var(--pk-xs); padding: var(--pk-xs) var(--pk-sm); background: var(--pk-surface-2); border: 1px solid var(--pk-line); border-radius: var(--pk-radius-sm); font-size: var(--pk-font-sm); cursor: pointer; }
+.analysis__choice:hover { border-color: var(--pk-accent); }
+/* the free-text note / different-answer input, and the single update control. */
+.analysis__note { background: var(--pk-surface-2); border: 1px solid var(--pk-line); border-radius: var(--pk-radius-sm); color: var(--pk-ink); padding: var(--pk-xs) var(--pk-sm); font-size: var(--pk-font-sm); }
+.analysis__note:focus { outline: none; border-color: var(--pk-accent); }
+.analysis__update { align-self: flex-start; margin-top: var(--pk-xs); }
 .analysis__unavailable { color: var(--pk-ink-dim); }
 /* the editable Monaco editor — the single draft source (was a plain textarea). */
 .compose__live { display: flex; flex-direction: column; gap: var(--pk-sm); }

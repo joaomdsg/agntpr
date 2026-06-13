@@ -14,11 +14,13 @@ import (
 	"github.com/go-via/via/vt"
 )
 
-// The create form's repo picker must be a real directory file input: a browser
-// can't hand the server an absolute path, so the input picks a directory and a
-// change handler derives the picked folder NAME into the new-repo signal (the
-// server resolves it under the repos root). NOT parallel (shared globals).
-func TestBoardCard_rendersADirectoryPicker(t *testing.T) {
+// The create form's repo picker must be a SERVER-SIDE directory browser, not a
+// browser file input: a browser file input can only ever hand back a folder NAME
+// (webkitRelativePath is relative by design), never the absolute path the Lead
+// actually wants stored. The server has filesystem access, so the form renders a
+// Browse control wired to the OpenBrowser action instead. NOT parallel (shared
+// globals).
+func TestBoardCard_rendersAServerSideDirectoryBrowser(t *testing.T) {
 	resetConsumersForTest()
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
@@ -30,9 +32,8 @@ func TestBoardCard_rendersADirectoryPicker(t *testing.T) {
 	t.Cleanup(func() { _ = log.Close() })
 
 	body := bodyOf(vt.NewClient(t, server, "/board").HTML())
-	require.Contains(t, body, `type="file"`, "the repo picker is a real file input")
-	require.Contains(t, body, "webkitdirectory", "the file input picks a directory, not a single file")
-	require.Contains(t, body, "$newrepo", "a change handler derives the picked folder name into the new-repo signal")
+	require.Contains(t, body, "/_action/OpenBrowser", "the form renders a server-side Browse control")
+	require.NotContains(t, body, "webkitdirectory", "no browser file input — it can't yield an absolute path")
 }
 
 // A picked folder name (a single segment, never an absolute path) must resolve to a

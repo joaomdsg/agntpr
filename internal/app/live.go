@@ -195,6 +195,11 @@ type liveEntry struct {
 	// are abandoned (the slow model call killed), never left racing to overwrite the
 	// cache out of order. Guarded by findingsMu.
 	analysisCancel context.CancelFunc
+	// rewrite is the latest producer-rewritten draft (UpdateDraft folds the Lead's
+	// answers into the draft and stashes the new text here), read by composeSurface
+	// into the editor's rewrite payload so Monaco swaps to it. Ephemeral, OFF the
+	// economy ledger (a diagnostic, like analysis). Guarded by findingsMu.
+	rewrite string
 	// harnessSessionID is this packets-session's resumable claude session id — the one
 	// the warm-up explores under, REMEMBERED so every later analyze + order resumes it
 	// (warm repo context). harnessWarm gates use: requests resume the id ONLY after the
@@ -472,6 +477,20 @@ func (e *liveEntry) analysisSnapshot() *draftAnalysis {
 	e.findingsMu.Lock()
 	defer e.findingsMu.Unlock()
 	return e.analysis
+}
+
+// setRewrite stashes the producer-rewritten draft for the editor to pick up.
+func (e *liveEntry) setRewrite(draft string) {
+	e.findingsMu.Lock()
+	e.rewrite = draft
+	e.findingsMu.Unlock()
+}
+
+// rewriteSnapshot returns the latest rewritten draft ("" when none yet).
+func (e *liveEntry) rewriteSnapshot() string {
+	e.findingsMu.Lock()
+	defer e.findingsMu.Unlock()
+	return e.rewrite
 }
 
 // resumeSessionID returns the warm harness session id to --resume + --fork-session
@@ -785,6 +804,14 @@ type LiveCard struct {
 	// cached draft analysis from the session entry, but that cache is not reactive — so
 	// AnalyzeDraft writes here to fan out a re-render once the producer's read lands.
 	Analysis via.StateTabStr
+	// DraftAnswers carries the Lead's answers to the analysis questions — a JSON array
+	// of {Q, Answers, Note} the Update-draft control gathers from the answer form, read
+	// by UpdateDraft to build the producer's rewrite prompt. Per-tab signal.
+	DraftAnswers via.SignalStr `via:"draftanswers"`
+	// Rewrite is the broadcast trigger for a draft rewrite: View re-reads the rewritten
+	// draft from the session entry (not reactive), so UpdateDraft writes here to fan out
+	// the re-render that swaps the new draft into the editor's rewrite payload.
+	Rewrite via.StateTabStr
 	// FillBeats is a re-render trigger written by the Stream when the live-fill buffer
 	// (a currently-filling order's accruing beats) changes, so the card shows the
 	// order filling live. View reads the buffer; this cell only nudges the re-render.

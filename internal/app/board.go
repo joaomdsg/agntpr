@@ -2,6 +2,7 @@ package app
 
 import (
 	"net/url"
+	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -122,10 +123,21 @@ type BoardCard struct {
 	// NewKey holds the key typed into the create-session input (two-way bound), read
 	// by CreateSession on submit. Per-tab signal, not authoritative session state.
 	NewKey via.SignalStr `via:"newkey"`
-	// NewRepo holds the repo dir typed into the create-session input (two-way bound),
-	// read by CreateSession on submit. A session is usable with just a repo, so the
-	// Lead can point a new session at any tree; empty inherits the server's repo.
+	// NewRepo holds the repo dir for the new session, read by CreateSession on submit.
+	// It is the FULL absolute path chosen via the server-side directory browser (see
+	// SelectRepo) — a browser file input can only ever yield a folder name, never an
+	// absolute path, so the picker runs server-side where the real filesystem is
+	// reachable. A session is usable with just a repo; empty inherits the server's repo.
 	NewRepo via.SignalStr `via:"newrepo"`
+	// BrowseDir is the absolute directory the filesystem picker is CURRENTLY showing —
+	// tab-scoped server state (each tab browses independently). Empty means the picker
+	// is closed; a non-empty value renders the browse panel. Written by OpenBrowser /
+	// Browse / SelectRepo / CloseBrowser, read by View to render the panel.
+	BrowseDir via.StateTabStr `via:"browsedir"`
+	// BrowseTarget carries the directory a panel entry (a child folder, or the up
+	// control) wants to move into — set by that entry (on.SetSignal) just before the
+	// post, then read by Browse, which moves the picker there only if it's a real dir.
+	BrowseTarget via.SignalStr `via:"browsetarget"`
 	// RetireKey carries the key of the row whose retire button was clicked — set by
 	// that button (on.SetSignal) just before the post, then read by RetireSession.
 	RetireKey via.SignalStr `via:"retirekey"`
@@ -239,6 +251,99 @@ func (c *BoardCard) CreateSession(ctx *via.Ctx) {
 	}
 }
 
+// OpenBrowser opens the server-side filesystem picker, landing on a sensible start
+// directory (see browseStart) derived from the default session's config. A browser
+// file input can only hand back a folder name, never an absolute path — so the Lead
+// navigates the real filesystem server-side, where the full path is knowable.
+func (c *BoardCard) OpenBrowser(ctx *via.Ctx) {
+	cfg, _ := readLiveState(defaultSessionKey)
+	c.BrowseDir.Write(ctx, browseStart(cfg))
+}
+
+// Browse moves the picker into BrowseTarget (a child folder or the parent via the up
+// control) — but ONLY if it is a real, existing directory. A loose file or a
+// stale/forged target is ignored, so a bad signal can never strand the picker on a
+// non-navigable location; it stays put on the last good directory.
+func (c *BoardCard) Browse(ctx *via.Ctx) {
+	c.BrowseDir.Write(ctx, nextBrowseDir(c.BrowseDir.Read(ctx), c.BrowseTarget.Read(ctx)))
+}
+
+// nextBrowseDir is Browse's pure decision: it returns where the picker should move
+// given the directory it is currently showing and the requested target. A target
+// that is a real, existing directory wins (cleaned to drop any . / .. segments);
+// anything else — a loose file, a stale/forged path, or a blank — leaves the picker
+// on the current directory, so a bad target can never strand it on a non-navigable
+// location. The returned path is always absolute when the target is (panel entries
+// carry absolute child paths), so the eventual selection is a full path, never a
+// bare name.
+func nextBrowseDir(current, target string) string {
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return current
+	}
+	if info, err := os.Stat(target); err == nil && info.IsDir() {
+		return filepath.Clean(target)
+	}
+	return current
+}
+
+// SelectRepo commits the directory the picker is currently showing as the new
+// session's repo — the FULL absolute path lands in NewRepo (the whole point of a
+// server-side picker) — and closes the panel. A picker that somehow holds no dir is
+// an honest no-op. CreateSession reads NewRepo on submit (resolveRepoDir passes an
+// absolute path through as-is).
+func (c *BoardCard) SelectRepo(ctx *via.Ctx) {
+	dir := strings.TrimSpace(c.BrowseDir.Read(ctx))
+	if dir == "" {
+		return
+	}
+	c.NewRepo.Write(ctx, dir)
+	c.BrowseDir.Write(ctx, "")
+}
+
+// CloseBrowser abandons the picker without choosing anything, so the Lead can back
+// out of browsing and fall back to the server's repo (a blank pick) instead of being
+// forced to keep whatever directory they were looking at.
+func (c *BoardCard) CloseBrowser(ctx *via.Ctx) {
+	c.BrowseDir.Write(ctx, "")
+}
+
+// repoBrowser renders the server-side filesystem picker panel when BrowseDir is set
+// (empty → an empty fragment, so the panel is absent until OpenBrowser). The panel
+// shows the directory currently being browsed, a select-this-folder commit, a close,
+// an up control (absent only at the filesystem root, where parent == dir), and one
+// clickable entry per child directory — each carrying its own absolute path into
+// BrowseTarget so Browse descends/ascends to exactly that folder.
+func (c *BoardCard) repoBrowser(dir string) h.H {
+	if dir == "" {
+		return nil // closed: nothing to render — the caller omits the panel
+	}
+	panel := []h.H{h.Class("board-create__browser"), h.Data("state", "browser"),
+		h.Attr("role", "group"), h.Attr("aria-label", "repo directory browser"),
+		h.Div(h.Class("board-create__browser-head"),
+			h.Span(h.Class("board-create__browser-dir"), h.Text(dir)),
+			h.Button(on.Click(c.SelectRepo), h.Class("pk-btn board-create__browser-select"), h.Text("select this folder")),
+			h.Button(on.Click(c.CloseBrowser), h.Class("pk-btn pk-btn--quiet board-create__browser-close"), h.Text("close")),
+		),
+	}
+	// The up control ascends to the parent — omitted only at the filesystem root, where
+	// filepath.Dir returns the path unchanged (so there is nowhere higher to climb).
+	if parent := filepath.Dir(dir); parent != dir {
+		panel = append(panel, h.Button(
+			on.Click(c.Browse, on.SetSignal(&c.BrowseTarget.Signal, parent)),
+			h.Class("board-create__browser-up"), h.Text(".. (up)"),
+		))
+	}
+	for _, name := range browseSubdirs(dir) {
+		child := filepath.Join(dir, name)
+		panel = append(panel, h.Button(
+			on.Click(c.Browse, on.SetSignal(&c.BrowseTarget.Signal, child)),
+			h.Class("board-create__browser-entry"), h.Text(name+"/"),
+		))
+	}
+	return h.Div(panel...)
+}
+
 // resolveRepoDir turns the create form's repo pick into a session repo dir. A
 // browser directory picker yields only the picked folder's NAME (never an absolute
 // path), so a relative pick is joined under reposRoot — and only its final segment
@@ -260,6 +365,52 @@ func resolveRepoDir(reposRoot, pick string) string {
 		return "" // dot-only token names no folder — would land on or above the root
 	}
 	return filepath.Join(reposRoot, base)
+}
+
+// browseSubdirs lists the immediate child DIRECTORIES of dir, sorted by name — the
+// navigable rungs of the create-form's filesystem picker. A repo is always a folder,
+// so loose files are excluded (they can't be a session's tree). Entries are
+// classified by their RESOLVED target (os.Stat follows symlinks), so a symlink
+// pointing to a directory is listed as navigable — Leads commonly keep repos as
+// symlinks — and this stays consistent with nextBrowseDir, which also follows
+// symlinks when navigating. A symlink to a file or a broken link resolves to nothing
+// navigable and is skipped. A missing/unreadable dir lists as empty rather than
+// erroring: the panel simply shows nothing to descend into, so a stale or
+// permission-denied path is a calm dead-end, never a crash.
+func browseSubdirs(dir string) []string {
+	ents, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	var dirs []string
+	for _, e := range ents {
+		// Stat (not e.IsDir) so a symlink is judged by its target, matching nextBrowseDir.
+		if info, err := os.Stat(filepath.Join(dir, e.Name())); err == nil && info.IsDir() {
+			dirs = append(dirs, e.Name())
+		}
+	}
+	sort.Strings(dirs)
+	return dirs
+}
+
+// browseStart picks the absolute directory the filesystem picker opens ON. The
+// configured repos root is the natural home for board-created sessions, so it wins
+// when set; failing that, an absolute server repo dir puts the Lead near the tree
+// the server already works. A relative repo dir (the default "." config) is no
+// meaningful filesystem anchor, so the start falls back to the Lead's home dir (or
+// "/" if even that is unknown) — the picker must always open on an absolute path it
+// can ascend out of, never a bare ".".
+func browseStart(cfg LiveConfig) string {
+	if cfg.ReposRoot != "" {
+		return cfg.ReposRoot
+	}
+	if filepath.IsAbs(cfg.RepoDir) {
+		return cfg.RepoDir
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		return home
+	}
+	return "/"
 }
 
 // startingBandwidthSeeds is how many cleared attention intervals a new session is
@@ -306,27 +457,37 @@ func hitRateLabel(r CardRow) string {
 // queued/running/done activity, the distinct work still awaiting a spend, and the
 // hit-rate standing. Calm spans in the stock idiom — no gauges, no priority, no
 // forecast.
-func (c *BoardCard) View(_ *via.CtxR) h.H {
+func (c *BoardCard) View(ctx *via.CtxR) h.H {
 	// The fleet content is the page's main landmark (named for screen-reader
 	// navigation), and a LIVE region: OnConnect re-renders it over SSE when the fleet
 	// changes, so aria-live="polite" lets assistive tech announce a new/retired session
 	// without the user hunting for it. The nav is a sibling landmark (added in the final
 	// wrap), never nested inside main.
+	// The fleet view's one command: start a new session economy. A calm input + a
+	// repo picker + button, in the surface idiom — no modal, no menu. The picker panel
+	// is appended only when open (BrowseDir set), so a nil panel is never embedded.
+	createKids := []h.H{h.Class("board-create"),
+		h.Input(h.Type("text"), c.NewKey.Bind(), h.Class("pk-input board-create__key"), h.Placeholder("new session key")),
+		// The repo pick: the full absolute path chosen via the server-side directory
+		// browser (a browser file input can only ever yield a folder NAME, never an
+		// absolute path). The selected path shows here; blank inherits the server's
+		// repo. The Browse control opens the picker (OpenBrowser → c.repoBrowser).
+		h.Div(h.Class("board-create__repo"),
+			h.Span(h.Class("pk-section-label"), h.Text("repo: ")),
+			h.Span(h.Class("board-create__selected"), c.NewRepo.Text()),
+			h.Button(on.Click(c.OpenBrowser), h.Class("pk-btn pk-btn--quiet board-create__browse"),
+				h.Attr("aria-label", "browse for a repo directory (blank = server's repo)"), h.Text("Browse…")),
+		),
+	}
+	if panel := c.repoBrowser(c.BrowseDir.Read(ctx)); panel != nil {
+		createKids = append(createKids, panel)
+	}
+	createKids = append(createKids,
+		h.Button(on.Click(c.CreateSession), h.Class("pk-btn board-create__btn"), h.Text("Create session")))
+
 	parts := []h.H{h.Class("board"), h.Data("state", "board"),
 		h.Role("main"), h.Attr("aria-label", "fleet board"), h.Attr("aria-live", "polite"),
-		// The fleet view's one command: start a new session economy. A calm input +
-		// button, in the surface idiom — no modal, no menu.
-		h.Div(h.Class("board-create"),
-			h.Input(h.Type("text"), c.NewKey.Bind(), h.Class("pk-input board-create__key"), h.Placeholder("new session key")),
-			// A real directory picker: the browser hands us file entries, never an
-			// absolute path, so the change handler derives the picked top-folder NAME
-			// into $newrepo (the server resolves it under the repos root). A blank pick
-			// inherits the server's repo.
-			h.Input(h.Type("file"), h.Attr("webkitdirectory", ""),
-				h.Data("on:change", "$newrepo = evt.target.files.length ? evt.target.files[0].webkitRelativePath.split('/')[0] : ''"),
-				h.Class("pk-input board-create__repo"), h.Attr("aria-label", "repo directory (blank = server's repo)")),
-			h.Button(on.Click(c.CreateSession), h.Class("pk-btn board-create__btn"), h.Text("Create session")),
-		),
+		h.Div(createKids...),
 	}
 	rows := BoardRows()
 	// A fleet-level merge-readiness roll-up: how many sessions are blocked from
