@@ -232,7 +232,9 @@ func (c *BoardCard) CreateSession(ctx *via.Ctx) {
 	// A picked directory points the new session at any tree (a session is usable with
 	// just a repo); a blank pick inherits the server's repo. The new session carries
 	// no primary anchor — it is a prompt-first session the harness fills.
-	if repo := resolveRepoDir(cfg.ReposRoot, c.NewRepo.Read(ctx)); repo != "" {
+	// A URL pick is cloned on create (then the session points at the local clone); a
+	// local path is used in place; a blank pick inherits the server's repo (§15.2).
+	if repo := resolveOrCloneRepo(cfg.ReposRoot, c.NewRepo.Read(ctx)); repo != "" {
 		cfg.RepoDir = repo
 	}
 	cfg.Anchor = reanchor.Anchor{} // prompt-first: no inherited anchor / catch-cycle

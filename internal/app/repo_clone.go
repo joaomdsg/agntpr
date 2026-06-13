@@ -1,6 +1,50 @@
 package app
 
-import "strings"
+import (
+	"fmt"
+	"os/exec"
+	"path/filepath"
+	"strings"
+)
+
+// cloneRepo is the seam session-create clones a remote repo through (process I/O —
+// verified by build + manual run, like runHarness; tests swap it). It clones url into
+// dest and, when baseRef is set, checks it out.
+var cloneRepo = realCloneRepo
+
+// realCloneRepo clones url into dest and (when baseRef is set) checks out that ref, so
+// a session created from a URL works a fresh local tree (DESIGN §15.2). A short-lived
+// token is injected into the environment at clone time in production — never a
+// long-lived host credential.
+func realCloneRepo(url, dest, baseRef string) error {
+	clone := exec.Command("git", "clone", url, dest)
+	if out, err := clone.CombinedOutput(); err != nil {
+		return fmt.Errorf("clone: %v: %s", err, strings.TrimSpace(string(out)))
+	}
+	if baseRef != "" {
+		co := exec.Command("git", "-C", dest, "checkout", baseRef)
+		if out, err := co.CombinedOutput(); err != nil {
+			return fmt.Errorf("checkout %s: %v: %s", baseRef, err, strings.TrimSpace(string(out)))
+		}
+	}
+	return nil
+}
+
+// resolveOrCloneRepo turns a session-create repo pick into a local repo dir: a clonable
+// URL is cloned under reposRoot into a repo-named dir (DESIGN §15.2) and that dir is
+// returned; a clone failure returns "" so the session falls back to inheriting the
+// server's repo. A non-URL pick resolves as a local path (resolveRepoDir).
+func resolveOrCloneRepo(reposRoot, pick string) string {
+	pick = strings.TrimSpace(pick)
+	if !isRepoURL(pick) {
+		return resolveRepoDir(reposRoot, pick)
+	}
+	dest := filepath.Join(reposRoot, cloneDirName(pick))
+	if err := cloneRepo(pick, dest, ""); err != nil {
+		return ""
+	}
+	return dest
+}
 
 // isRepoURL reports whether a repo pick is a clonable REMOTE URL (vs a local path):
 // session create clones a URL but uses a path in place (DESIGN §15.2). It recognizes

@@ -44,3 +44,49 @@ func TestCloneDirName_fallsBackOnAnUnparseableURL(t *testing.T) {
 	assert.NotEqual(t, "", cloneDirName("https://"))
 	assert.NotContains(t, cloneDirName("https://host/.git"), "..")
 }
+
+// A URL pick on session create must be CLONED under the repos root into a repo-named
+// dir, and that local dir becomes the session's repo (DESIGN §15.2). The clone runs
+// through a swappable seam so the test asserts the orchestration without a network.
+func TestResolveOrCloneRepo_clonesAURLUnderTheReposRoot(t *testing.T) {
+	restore := cloneRepo
+	t.Cleanup(func() { cloneRepo = restore })
+	var gotURL, gotDest string
+	cloneRepo = func(url, dest, _ string) error { gotURL, gotDest = url, dest; return nil }
+
+	got := resolveOrCloneRepo("/srv/repos", "https://github.com/owner/repo.git")
+	assert.Equal(t, "/srv/repos/repo", got, "the session points at the cloned local dir")
+	assert.Equal(t, "https://github.com/owner/repo.git", gotURL, "the URL is cloned")
+	assert.Equal(t, "/srv/repos/repo", gotDest, "into a repo-named dir under the repos root")
+}
+
+// A failed clone must not strand the session at a phantom dir — it returns "" so the
+// session falls back to inheriting the server's repo. NOT parallel (clone seam).
+func TestResolveOrCloneRepo_cloneFailureReturnsEmpty(t *testing.T) {
+	restore := cloneRepo
+	t.Cleanup(func() { cloneRepo = restore })
+	cloneRepo = func(_, _, _ string) error { return assertErr() }
+
+	assert.Equal(t, "", resolveOrCloneRepo("/srv/repos", "https://h/o/repo.git"),
+		"a failed clone yields no repo dir")
+}
+
+// A local path pick is used in place — never cloned. NOT parallel (clone seam).
+func TestResolveOrCloneRepo_localPathIsNotCloned(t *testing.T) {
+	restore := cloneRepo
+	t.Cleanup(func() { cloneRepo = restore })
+	called := false
+	cloneRepo = func(_, _, _ string) error { called = true; return nil }
+
+	got := resolveOrCloneRepo("/srv/repos", "/abs/local/path")
+	assert.Equal(t, "/abs/local/path", got, "an absolute local path is used as-is")
+	assert.False(t, called, "a local path is never cloned")
+}
+
+func assertErr() error { return errClone }
+
+var errClone = errorString("clone failed")
+
+type errorString string
+
+func (e errorString) Error() string { return string(e) }
