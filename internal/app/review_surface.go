@@ -54,6 +54,13 @@ type ReviewCard struct {
 	// AnswerWO scopes an answer to a work-order (>0): the re-run uses the ORDER's revs
 	// and updates the order's findings, not the session's. 0/unset = session answer.
 	AnswerWO via.SignalStr `via:"answerwo"`
+	// AdjFile/AdjLine/AdjText carry an anchored REVIEW ADJUSTMENT: the file and line a
+	// comment targets and the comment text, set by the adjustment form. Read by
+	// AddAdjustment, which composes the §12.3 review turn and dispatches it to the live
+	// harness against session HEAD — the comment→harness round-trip. Per-tab signals.
+	AdjFile via.SignalStr `via:"adjfile"`
+	AdjLine via.SignalStr `via:"adjline"`
+	AdjText via.SignalStr `via:"adjtext"`
 }
 
 // renderQuestionThreads renders anchored "question:" threads (File:Line + body) —
@@ -233,6 +240,10 @@ func (c *ReviewCard) View(_ *via.CtxR) h.H {
 	// the session review, making per-order↔session nav symmetric.
 	parts = append(parts, h.Nav(h.Attr("aria-label", "return"),
 		h.P(h.Class("review__return"), cardReturnCrumb(navKey))))
+	// The adjustment entry point: leave an anchored comment and the live harness re-edits
+	// in place (the comment→harness round-trip, DESIGN §12.3). Present on every review
+	// view so the Lead can always tell the agent what to change.
+	parts = append(parts, renderAdjustmentForm(c))
 
 	// Per-order review (/review?wo=<id>): the filled work-order's OWN review questions
 	// — the test-debt the funded work left — read from the per-order findings cache,

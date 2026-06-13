@@ -777,13 +777,6 @@ type LiveCard struct {
 	// read by PlaceOrder to fund a prompt-carrying live order (vs drawing a pre-baked
 	// backlog target). Per-tab signal, not authoritative session state.
 	OrderPrompt via.SignalStr `via:"orderprompt"`
-	// AdjFile/AdjLine/AdjText carry an anchored REVIEW ADJUSTMENT: the file and line a
-	// comment targets and the comment text. Read by AddAdjustment, which composes the
-	// §12.3 review turn and dispatches it to the live harness against session HEAD — the
-	// comment→harness round-trip. Per-tab signals, not session state.
-	AdjFile via.SignalStr `via:"adjfile"`
-	AdjLine via.SignalStr `via:"adjline"`
-	AdjText via.SignalStr `via:"adjtext"`
 	// RefineTarget/RefineKind/RefineText carry a bench card's SHARPEN inputs: the
 	// path:line being refined, the kind (criteria | convention), and the free text
 	// (criteria one-per-line, or the convention note). Read by RefineChosen, which

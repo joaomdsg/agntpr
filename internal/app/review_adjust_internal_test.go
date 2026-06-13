@@ -69,8 +69,8 @@ func TestLiveCard_addAdjustmentDispatchesAReviewTurnToTheHarness(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = defLog.Close() })
 
-	tc := vt.NewClient(t, server, "/?key=adjust")
-	require.Equal(t, 200, tc.Action((&LiveCard{Key: "adjust"}).AddAdjustment).
+	tc := vt.NewClient(t, server, "/review?key=adjust")
+	require.Equal(t, 200, tc.Action((&ReviewCard{Key: "adjust"}).AddAdjustment).
 		WithSignal("adjfile", "main.go").
 		WithSignal("adjline", "3").
 		WithSignal("adjtext", "handle the nil case here").Fire(),
@@ -105,10 +105,39 @@ func TestLiveCard_addAdjustmentIsANoOpOnEmptyComment(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = defLog.Close() })
 
-	tc := vt.NewClient(t, server, "/?key=adjnoop")
-	require.Equal(t, 200, tc.Action((&LiveCard{Key: "adjnoop"}).AddAdjustment).
+	tc := vt.NewClient(t, server, "/review?key=adjnoop")
+	require.Equal(t, 200, tc.Action((&ReviewCard{Key: "adjnoop"}).AddAdjustment).
 		WithSignal("adjfile", "main.go").WithSignal("adjline", "3").WithSignal("adjtext", "   ").Fire())
 
 	got := orderRecordFor(t, log, 1)
 	assert.Equal(t, "", got.Target.Prompt, "an empty comment never dispatches a turn")
+}
+
+// The review surface must render the adjustment entry point — inputs bound to the
+// adjustment signals and a button wired to AddAdjustment — else the Lead has no way to
+// leave an adjustment (the comment→harness round-trip would be unreachable from the
+// UI). NOT parallel (shared globals).
+func TestReviewCard_rendersTheAdjustmentEntryPoint(t *testing.T) {
+	resetConsumersForTest()
+	repo := initGitRepoForOrder(t)
+	head := gitOrder(t, repo, "rev-parse", "HEAD")
+	ctx := context.Background()
+	f, err := fabric.Start(ctx, t.TempDir())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = f.Close() })
+	log := ledger.Bind(f, "adjui", "i")
+	registerSession("adjui", LiveConfig{RepoDir: repo, BaseRev: head, Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
+
+	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
+	var server *httptest.Server
+	_, defLog, err := NewServer(LiveConfig{
+		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
+		TestCmd: []string{"true"}, LedgerPath: defLogPath,
+	}, via.WithTestServer(&server))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = defLog.Close() })
+
+	body := bodyOf(vt.NewClient(t, server, "/review?key=adjui").HTML())
+	assert.Contains(t, body, "/_action/AddAdjustment", "the review surface renders the leave-adjustment action")
+	assert.Contains(t, body, `data-bind="adjtext"`, "with an input bound to the adjustment comment signal")
 }

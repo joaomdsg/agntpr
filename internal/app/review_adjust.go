@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/go-via/via"
+	"github.com/go-via/via/h"
+	"github.com/go-via/via/on"
 
 	"github.com/joaomdsg/packets/internal/assist"
 	"github.com/joaomdsg/packets/internal/ledger"
@@ -19,8 +21,12 @@ import (
 // is dispatched and drained exactly like a placed order (funded by attention
 // bandwidth), with the agent's edits folding into the next settled revision. An empty
 // comment, a treeless session, or an over-budget meter is a silent no-op.
-func (c *LiveCard) AddAdjustment(ctx *via.Ctx) {
-	cfg, log := readLiveState(c.Key)
+func (c *ReviewCard) AddAdjustment(ctx *via.Ctx) {
+	key := c.Key
+	if key == "" {
+		key = defaultSessionKey
+	}
+	cfg, log := readLiveState(key)
 	if log == nil {
 		return
 	}
@@ -43,13 +49,21 @@ func (c *LiveCard) AddAdjustment(ctx *via.Ctx) {
 	if err := log.AppendLiveDispatch("liveorder", tgt, ownTargetOf(cfg)); err != nil {
 		return
 	}
-	if bw, err := log.Bandwidth(); err == nil {
-		c.BandwidthMeter.Write(ctx, strconv.Itoa(bw))
-	}
-	if d, err := log.PendingDispatches(); err == nil {
-		c.Dispatch.Write(ctx, strconv.Itoa(d))
-	}
-	go drainQueuedOrders(c.Key)
+	go drainQueuedOrders(key)
+}
+
+// renderAdjustmentForm renders the review surface's adjustment entry point: file +
+// line + comment inputs (bound to the adjustment signals) and a button wired to
+// AddAdjustment. This is the UI half of the comment→harness round-trip — the Lead
+// tells the agent what to change and the live harness re-edits in place.
+func renderAdjustmentForm(c *ReviewCard) h.H {
+	return h.Div(h.Class("review-adjust"),
+		h.P(h.Class("review-adjust__label"), h.Text("Leave an adjustment — tell the agent what to change:")),
+		h.Input(h.Type("text"), c.AdjFile.Bind(), h.Class("pk-input review-adjust__file"), h.Placeholder("file (e.g. main.go)")),
+		h.Input(h.Type("text"), c.AdjLine.Bind(), h.Class("pk-input review-adjust__line"), h.Placeholder("line"), h.Attr("aria-label", "line number")),
+		h.Input(h.Type("text"), c.AdjText.Bind(), h.Class("pk-input review-adjust__text"), h.Placeholder("what should change?")),
+		h.Button(on.Click(c.AddAdjustment), h.Class("pk-btn review-adjust__submit"), h.Text("Leave adjustment")),
+	)
 }
 
 // readSourceLine returns the 1-indexed content of file's line within repoDir, so the
