@@ -179,6 +179,9 @@ type liveEntry struct {
 	// merging — ephemeral, recomputed each connect, off the economy ledger. Guarded
 	// by findingsMu (written together with findings in OnConnect).
 	land string
+	// landResult is the outcome of the last Approve (PR URL / guard / error), surfaced
+	// on the card. Ephemeral, off-ledger; guarded by findingsMu.
+	landResult string
 	// orderFindings holds a FILLED work-order's review questions (the cycle's
 	// surviving mutants) keyed by order ID — captured when runOneOrder fills the
 	// order, so a funded order's test-debt is reviewable (the dispatch→review tie).
@@ -451,6 +454,22 @@ func (e *liveEntry) landState() string {
 	e.findingsMu.Lock()
 	defer e.findingsMu.Unlock()
 	return e.land
+}
+
+// setLandResult / landResultSnapshot cache the outcome of the last Approve (the opened
+// PR URL, a "blocked — …" guard message, or a "PR failed — …" error) so the card can
+// surface it. Ephemeral, OFF the economy ledger — a diagnostic, not a catch. Guarded
+// by findingsMu.
+func (e *liveEntry) setLandResult(res string) {
+	e.findingsMu.Lock()
+	e.landResult = res
+	e.findingsMu.Unlock()
+}
+
+func (e *liveEntry) landResultSnapshot() string {
+	e.findingsMu.Lock()
+	defer e.findingsMu.Unlock()
+	return e.landResult
 }
 
 // sessionOpenThreads converts a session's cached open findings into review threads
@@ -777,6 +796,12 @@ type LiveCard struct {
 	// read by PlaceOrder to fund a prompt-carrying live order (vs drawing a pre-baked
 	// backlog target). Per-tab signal, not authoritative session state.
 	OrderPrompt via.SignalStr `via:"orderprompt"`
+	// LandOverride ("1"/"true") lets Approve open a PR despite a guard block (open
+	// threads / red checks) — deliberate, overridable friction (DESIGN §16).
+	LandOverride via.SignalStr `via:"landoverride"`
+	// Landed is the Approve broadcast trigger: View re-reads the land result from the
+	// session entry (not reactive), so Approve writes here to fan out the re-render.
+	Landed via.StateTabStr
 	// RefineTarget/RefineKind/RefineText carry a bench card's SHARPEN inputs: the
 	// path:line being refined, the kind (criteria | convention), and the free text
 	// (criteria one-per-line, or the convention note). Read by RefineChosen, which
@@ -927,6 +952,18 @@ func (c *LiveCard) View(ctx *via.CtxR) h.H {
 	if log != nil {
 		if bench := renderBench(c, fundableBacklog(cfg, log), benchAnnotations(log)); bench != nil {
 			actNow = append(actNow, bench)
+		}
+	}
+	// Approve & open a PR: the land control closes the goal flow (review -> PR). Shown
+	// only when there is landable work (a dispatched order) or a prior land result to
+	// surface — so a fresh, empty session keeps its act-now omitted (onboarding shown).
+	if log != nil {
+		lk := c.Key
+		if lk == "" {
+			lk = defaultSessionKey
+		}
+		if landResultSnapshot(lk) != "" || sessionHasDispatches(log) {
+			actNow = append(actNow, renderLandControl(c))
 		}
 	}
 	if len(actNow) > 0 {
