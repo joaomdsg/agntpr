@@ -197,6 +197,15 @@ func main() {
 		log.Fatal("packets: -producer needs -producer-listen <host:port> to bind the authenticated socket")
 	}
 
+	// -repo accepts a clonable URL as well as a local path (DESIGN §15.2): a URL is
+	// cloned on boot under -repos-root and the server works the local clone. A clone
+	// failure fails loudly rather than starting a treeless server.
+	repoDir, err := app.CloneOnBoot(*repo, *reposRoot)
+	if err != nil {
+		log.Fatalf("packets: clone -repo %s: %v", *repo, err)
+	}
+	*repo = repoDir
+
 	// The primary anchor is OPTIONAL: with all four flags set, the default session
 	// runs a catch cycle on that line; without them the server boots flag-less into
 	// the fleet board + settings (no default session, "/" is a calm landing) and

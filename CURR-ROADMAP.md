@@ -29,16 +29,21 @@ review-thread UX was sequenced last.
 
 | Step | Status | Evidence |
 |------|--------|----------|
-| (a) start session on a **gh repo** | PARTIAL | `-repo <local-path>` only, no URL→clone (`cmd/packets/main.go`); runtime "create session" inherits config (`internal/app/board.go`) |
+| (a) start session on a **gh repo** | **WIRED** | `-repo <url>` clones on boot (`app.CloneOnBoot`, `cmd/packets/main.go`); board create clones a URL pick (`resolveOrCloneRepo`, `internal/app/board.go`, `internal/app/repo_clone.go`) |
 | (b) coauthor work-order realtime w/ real harness | **WIRED** | Monaco authoring (`internal/app/authoring.go`) → `PlaceOrder` → `runLiveOrder` → `harness.RunProcess`/`RunContainer` (`internal/app/live.go`) |
 | (c) see it filled | **WIRED** | live activity beats over SSE to the card (`internal/app/live.go`, `formatActivity`) |
 | (d) inspect work | **WIRED** | Monaco base→fix diff island + cached verdict (`internal/app/review_surface.go`, `internal/app/live.go`) |
-| (e) do adjustments | PARTIAL | only "submit a test to kill a surviving mutant" (`AnswerQuestion`, `internal/app/review_surface.go`); no "tell the agent what to change" |
-| (f) see adjustments addressed | PARTIAL | the test re-runs and the question vanishes, but **the agent never re-edits** — no harness round-trip |
+| (e) do adjustments | **WIRED** | anchored comment → `assist.ReviewTurnPrompt` (§12.3) → `AddAdjustment` dispatches a harness turn (`internal/app/review_adjust.go`); entry-point form on the review surface |
+| (f) see adjustments addressed | **WIRED** | the adjustment reuses the live-order pipe — the agent re-edits and the fix settles a new revision (`AddAdjustment` → `drainQueuedOrders` → `runLiveOrder`) |
 | (g) see tests pass | **WIRED** | catch cycle runs `go test ./...`, verdict resolves on the card (`internal/app/live.go`, `pipe.RunCatchCycle`) |
-| (h) open a PR | ABSENT | no `gh pr`/push/land-action wiring; "Land" is a diagnostic verdict only |
+| (h) open a PR | **WIRED** | `Approve` guards (`landBlocked`) → opens a PR via the `openPR` seam (push + `gh pr create`), surfaced in a land control (`internal/app/land.go`, `internal/app/land_action.go`) |
 
-**Net:** (b)(c)(d)(g) real; (a)(e)(f) partial-or-wrong-shape; (h) absent.
+**Net (branch `roadmap-auto`):** all of (a)–(h) wired. The three additive slices
+below are built. Remaining is *refinement*, not the spine: real squash-to-one on
+land, the deferred §12.4/§14/§28 thread/outdated/re-anchor machinery, the §29.2
+merge-queue lifecycle, and the live `openPR`/clone subprocess paths exercised
+against a real remote (the orchestration is unit-tested via swappable seams;
+the git/gh/clone I/O is verified by build + manual run).
 
 ## The plan — three additive slices
 

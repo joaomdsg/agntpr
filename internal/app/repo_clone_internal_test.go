@@ -90,3 +90,29 @@ var errClone = errorString("clone failed")
 type errorString string
 
 func (e errorString) Error() string { return string(e) }
+
+// CloneOnBoot is the CLI entry for -repo: a local path passes through untouched, a URL
+// is cloned (returning the local dir), and a clone failure surfaces as an error the CLI
+// can fatal on (not a silent fallback — at boot a bad -repo should fail loudly). NOT
+// parallel (clone seam).
+func TestCloneOnBoot_passesThroughLocalAndClonesURL(t *testing.T) {
+	restore := cloneRepo
+	t.Cleanup(func() { cloneRepo = restore })
+
+	cloneRepo = func(_, _, _ string) error { t.Fatal("a local path must not be cloned"); return nil }
+	got, err := CloneOnBoot("/abs/local", "/srv/repos")
+	if err == nil {
+		assert.Equal(t, "/abs/local", got, "a local path passes through unchanged")
+	}
+
+	var gotDest string
+	cloneRepo = func(_, dest, _ string) error { gotDest = dest; return nil }
+	got, err = CloneOnBoot("https://h/o/repo.git", "/srv/repos")
+	assert.NoError(t, err)
+	assert.Equal(t, "/srv/repos/repo", got, "a URL clones and returns the local dir")
+	assert.Equal(t, "/srv/repos/repo", gotDest)
+
+	cloneRepo = func(_, _, _ string) error { return errClone }
+	_, err = CloneOnBoot("https://h/o/repo.git", "/srv/repos")
+	assert.Error(t, err, "a clone failure surfaces as an error to fatal on at boot")
+}

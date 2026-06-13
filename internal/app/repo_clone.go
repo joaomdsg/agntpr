@@ -30,6 +30,22 @@ func realCloneRepo(url, dest, baseRef string) error {
 	return nil
 }
 
+// CloneOnBoot is the CLI entry for the -repo flag (DESIGN §15.2): a local path passes
+// through unchanged, while a clonable URL is cloned under reposRoot into a repo-named
+// dir and the local dir is returned. Unlike the board path it returns the error rather
+// than falling back — a bad -repo at boot should fail loudly, not start a treeless
+// server.
+func CloneOnBoot(repo, reposRoot string) (string, error) {
+	if !isRepoURL(strings.TrimSpace(repo)) {
+		return repo, nil
+	}
+	dest := filepath.Join(reposRoot, cloneDirName(repo))
+	if err := cloneRepo(repo, dest, ""); err != nil {
+		return "", err
+	}
+	return dest, nil
+}
+
 // resolveOrCloneRepo turns a session-create repo pick into a local repo dir: a clonable
 // URL is cloned under reposRoot into a repo-named dir (DESIGN §15.2) and that dir is
 // returned; a clone failure returns "" so the session falls back to inheriting the
