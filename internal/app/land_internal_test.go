@@ -3,6 +3,7 @@ package app
 import (
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/assert"
 
@@ -67,4 +68,14 @@ func TestPRTitle_truncatesAnOverlongFirstLine(t *testing.T) {
 	long := strings.Repeat("x", 200)
 	title, _ := prTitleAndBody("k", long)
 	assert.LessOrEqual(t, len(title), 72, "the title is truncated to a sane length")
+}
+
+// Truncating an overlong title must not split a multi-byte UTF-8 rune — a PR title
+// with a stray invalid byte is malformed. The truncation backs off to a rune boundary,
+// staying within the byte budget AND valid UTF-8.
+func TestPRTitle_truncatesOnARuneBoundary(t *testing.T) {
+	long := "a" + strings.Repeat("€", 100) // 1 ASCII + 3-byte runes → byte 72 lands mid-rune
+	title, _ := prTitleAndBody("k", long)
+	assert.LessOrEqual(t, len(title), prTitleMaxLen, "within the byte budget")
+	assert.True(t, utf8.ValidString(title), "no split rune — the title stays valid UTF-8")
 }

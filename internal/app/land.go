@@ -3,6 +3,7 @@ package app
 import (
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/joaomdsg/packets/internal/pipe"
 )
@@ -64,7 +65,13 @@ func prTitleAndBody(key, prompt string) (title, body string) {
 		title = strings.TrimSpace(title[:i])
 	}
 	if len(title) > prTitleMaxLen {
-		title = strings.TrimSpace(title[:prTitleMaxLen])
+		title = title[:prTitleMaxLen]
+		// Back off any trailing bytes of a rune the byte-slice split, so the title stays
+		// valid UTF-8 within the budget (a stray half-rune is a malformed title).
+		for len(title) > 0 && !utf8.ValidString(title) {
+			title = title[:len(title)-1]
+		}
+		title = strings.TrimSpace(title)
 	}
 	if title == "" {
 		title = "packets session " + key

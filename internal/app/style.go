@@ -380,6 +380,18 @@ body {
 /* the in-flight running status — calm dim text, shown by datastar (data-show) only
    while the oracle re-run is in flight. */
 .review-answer__running { color: var(--pk-ink-dim); font-size: var(--pk-font-sm); }
+/* the adjustment entry point: leave an anchored comment and the live harness re-edits
+   in place. A calm inline file/line/comment row in the surface idiom. */
+.review-adjust { display: flex; flex-wrap: wrap; gap: var(--pk-sm); align-items: baseline; margin-top: var(--pk-sm); }
+.review-adjust__label { flex-basis: 100%; margin: 0; color: var(--pk-ink-dim); font-size: var(--pk-font-sm); }
+.review-adjust__file { flex: 1 1 12em; }
+.review-adjust__line { flex: 0 0 5em; }
+.review-adjust__text { flex: 2 1 18em; }
+/* approve & open a PR: the land control. The result (PR URL / guard / failure) reads
+   in mono so a URL is selectable and a guard message stands apart from the buttons. */
+.land-control { display: flex; flex-wrap: wrap; gap: var(--pk-sm); align-items: center; margin-top: var(--pk-sm); }
+.land-control__override { display: inline-flex; align-items: center; gap: var(--pk-xs); color: var(--pk-ink-dim); font-size: var(--pk-font-sm); }
+.land-control__result { flex-basis: 100%; font-family: var(--pk-mono); font-size: var(--pk-font-sm); color: var(--pk-ink); overflow-wrap: anywhere; }
 /* a surviving-mutant line in the editor: a calm left-edge accent + a glyph, never
    an alarm — the honest "the tests didn't catch this here" marker. */
 .review-survivor-line { background: color-mix(in srgb, var(--pk-accent) 12%, transparent); }
