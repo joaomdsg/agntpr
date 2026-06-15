@@ -82,7 +82,19 @@ I/O is verified by build + manual run).
   "already exists", case-insensitive — not over-matching) and surfaces the existing PR's
   URL via `gh pr view` instead of a spurious failure.
 
+- **catch economy: no phantom catch from an incomplete oracle** — `catch.LineState` gains an
+  `Undetermined` set; `LineStateAt` records timed-out (never-killed) mutants instead of
+  silently dropping them; `Detect` fails CLOSED (`NoOracleSignal`) when the after-run is
+  incomplete, so a fix that merely makes the suite hang can no longer mint a phantom Catch
+  (a "mechanical-fact-as-guarantee" hole in the novel economy core, RISKS.md dominant
+  family). `pipe.CatchAcross` attributes the quiet verdict to a new `ReasonOracleIncomplete`
+  vs `ReasonNoMutableOperator`. Backward-compatible JSON (old transcripts → nil → old behavior).
+
 *Council-queued next slices (not yet built):*
+- BEFORE-side undetermined taint: `Detect` gates only on `after.Undetermined`; a timed-out
+  BEFORE-mutant understates `before.Survivors`, which (with multiple before-survivors, some
+  timed out) could still mint a spurious catch over an incomplete before-set. Decide the
+  contract (likely fail closed) and gate symmetrically. (integrity, medium)
 - cache-after-success recoverability: if push succeeds but `gh` (create OR view) fails, the
   un-cached SHA wedges the next re-land (fails closed, not data loss) — cache the pushed SHA
   as soon as the push succeeds, independent of PR-URL resolution. (low)

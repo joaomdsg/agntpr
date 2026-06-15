@@ -24,6 +24,11 @@ const (
 	// ReasonNoMutableOperator: the anchor survived but the line has no mutable
 	// operator, so the oracle genuinely has nothing to say about it.
 	ReasonNoMutableOperator Reason = "no_mutable_operator"
+	// ReasonOracleIncomplete: the anchor survived and the line HAS mutable operators, but
+	// the after-fix oracle run did not finish (a mutant timed out). The quiet verdict is
+	// "the oracle didn't finish", NOT "no mutable operator" — distinct so the surface
+	// never claims the line was un-mutable when really the run was incomplete.
+	ReasonOracleIncomplete Reason = "oracle_incomplete"
 	// ReasonAnchorEdited: the anchored line was edited IN PLACE between the
 	// revisions, so the oracle can no longer speak to the original line.
 	ReasonAnchorEdited Reason = "anchor_edited"
@@ -61,6 +66,13 @@ func CatchAcross(ctx context.Context, repoDir string, anchor reanchor.Anchor, be
 	if ra.State == reanchor.Same || ra.State == reanchor.Moved {
 		o := catch.Detect(before, after)
 		if o == catch.NoOracleSignal {
+			// Attribute the quiet verdict from the LineState data directly (robust to
+			// Detect's internal control flow): a line that never had operators is
+			// genuinely no-mutable-operator; one that DID but whose after-run didn't
+			// finish is oracle-incomplete.
+			if len(before.Inventory) > 0 && len(after.Undetermined) > 0 {
+				return o, ReasonOracleIncomplete, nil
+			}
 			return o, ReasonNoMutableOperator, nil
 		}
 		return o, ReasonNone, nil

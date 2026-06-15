@@ -114,7 +114,9 @@ func TestLineStateAt_excludesUndeterminedFindingsFromSurvivors(t *testing.T) {
 	}
 	ls, err := catch.LineStateAt([]byte(twoOpSrc), 4, res)
 	require.NoError(t, err)
-	assert.Empty(t, ls.Survivors)
+	assert.Empty(t, ls.Survivors, "an undetermined mutant is not a survivor")
+	assert.ElementsMatch(t, []string{"=="}, ls.Undetermined,
+		"but the undetermined signal must be RECORDED, not dropped — else Detect can't tell an incomplete run from a real catch")
 }
 
 func TestLineStateAt_reportsEmptyInventoryForOperatorFreeLine(t *testing.T) {

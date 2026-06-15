@@ -144,6 +144,52 @@ func TestCatchAcross_delegatesToDetectWhenFileUnchanged(t *testing.T) {
 	assert.Equal(t, catch.Catch, got)
 }
 
+// When the anchor survives but the after-oracle run did not FINISH (its mutants timed
+// out), the quiet verdict must be attributed to the incomplete oracle — not to "no
+// mutable operator" (the line plainly has one). Mislabeling would tell the Lead the
+// oracle had nothing to say when really it never finished saying it.
+func TestCatchAcross_attributesAQuietVerdictToTheIncompleteOracle(t *testing.T) {
+	t.Parallel()
+	dir := initRepo(t)
+	write(t, dir, "f.go", gte)
+	write(t, dir, "other.go", "package p\n\nvar X = 1\n")
+	base := commitAll(t, dir, "base")
+	write(t, dir, "other.go", "package p\n\nvar X = 2\n") // touch only other.go → anchor survives Same
+	head := commitAll(t, dir, "edit other.go")
+
+	before := catch.LineState{Inventory: []string{">="}, Survivors: []string{">="}}
+	after := catch.LineState{Inventory: []string{">="}, Survivors: nil, Undetermined: []string{">="}}
+
+	got, reason, err := pipe.CatchAcross(context.Background(), dir, anchorLine4("f.go"), base, head, before, after)
+	require.NoError(t, err)
+	assert.Equal(t, catch.NoOracleSignal, got, "an incomplete after-run mints no catch")
+	assert.Equal(t, pipe.ReasonOracleIncomplete, reason,
+		"the quiet verdict is the oracle not finishing, NOT a missing mutable operator")
+}
+
+// A surviving anchor on a line with NO mutable operators is genuinely no-mutable-operator
+// — and must be attributed as such, NOT as an incomplete oracle, so the two distinct
+// "quiet" truths never collapse.
+func TestCatchAcross_attributesAQuietVerdictToNoMutableOperator(t *testing.T) {
+	t.Parallel()
+	dir := initRepo(t)
+	write(t, dir, "f.go", gte)
+	write(t, dir, "other.go", "package p\n\nvar X = 1\n")
+	base := commitAll(t, dir, "base")
+	write(t, dir, "other.go", "package p\n\nvar X = 2\n")
+	head := commitAll(t, dir, "edit other.go")
+
+	// Empty inventory = the line had no mutable operator; after-undetermined is irrelevant.
+	before := catch.LineState{Inventory: nil, Survivors: nil}
+	after := catch.LineState{Inventory: nil, Survivors: nil, Undetermined: []string{">="}}
+
+	got, reason, err := pipe.CatchAcross(context.Background(), dir, anchorLine4("f.go"), base, head, before, after)
+	require.NoError(t, err)
+	assert.Equal(t, catch.NoOracleSignal, got)
+	assert.Equal(t, pipe.ReasonNoMutableOperator, reason,
+		"a line with no mutable operator is no-mutable-operator, not oracle-incomplete")
+}
+
 func TestCatchAcross_delegatesNoCatchWhenNothingWasWeak(t *testing.T) {
 	t.Parallel()
 	dir := initRepo(t)

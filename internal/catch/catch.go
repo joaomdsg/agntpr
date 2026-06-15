@@ -40,6 +40,12 @@ const (
 type LineState struct {
 	Inventory []string `json:"inventory"`
 	Survivors []string `json:"survivors"`
+	// Undetermined is the subset of operators whose mutant did NOT finish (the suite
+	// timed out — mutation.Undetermined). Distinct from Survivors: a non-empty
+	// Undetermined means the run was INCOMPLETE, so an empty Survivors cannot be read as
+	// "the line was constrained". Detect fails closed on it, never minting a phantom
+	// Catch from an oracle that merely hung.
+	Undetermined []string `json:"undetermined"`
 }
 
 // Detect compares an anchored line's state before and after a fix and returns
@@ -56,6 +62,13 @@ func Detect(before, after LineState) Outcome {
 	}
 	beforeSurv := toSet(before.Survivors)
 	afterSurv := toSet(after.Survivors)
+	// Fail closed on an INCOMPLETE after-run: if any after-mutant timed out, the
+	// survivor-set we observed is partial, so neither an empty nor a shrunk set can be
+	// trusted to mean the line was constrained. Never mint a (phantom) catch from "the
+	// oracle didn't finish".
+	if len(after.Undetermined) > 0 {
+		return NoOracleSignal
+	}
 	if len(beforeSurv) == 0 {
 		return NoCatch
 	}
@@ -71,8 +84,9 @@ func Detect(before, after LineState) Outcome {
 // LineStateAt derives a LineState for the given 1-based line of src: the
 // Inventory is the operator alphabet GenerateMutants finds on that line, and
 // Survivors are the operators whose mutant the run reported as Survived on that
-// line. Undetermined (timed-out) findings are not confirmed survivors and are
-// excluded.
+// line. Undetermined (timed-out) findings are NOT confirmed survivors, so they are kept
+// out of Survivors — but recorded separately in Undetermined so Detect can tell an
+// incomplete run from a real catch (rather than silently dropping the signal).
 func LineStateAt(src []byte, line int, res mutation.Result) (LineState, error) {
 	mutants, err := mutation.GenerateMutants(src, []mutation.LineRange{{Start: line, End: line}})
 	if err != nil {
@@ -82,13 +96,19 @@ func LineStateAt(src []byte, line int, res mutation.Result) (LineState, error) {
 	for _, m := range mutants {
 		inv = append(inv, m.Original)
 	}
-	var surv []string
+	var surv, undet []string
 	for _, f := range res.Findings {
-		if f.Line == line && f.Outcome == mutation.Survived {
+		if f.Line != line {
+			continue
+		}
+		switch f.Outcome {
+		case mutation.Survived:
 			surv = append(surv, f.Original)
+		case mutation.Undetermined:
+			undet = append(undet, f.Original)
 		}
 	}
-	return LineState{Inventory: dedup(inv), Survivors: dedup(surv)}, nil
+	return LineState{Inventory: dedup(inv), Survivors: dedup(surv), Undetermined: dedup(undet)}, nil
 }
 
 func dedup(xs []string) []string {
