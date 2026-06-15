@@ -41,15 +41,47 @@ func TestDetect_refusesPartialCatchWhenAfterRunIsIncomplete(t *testing.T) {
 		"a shrink observed through an incomplete run is not a trustworthy partial catch")
 }
 
-// Only the AFTER run's completeness gates the verdict: an incomplete BEFORE run does not
-// suppress a catch when the after run completed and cleared the survivors. (The before
-// survivor-set is what it is; the guard is about not trusting an incomplete AFTER.)
-func TestDetect_incompleteBeforeRunDoesNotSuppressAGenuineAfterCatch(t *testing.T) {
+// A catch must be minted only from two COMPLETE oracle runs. An incomplete BEFORE run
+// understates the before survivor-set (a timed-out before-mutant is recorded as
+// Undetermined, not Survived), so the before→after comparison runs over an untrustworthy
+// baseline — fail closed to NoOracleSignal even when the after run is clean, rather than
+// credit a catch we cannot stand behind.
+func TestDetect_failsClosedWhenBeforeRunIsIncomplete(t *testing.T) {
 	t.Parallel()
-	before := catch.LineState{Inventory: []string{"=="}, Survivors: []string{"=="}, Undetermined: []string{"=="}}
+	before := catch.LineState{Inventory: []string{"==", "&&"}, Survivors: []string{"=="}, Undetermined: []string{"&&"}}
+	after := catch.LineState{Inventory: []string{"==", "&&"}, Survivors: nil, Undetermined: nil}
+	assert.Equal(t, catch.NoOracleSignal, catch.Detect(before, after),
+		"an incomplete before-run is an untrustworthy baseline — no catch, even with a clean after")
+}
+
+// Both runs incomplete is the clearest no-signal case — fail closed, never a catch.
+func TestDetect_failsClosedWhenBothRunsAreIncomplete(t *testing.T) {
+	t.Parallel()
+	before := catch.LineState{Inventory: []string{"==", "&&"}, Survivors: []string{"=="}, Undetermined: []string{"&&"}}
+	after := catch.LineState{Inventory: []string{"==", "&&"}, Survivors: nil, Undetermined: []string{"=="}}
+	assert.Equal(t, catch.NoOracleSignal, catch.Detect(before, after),
+		"two incomplete runs give the oracle no trustworthy signal")
+}
+
+// The inventory-change precedence still wins over the incompleteness guard: a real
+// operator-alphabet change is ill-typed regardless of run completeness, so it is NoCatch,
+// never NoOracleSignal — proving the guard sits after the inventory check.
+func TestDetect_inventoryMismatchWinsOverBeforeIncompleteness(t *testing.T) {
+	t.Parallel()
+	before := catch.LineState{Inventory: []string{"==", "&&"}, Survivors: []string{"=="}, Undetermined: []string{"&&"}}
+	after := catch.LineState{Inventory: []string{"=="}, Survivors: nil, Undetermined: nil} // alphabet changed
+	assert.Equal(t, catch.NoCatch, catch.Detect(before, after),
+		"an operator-alphabet change is NoCatch even when the before run was incomplete")
+}
+
+// Both runs complete with a cleared survivor-set still mints a Catch — the either-side
+// guard must not over-suppress when neither side is incomplete.
+func TestDetect_mintsCatchWhenBothRunsComplete(t *testing.T) {
+	t.Parallel()
+	before := catch.LineState{Inventory: []string{"=="}, Survivors: []string{"=="}, Undetermined: nil}
 	after := catch.LineState{Inventory: []string{"=="}, Survivors: nil, Undetermined: nil}
 	assert.Equal(t, catch.Catch, catch.Detect(before, after),
-		"a complete after-run that cleared survivors is a catch regardless of the before-run's completeness")
+		"two complete runs with a cleared survivor-set is a real catch")
 }
 
 // A complete partial transition (survivors shrank, nothing undetermined) still reports

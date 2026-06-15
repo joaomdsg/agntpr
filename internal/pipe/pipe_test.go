@@ -167,6 +167,28 @@ func TestCatchAcross_attributesAQuietVerdictToTheIncompleteOracle(t *testing.T) 
 		"the quiet verdict is the oracle not finishing, NOT a missing mutable operator")
 }
 
+// An incomplete BEFORE run also makes the verdict quiet for the "oracle didn't finish"
+// reason — not "no mutable operator" — so the attribution tracks completeness on either
+// side, mirroring Detect's either-side fail-closed guard.
+func TestCatchAcross_attributesAnIncompleteBeforeRunToTheOracle(t *testing.T) {
+	t.Parallel()
+	dir := initRepo(t)
+	write(t, dir, "f.go", gte)
+	write(t, dir, "other.go", "package p\n\nvar X = 1\n")
+	base := commitAll(t, dir, "base")
+	write(t, dir, "other.go", "package p\n\nvar X = 2\n") // touch only other.go → anchor survives Same
+	head := commitAll(t, dir, "edit other.go")
+
+	before := catch.LineState{Inventory: []string{">="}, Survivors: []string{">="}, Undetermined: []string{">="}}
+	after := catch.LineState{Inventory: []string{">="}, Survivors: nil, Undetermined: nil}
+
+	got, reason, err := pipe.CatchAcross(context.Background(), dir, anchorLine4("f.go"), base, head, before, after)
+	require.NoError(t, err)
+	assert.Equal(t, catch.NoOracleSignal, got, "an incomplete before-run mints no catch")
+	assert.Equal(t, pipe.ReasonOracleIncomplete, reason,
+		"the quiet verdict is the oracle not finishing on the before side, not a missing operator")
+}
+
 // A surviving anchor on a line with NO mutable operators is genuinely no-mutable-operator
 // — and must be attributed as such, NOT as an incomplete oracle, so the two distinct
 // "quiet" truths never collapse.

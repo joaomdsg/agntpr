@@ -62,11 +62,12 @@ func Detect(before, after LineState) Outcome {
 	}
 	beforeSurv := toSet(before.Survivors)
 	afterSurv := toSet(after.Survivors)
-	// Fail closed on an INCOMPLETE after-run: if any after-mutant timed out, the
-	// survivor-set we observed is partial, so neither an empty nor a shrunk set can be
-	// trusted to mean the line was constrained. Never mint a (phantom) catch from "the
-	// oracle didn't finish".
-	if len(after.Undetermined) > 0 {
+	// Fail closed on an INCOMPLETE run on EITHER side: if any mutant timed out, that side's
+	// survivor-set is partial — an incomplete after understates what the fix constrained,
+	// an incomplete before understates the baseline it's compared against. A catch is
+	// minted only from two COMPLETE runs; otherwise NoOracleSignal. Never mint a (phantom)
+	// catch from "the oracle didn't finish".
+	if len(before.Undetermined) > 0 || len(after.Undetermined) > 0 {
 		return NoOracleSignal
 	}
 	if len(beforeSurv) == 0 {

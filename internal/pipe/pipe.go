@@ -70,7 +70,7 @@ func CatchAcross(ctx context.Context, repoDir string, anchor reanchor.Anchor, be
 			// Detect's internal control flow): a line that never had operators is
 			// genuinely no-mutable-operator; one that DID but whose after-run didn't
 			// finish is oracle-incomplete.
-			if len(before.Inventory) > 0 && len(after.Undetermined) > 0 {
+			if len(before.Inventory) > 0 && (len(before.Undetermined) > 0 || len(after.Undetermined) > 0) {
 				return o, ReasonOracleIncomplete, nil
 			}
 			return o, ReasonNoMutableOperator, nil

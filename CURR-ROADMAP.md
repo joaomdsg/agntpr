@@ -90,11 +90,15 @@ I/O is verified by build + manual run).
   family). `pipe.CatchAcross` attributes the quiet verdict to a new `ReasonOracleIncomplete`
   vs `ReasonNoMutableOperator`. Backward-compatible JSON (old transcripts → nil → old behavior).
 
+- **catch economy: symmetric fail-closed on incomplete runs** — `Detect`'s guard now fires
+  on `before.Undetermined` OR `after.Undetermined` (was after-only): a catch is minted only
+  from two COMPLETE oracle runs, so a timed-out before-mutant (which understates the
+  baseline survivor-set) can no longer mint a spurious catch. Intentional contract change
+  (the old before-ignored test was rewritten). `CatchAcross` attributes either-side
+  incompleteness to `ReasonOracleIncomplete`. Safe: ledger mints only on `Catch`, so
+  flipped cases simply don't record (no orphan/balance risk; verified across cage+ledger).
+
 *Council-queued next slices (not yet built):*
-- BEFORE-side undetermined taint: `Detect` gates only on `after.Undetermined`; a timed-out
-  BEFORE-mutant understates `before.Survivors`, which (with multiple before-survivors, some
-  timed out) could still mint a spurious catch over an incomplete before-set. Decide the
-  contract (likely fail closed) and gate symmetrically. (integrity, medium)
 - cache-after-success recoverability: if push succeeds but `gh` (create OR view) fails, the
   un-cached SHA wedges the next re-land (fails closed, not data loss) — cache the pushed SHA
   as soon as the push succeeds, independent of PR-URL resolution. (low)
