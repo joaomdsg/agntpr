@@ -76,12 +76,16 @@ I/O is verified by build + manual run).
   integration test verifies git's semantics (empty=must-not-exist, stale lease bites, legit
   re-land succeeds). Approve threads + caches the SHA; fails CLOSED on partial failure.
 
+- **re-land updates the open PR** — `isPRAlreadyExists`/`ghPRViewURL` (`internal/app/land_action.go`):
+  on a re-land the leased push already updated the open PR but `gh pr create` fails
+  "already exists"; realOpenPR now recognizes that benign signal (both "pull request" &
+  "already exists", case-insensitive — not over-matching) and surfaces the existing PR's
+  URL via `gh pr view` instead of a spurious failure.
+
 *Council-queued next slices (not yet built):*
-- re-land PR-update semantics: `gh pr create` fails when a PR already exists for the branch
-  (pre-existing v1 limitation, §29.2 merge-queue deferred) — needs `gh pr edit`/update path. (medium)
-- cache-after-success recoverability: if push succeeds but `gh` fails, the un-cached SHA
-  wedges the next re-land (fails closed, not data loss) — cache between push & gh, or treat
-  "PR already exists" as success. (low)
+- cache-after-success recoverability: if push succeeds but `gh` (create OR view) fails, the
+  un-cached SHA wedges the next re-land (fails closed, not data loss) — cache the pushed SHA
+  as soon as the push succeeds, independent of PR-URL resolution. (low)
 - multi-hit secret-refusal message (name all hits, not just the first — UX, low priority).
 
 ## The plan — three additive slices

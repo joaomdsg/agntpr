@@ -65,6 +65,29 @@ func pushSquash(ctx context.Context, repoDir, sha, branch, expected string) erro
 	return nil
 }
 
+// isPRAlreadyExists reports whether a `gh pr create` failure is the benign re-land signal
+// "a PR already exists for this branch" (gh 2.92 emits two shapes — a branch-form message
+// and a GraphQL-form one) rather than a real failure (auth, network, validation). It
+// requires BOTH "pull request" and "already exists" (case-insensitive) so an unrelated
+// "already exists" error (e.g. a label) does not over-match.
+func isPRAlreadyExists(ghOutput string) bool {
+	out := strings.ToLower(ghOutput)
+	return strings.Contains(out, "pull request") && strings.Contains(out, "already exists")
+}
+
+// ghPRViewURL returns the URL of the open PR for branch, so a re-land (whose push already
+// updated the open PR) can surface the existing PR instead of failing. I/O seam, verified
+// by build + manual run like realOpenPR's other gh calls.
+func ghPRViewURL(ctx context.Context, repoDir, branch string) (string, error) {
+	c := exec.CommandContext(ctx, "gh", "pr", "view", branch, "--json", "url", "-q", ".url")
+	c.Dir = repoDir
+	out, err := c.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("gh pr view: %v: %s", err, strings.TrimSpace(string(out)))
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
 // realOpenPR squashes the session repo's baseRev→HEAD range into one commit, pushes that
 // single commit to branch, and opens a PR against the default branch via gh, returning
 // the PR URL it prints. v1 pushes a direct branch + PR (the merge-queue path, DESIGN
@@ -95,6 +118,15 @@ func realOpenPR(ctx context.Context, repoDir, baseRev, branch, title, body, expe
 	pr.Dir = repoDir
 	out, err := pr.CombinedOutput()
 	if err != nil {
+		// A re-land: the push already updated the open PR, so a "already exists" create
+		// failure is success — surface the existing PR's URL instead of a spurious error.
+		if isPRAlreadyExists(string(out)) {
+			url, verr := ghPRViewURL(ctx, repoDir, branch)
+			if verr != nil {
+				return "", "", verr
+			}
+			return url, sha, nil
+		}
 		return "", "", fmt.Errorf("gh pr create: %v: %s", err, strings.TrimSpace(string(out)))
 	}
 	return strings.TrimSpace(string(out)), sha, nil
