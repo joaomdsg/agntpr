@@ -392,6 +392,12 @@ body {
 .land-control { display: flex; flex-wrap: wrap; gap: var(--pk-sm); align-items: center; margin-top: var(--pk-sm); }
 .land-control__override { display: inline-flex; align-items: center; gap: var(--pk-xs); color: var(--pk-ink-dim); font-size: var(--pk-font-sm); }
 .land-control__result { flex-basis: 100%; font-family: var(--pk-mono); font-size: var(--pk-font-sm); color: var(--pk-ink); overflow-wrap: anywhere; }
+/* the outcome, in the honest palette: a minted PR reads as a confirmed-green link; a
+   guard block is a calm dim notice (deliberate friction, not alarm); a failure takes the
+   miss hue. */
+.land-control__result--ok { color: var(--pk-confirmed); }
+.land-control__result--blocked { color: var(--pk-ink-dim); }
+.land-control__result--error { color: var(--pk-lost); }
 /* a surviving-mutant line in the editor: a calm left-edge accent + a glyph, never
    an alarm — the honest "the tests didn't catch this here" marker. */
 .review-survivor-line { background: color-mix(in srgb, var(--pk-accent) 12%, transparent); }

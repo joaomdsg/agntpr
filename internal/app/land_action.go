@@ -133,6 +133,36 @@ func latestDispatchPrompt(log *ledger.Log) string {
 	return views[0].Target.Prompt
 }
 
+// landResultKind classifies a cached land-result string into the outcome the land
+// control renders — so success (a clickable PR link), a guard block, and a push failure
+// are each visually distinct rather than one undifferentiated mono blob.
+type landResultKind int
+
+const (
+	landResultNone    landResultKind = iota // no result yet — render nothing
+	landResultOpened                         // a PR opened — the value is its URL
+	landResultBlocked                        // the land guard refused (open threads / red checks)
+	landResultError                          // the push/PR failed, or an unrecognized message
+)
+
+// classifyLandResult maps a cached land-result string (shapes fixed by setLandResult's
+// call sites) to its kind, returning the PR URL only for landOpened. An http(s):// value
+// is the opened PR — checked FIRST so a URL whose path contains a keyword is never
+// mistaken for a guard. Any unrecognized non-empty value is treated as an error, never a
+// clickable success.
+func classifyLandResult(res string) (landResultKind, string) {
+	switch {
+	case res == "":
+		return landResultNone, ""
+	case strings.HasPrefix(res, "http://"), strings.HasPrefix(res, "https://"):
+		return landResultOpened, res
+	case strings.HasPrefix(res, "blocked — "):
+		return landResultBlocked, ""
+	default:
+		return landResultError, ""
+	}
+}
+
 // renderLandControl renders the approve-and-open-PR control: a button wired to
 // Approve, an override toggle (to push past the guard deliberately), and the last
 // approve outcome (the opened PR URL, a guard message, or a failure) when present.
@@ -149,8 +179,18 @@ func renderLandControl(c *LiveCard) h.H {
 			h.Span(h.Text("override guard")),
 		),
 	}
-	if res := landResultSnapshot(key); res != "" {
-		parts = append(parts, h.Span(h.Class("land-control__result"), h.Text(res)))
+	res := landResultSnapshot(key)
+	switch kind, url := classifyLandResult(res); kind {
+	case landResultOpened:
+		// The finish line: a clickable link to the PR the Lead just opened.
+		parts = append(parts, h.A(h.Href(url), h.Attr("target", "_blank"), h.Rel("noopener"),
+			h.Class("land-control__result land-control__result--ok"), h.Text(url)))
+	case landResultBlocked:
+		parts = append(parts, h.Span(h.Class("land-control__result land-control__result--blocked"),
+			h.Text(res)))
+	case landResultError:
+		parts = append(parts, h.Span(h.Class("land-control__result land-control__result--error"),
+			h.Text(res)))
 	}
 	return h.Div(parts...)
 }

@@ -55,9 +55,13 @@ I/O is verified by build + manual run).
   and refuses rather than leak, closing the blind spot that the squashed commit was
   built from HEAD's tree and never re-scanned (RISKS.md secret-leak is CRITICAL).
 
-*Council-queued next slices (not yet built):* demo-fidelity land-result classifier
-(`classifyLandResult` → clickable PR link + distinct opened/blocked/error styling on
-the land control); multi-hit secret-refusal message (UX, low priority).
+- **legible land-result** — `classifyLandResult` (`internal/app/land_action.go`) maps the
+  cached outcome to opened/blocked/error; `renderLandControl` renders an opened PR as a
+  clickable `target=_blank` link in confirmed-green, a guard block as a calm dim notice,
+  a failure in the miss hue — so the finish line reads at a glance instead of one mono blob.
+
+*Council-queued next slices (not yet built):* multi-hit secret-refusal message (name all
+hits, not just the first — UX, low priority).
 
 ## The plan — three additive slices
 

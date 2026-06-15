@@ -102,7 +102,8 @@ func TestApprove_cleanTreeOpensPRAndSurfacesTheURL(t *testing.T) {
 	require.Equal(t, 200, tc.Action((&LiveCard{Key: "appok"}).Approve).Fire())
 
 	body := bodyOf(vt.NewClient(t, server, "/?key=appok").HTML())
-	assert.Contains(t, body, "https://example/pr/42", "the opened PR URL surfaces on the card")
+	assert.Contains(t, body, `href="https://example/pr/42"`,
+		"the opened PR URL surfaces as a CLICKABLE link, not bare text — it's the finish line")
 }
 
 // A push/PR failure must surface calmly on the card, never crash the action. NOT
