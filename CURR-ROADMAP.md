@@ -60,8 +60,20 @@ I/O is verified by build + manual run).
   clickable `target=_blank` link in confirmed-green, a guard block as a calm dim notice,
   a failure in the miss hue — so the finish line reads at a glance instead of one mono blob.
 
-*Council-queued next slices (not yet built):* multi-hit secret-refusal message (name all
-hits, not just the first — UX, low priority).
+- **adjustment re-anchor (thin §28 slice)** — `reanchorAdjustment` (`internal/app/review_adjust.go`)
+  relocates a left adjustment's commented line against the settled revision by exact
+  content match (same / moved / outdated); the last anchor is cached on the liveEntry
+  (`setAdjAnchor`) and the review surface renders a badge ("still on line N" / "addressed —
+  moved to line M" / "addressed — line edited") — so "leave an adjustment → watch it
+  addressed" has a visible payoff. Exact-match only; git-hunk rebase + rename tracking
+  stay deferred.
+
+*Council-queued next slices (not yet built):*
+- `--force-with-lease` correctness on the land push: the branch is deterministic per
+  session and Approve can re-push it, so the naive empty-expected lease would REGRESS a
+  legitimate re-land — needs a cached last-pushed-SHA design (`pushRefspec(branch, sha,
+  expected)`), not the bare fix. (integrity, medium)
+- multi-hit secret-refusal message (name all hits, not just the first — UX, low priority).
 
 ## The plan — three additive slices
 

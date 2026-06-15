@@ -387,6 +387,13 @@ body {
 .review-adjust__file { flex: 1 1 12em; }
 .review-adjust__line { flex: 0 0 5em; }
 .review-adjust__text { flex: 2 1 18em; }
+/* the last adjustment's outcome after the agent settled a revision (DESIGN §28 thin
+   slice): a calm "still here" notice, a confirmed-green "moved/addressed", or a dim
+   "line edited" — the visible payoff of leaving an adjustment. */
+.review-adjust__status { flex-basis: 100%; font-size: var(--pk-font-sm); }
+.review-adjust__status--same { color: var(--pk-ink-dim); }
+.review-adjust__status--moved { color: var(--pk-confirmed); }
+.review-adjust__status--outdated { color: var(--pk-ink-dim); }
 /* approve & open a PR: the land control. The result (PR URL / guard / failure) reads
    in mono so a URL is selectable and a guard message stands apart from the buttons. */
 .land-control { display: flex; flex-wrap: wrap; gap: var(--pk-sm); align-items: center; margin-top: var(--pk-sm); }

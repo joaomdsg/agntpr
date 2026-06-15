@@ -141,3 +141,71 @@ func TestReviewCard_rendersTheAdjustmentEntryPoint(t *testing.T) {
 	assert.Contains(t, body, "/_action/AddAdjustment", "the review surface renders the leave-adjustment action")
 	assert.Contains(t, body, `data-bind="adjtext"`, "with an input bound to the adjustment comment signal")
 }
+
+// After an adjustment is left, the surface must report whether it was addressed by
+// relocating the anchor against the file's current content — so "leave an adjustment →
+// watch it addressed" has a visible payoff instead of a write-only box. When the
+// commented line still exists unchanged, the badge says it's still there. NOT parallel
+// (shared globals).
+func TestReviewCard_surfacesWhetherTheAdjustmentWasAddressed(t *testing.T) {
+	resetConsumersForTest()
+	repo := initGitRepoForOrder(t)
+	head := gitOrder(t, repo, "rev-parse", "HEAD")
+	ctx := context.Background()
+	f, err := fabric.Start(ctx, t.TempDir())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = f.Close() })
+	log := ledger.Bind(f, "adjstat", "i")
+	registerSession("adjstat", LiveConfig{RepoDir: repo, BaseRev: head, Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
+	// initGitRepoForOrder seeds base.txt whose line 1 is "base"; anchor there.
+	lookupLiveEntry("adjstat").setAdjAnchor("base.txt", 1, "base")
+
+	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
+	var server *httptest.Server
+	_, defLog, err := NewServer(LiveConfig{
+		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
+		TestCmd: []string{"true"}, LedgerPath: defLogPath,
+	}, via.WithTestServer(&server))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = defLog.Close() })
+
+	body := bodyOf(vt.NewClient(t, server, "/review?key=adjstat").HTML())
+	assert.Contains(t, body, "still on line 1",
+		"an adjustment whose line is unchanged surfaces as still-anchored, not a stale silent comment")
+}
+
+// When the agent's settled revision shifted the commented line, the badge must say it
+// moved (the addressed-payoff), and when the line was edited away it must say so —
+// locking the moved/outdated badge text the Lead reads. NOT parallel (shared globals).
+func TestReviewCard_surfacesMovedAndOutdatedAdjustments(t *testing.T) {
+	render := func(t *testing.T, key, fileContent string) string {
+		resetConsumersForTest()
+		repo := initGitRepoForOrder(t)
+		head := gitOrder(t, repo, "rev-parse", "HEAD")
+		ctx := context.Background()
+		f, err := fabric.Start(ctx, t.TempDir())
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = f.Close() })
+		log := ledger.Bind(f, key, "i")
+		registerSession(key, LiveConfig{RepoDir: repo, BaseRev: head, Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
+		lookupLiveEntry(key).setAdjAnchor("base.txt", 1, "base")
+		// The settled revision: rewrite the working-tree file the badge reads.
+		require.NoError(t, os.WriteFile(filepath.Join(repo, "base.txt"), []byte(fileContent), 0o644))
+
+		defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
+		var server *httptest.Server
+		_, defLog, err := NewServer(LiveConfig{
+			RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
+			TestCmd: []string{"true"}, LedgerPath: defLogPath,
+		}, via.WithTestServer(&server))
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = defLog.Close() })
+		return bodyOf(vt.NewClient(t, server, "/review?key="+key).HTML())
+	}
+
+	moved := render(t, "adjmoved", "x\ny\nbase\n") // "base" shifted to line 3
+	assert.Contains(t, moved, "addressed — moved to line 3", "a shifted line surfaces as addressed/moved")
+
+	outdated := render(t, "adjgone", "nothing here now\n") // "base" edited away
+	assert.Contains(t, outdated, "addressed — line edited", "an edited-away line surfaces as addressed/outdated")
+}

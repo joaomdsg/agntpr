@@ -182,6 +182,11 @@ type liveEntry struct {
 	// landResult is the outcome of the last Approve (PR URL / guard / error), surfaced
 	// on the card. Ephemeral, off-ledger; guarded by findingsMu.
 	landResult string
+	// adjAnchor records the LAST adjustment's anchor (file:line + the commented line's
+	// content), so a later render can relocate it against the new revision and show
+	// whether the agent addressed it (DESIGN §28 thin slice). Ephemeral, off the economy
+	// ledger; guarded by findingsMu. nil = no adjustment left this session.
+	adjAnchor *adjAnchorRecord
 	// orderFindings holds a FILLED work-order's review questions (the cycle's
 	// surviving mutants) keyed by order ID — captured when runOneOrder fills the
 	// order, so a funded order's test-debt is reviewable (the dispatch→review tie).
@@ -470,6 +475,23 @@ func (e *liveEntry) landResultSnapshot() string {
 	e.findingsMu.Lock()
 	defer e.findingsMu.Unlock()
 	return e.landResult
+}
+
+// setAdjAnchor records the LAST adjustment's anchor (the file:line the Lead commented and
+// the line's content at comment time) so a later render can relocate it against the new
+// revision (reanchorAdjustment) and show whether the agent addressed it. Ephemeral,
+// off the economy ledger, guarded by findingsMu — exactly like landResult.
+func (e *liveEntry) setAdjAnchor(file string, line int, content string) {
+	e.findingsMu.Lock()
+	e.adjAnchor = &adjAnchorRecord{file: file, line: line, content: content}
+	e.findingsMu.Unlock()
+}
+
+// adjAnchorSnapshot returns the last adjustment's anchor, or nil if none this session.
+func (e *liveEntry) adjAnchorSnapshot() *adjAnchorRecord {
+	e.findingsMu.Lock()
+	defer e.findingsMu.Unlock()
+	return e.adjAnchor
 }
 
 // sessionOpenThreads converts a session's cached open findings into review threads
