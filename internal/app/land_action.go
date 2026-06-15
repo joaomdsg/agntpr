@@ -16,8 +16,9 @@ import (
 )
 
 // openPR is the seam the approve flow opens a PR through (process I/O — verified by
-// build + manual run, like runHarness; tests swap it for a scripted reply). It pushes
-// the session's branch and opens a PR, returning the PR URL.
+// build + manual run, like runHarness; tests swap it for a scripted reply). It pushes the
+// session's branch (leased against expected) and opens a PR, returning the PR URL and the
+// SHA it pushed (cached so the next re-land leases against it).
 var openPR = realOpenPR
 
 // squashToCommit collapses the whole baseRev→HEAD range into a SINGLE commit object
@@ -37,16 +38,43 @@ func squashToCommit(ctx context.Context, repoDir, baseRev, message string) (stri
 	return strings.TrimSpace(string(out)), nil
 }
 
+// pushRefspec builds the args after `git push` for landing a session's squashed commit,
+// LEASING the force to an explicit expectation instead of the bare --force-with-lease
+// (which, on a per-session branch with no remote-tracking ref, degrades to an unguarded
+// clobber). An empty expected leases against "must not exist" (the first push creates the
+// branch); a non-empty expected is the SHA we last pushed (a re-land replaces the branch
+// only if it's still there — refusing if something else moved it). The explicit-SHA lease
+// form needs no remote-tracking ref, so it works against a freshly-cloned session repo.
+func pushRefspec(branch, sha, expected string) []string {
+	return []string{
+		"--force-with-lease=refs/heads/" + branch + ":" + expected,
+		"origin",
+		sha + ":refs/heads/" + branch,
+	}
+}
+
+// pushSquash pushes the squashed commit sha to branch on origin under the leased force
+// (pushRefspec). A rejected lease (stale expectation, or a branch that already exists on a
+// first push) surfaces as an error rather than a silent clobber.
+func pushSquash(ctx context.Context, repoDir, sha, branch, expected string) error {
+	push := exec.CommandContext(ctx, "git", append([]string{"push"}, pushRefspec(branch, sha, expected)...)...)
+	push.Dir = repoDir
+	if out, err := push.CombinedOutput(); err != nil {
+		return fmt.Errorf("push: %v: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
 // realOpenPR squashes the session repo's baseRev→HEAD range into one commit, pushes that
 // single commit to branch, and opens a PR against the default branch via gh, returning
 // the PR URL it prints. v1 pushes a direct branch + PR (the merge-queue path, DESIGN
 // §29.2, is deferred). Auth: in production a short-lived token is injected into the
 // environment at land time (the agntpr x-access-token pattern) — never a long-lived
 // host credential.
-func realOpenPR(ctx context.Context, repoDir, baseRev, branch, title, body string) (string, error) {
+func realOpenPR(ctx context.Context, repoDir, baseRev, branch, title, body, expected string) (string, string, error) {
 	sha, err := squashToCommit(ctx, repoDir, baseRev, title+"\n\n"+body)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	// Pre-push secret gate: the squashed commit was built blindly from HEAD's tree and
 	// never re-scanned, so this is the last point before the bytes leave the machine.
@@ -54,22 +82,22 @@ func realOpenPR(ctx context.Context, repoDir, baseRev, branch, title, body strin
 	// secret-leakage is CRITICAL). Scope is the pushed change only — a secret already in
 	// base, or one buried in abandoned history, does not block.
 	if hits, err := settle.ScanCommitRange(ctx, repoDir, baseRev, sha); err != nil {
-		return "", fmt.Errorf("secret scan: %w", err)
+		return "", "", fmt.Errorf("secret scan: %w", err)
 	} else if len(hits) > 0 {
-		return "", fmt.Errorf("refusing to push: secret detected in %s:%d (%s)", hits[0].File, hits[0].Line, hits[0].Rule)
+		return "", "", fmt.Errorf("refusing to push: secret detected in %s:%d (%s)", hits[0].File, hits[0].Line, hits[0].Rule)
 	}
-	push := exec.CommandContext(ctx, "git", "push", "--force-with-lease", "origin", sha+":refs/heads/"+branch)
-	push.Dir = repoDir
-	if out, err := push.CombinedOutput(); err != nil {
-		return "", fmt.Errorf("push: %v: %s", err, strings.TrimSpace(string(out)))
+	// Push under a leased force (pushSquash): expected=="" creates the branch on the first
+	// land, a cached SHA lets a re-land replace it only if nothing else moved it.
+	if err := pushSquash(ctx, repoDir, sha, branch, expected); err != nil {
+		return "", "", err
 	}
 	pr := exec.CommandContext(ctx, "gh", "pr", "create", "--head", branch, "--title", title, "--body", body)
 	pr.Dir = repoDir
 	out, err := pr.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("gh pr create: %v: %s", err, strings.TrimSpace(string(out)))
+		return "", "", fmt.Errorf("gh pr create: %v: %s", err, strings.TrimSpace(string(out)))
 	}
-	return strings.TrimSpace(string(out)), nil
+	return strings.TrimSpace(string(out)), sha, nil
 }
 
 // Approve closes the goal flow: it opens a PR from the session's work (DESIGN §16).
@@ -97,11 +125,20 @@ func (c *LiveCard) Approve(ctx *via.Ctx) {
 		return
 	}
 	title, body := prTitleAndBody(key, latestDispatchPrompt(log))
-	url, err := openPR(context.Background(), cfg.RepoDir, cfg.BaseRev, prBranchName(key), title, body)
+	// Lease the push against the SHA we last pushed for this session (""=first land →
+	// must-not-exist), so a re-land updates the branch only if nothing else moved it.
+	expected := ""
+	if e := lookupLiveEntry(key); e != nil {
+		expected = e.lastPushedSHASnapshot()
+	}
+	url, pushedSHA, err := openPR(context.Background(), cfg.RepoDir, cfg.BaseRev, prBranchName(key), title, body, expected)
 	if err != nil {
 		setLandResult(key, "PR failed — "+err.Error())
 		c.Landed.Write(ctx, "error")
 		return
+	}
+	if e := lookupLiveEntry(key); e != nil {
+		e.setLastPushedSHA(pushedSHA) // the next re-land leases against this
 	}
 	setLandResult(key, url)
 	c.Landed.Write(ctx, "opened")

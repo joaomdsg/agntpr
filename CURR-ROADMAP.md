@@ -68,11 +68,20 @@ I/O is verified by build + manual run).
   addressed" has a visible payoff. Exact-match only; git-hunk rebase + rename tracking
   stay deferred.
 
+- **leased land push (`--force-with-lease` correctness)** — `pushRefspec`/`pushSquash`
+  (`internal/app/land_action.go`) replace the vacuous bare `--force-with-lease` (which on a
+  no-tracking-ref session branch degraded to an unguarded clobber) with an explicit lease:
+  `--force-with-lease=refs/heads/<branch>:<expected>` — empty on first land (must-not-exist),
+  the cached last-pushed SHA (`liveEntry.lastPushedSHA`) on a re-land. A hermetic bare-repo
+  integration test verifies git's semantics (empty=must-not-exist, stale lease bites, legit
+  re-land succeeds). Approve threads + caches the SHA; fails CLOSED on partial failure.
+
 *Council-queued next slices (not yet built):*
-- `--force-with-lease` correctness on the land push: the branch is deterministic per
-  session and Approve can re-push it, so the naive empty-expected lease would REGRESS a
-  legitimate re-land — needs a cached last-pushed-SHA design (`pushRefspec(branch, sha,
-  expected)`), not the bare fix. (integrity, medium)
+- re-land PR-update semantics: `gh pr create` fails when a PR already exists for the branch
+  (pre-existing v1 limitation, §29.2 merge-queue deferred) — needs `gh pr edit`/update path. (medium)
+- cache-after-success recoverability: if push succeeds but `gh` fails, the un-cached SHA
+  wedges the next re-land (fails closed, not data loss) — cache between push & gh, or treat
+  "PR already exists" as success. (low)
 - multi-hit secret-refusal message (name all hits, not just the first — UX, low priority).
 
 ## The plan — three additive slices

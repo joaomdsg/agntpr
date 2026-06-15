@@ -187,6 +187,10 @@ type liveEntry struct {
 	// whether the agent addressed it (DESIGN §28 thin slice). Ephemeral, off the economy
 	// ledger; guarded by findingsMu. nil = no adjustment left this session.
 	adjAnchor *adjAnchorRecord
+	// lastPushedSHA is the squashed commit the last land push put on the PR branch, so a
+	// re-land leases its force against it (pushRefspec). Ephemeral, off-ledger; guarded by
+	// findingsMu. ""=never pushed.
+	lastPushedSHA string
 	// orderFindings holds a FILLED work-order's review questions (the cycle's
 	// surviving mutants) keyed by order ID — captured when runOneOrder fills the
 	// order, so a funded order's test-debt is reviewable (the dispatch→review tie).
@@ -492,6 +496,23 @@ func (e *liveEntry) adjAnchorSnapshot() *adjAnchorRecord {
 	e.findingsMu.Lock()
 	defer e.findingsMu.Unlock()
 	return e.adjAnchor
+}
+
+// setLastPushedSHA records the squashed commit the last land push put on the session's PR
+// branch, so a re-land can lease its force against it (push only if the remote branch is
+// still there — pushRefspec). Ephemeral, off the economy ledger; guarded by findingsMu.
+func (e *liveEntry) setLastPushedSHA(sha string) {
+	e.findingsMu.Lock()
+	e.lastPushedSHA = sha
+	e.findingsMu.Unlock()
+}
+
+// lastPushedSHASnapshot returns the SHA of the last land push (""=never pushed → the next
+// push leases against must-not-exist).
+func (e *liveEntry) lastPushedSHASnapshot() string {
+	e.findingsMu.Lock()
+	defer e.findingsMu.Unlock()
+	return e.lastPushedSHA
 }
 
 // sessionOpenThreads converts a session's cached open findings into review threads
