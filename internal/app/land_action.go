@@ -12,6 +12,7 @@ import (
 
 	"github.com/joaomdsg/packets/internal/ledger"
 	"github.com/joaomdsg/packets/internal/pipe"
+	"github.com/joaomdsg/packets/internal/settle"
 )
 
 // openPR is the seam the approve flow opens a PR through (process I/O — verified by
@@ -46,6 +47,16 @@ func realOpenPR(ctx context.Context, repoDir, baseRev, branch, title, body strin
 	sha, err := squashToCommit(ctx, repoDir, baseRev, title+"\n\n"+body)
 	if err != nil {
 		return "", err
+	}
+	// Pre-push secret gate: the squashed commit was built blindly from HEAD's tree and
+	// never re-scanned, so this is the last point before the bytes leave the machine.
+	// Scan precisely what's pushed (baseRev..sha) and refuse rather than leak (RISKS.md
+	// secret-leakage is CRITICAL). Scope is the pushed change only — a secret already in
+	// base, or one buried in abandoned history, does not block.
+	if hits, err := settle.ScanCommitRange(ctx, repoDir, baseRev, sha); err != nil {
+		return "", fmt.Errorf("secret scan: %w", err)
+	} else if len(hits) > 0 {
+		return "", fmt.Errorf("refusing to push: secret detected in %s:%d (%s)", hits[0].File, hits[0].Line, hits[0].Rule)
 	}
 	push := exec.CommandContext(ctx, "git", "push", "--force-with-lease", "origin", sha+":refs/heads/"+branch)
 	push.Dir = repoDir

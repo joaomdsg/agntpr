@@ -129,6 +129,23 @@ func ScanHistory(ctx context.Context, repoDir string) ([]SecretHit, error) {
 	return scanStagedDiff(log, secretRules), nil
 }
 
+// ScanCommitRange scans only what the base..rev range ADDS for secrets, returning every
+// hit, reusing the same rule set and added-line parser as the per-settle scan. It is the
+// pre-push gate for land: the squashed commit the land flow pushes is built blindly from
+// HEAD's tree and never re-scanned, so the exact bytes leaving the machine are scanned by
+// nothing else. Unlike ScanHistory (the --all-history scan), its scope is precisely the
+// pushed change — a secret only in abandoned intermediate commits, or one that already
+// lived in base, is NOT flagged, because `git diff base..rev` reports only the lines this
+// range adds. The pinned diff flags defeat a hostile/customized git config, exactly as
+// Settle and ScanHistory do.
+func ScanCommitRange(ctx context.Context, repoDir, base, rev string) ([]SecretHit, error) {
+	diff, err := git(ctx, repoDir, "diff", "--no-color", "--no-ext-diff", "--src-prefix=a/", "--dst-prefix=b/", base+".."+rev)
+	if err != nil {
+		return nil, err
+	}
+	return scanStagedDiff(diff, secretRules), nil
+}
+
 // stagedBinaryFiles returns the paths of staged files git treats as binary and
 // that are PRESENT in the revision (added or modified) — a deleted binary is
 // not an artifact polluting the diff, so it is excluded (--diff-filter=d,
