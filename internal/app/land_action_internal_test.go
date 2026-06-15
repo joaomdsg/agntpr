@@ -52,7 +52,7 @@ func TestApprove_refusesToOpenPRWhenBlocked(t *testing.T) {
 	restore := openPR
 	t.Cleanup(func() { openPR = restore })
 	called := false
-	openPR = func(_ context.Context, _, _, _, _ string) (string, error) { called = true; return "", nil }
+	openPR = func(_ context.Context, _, _, _, _, _ string) (string, error) { called = true; return "", nil }
 
 	log, server := approveServer(t, "appblk")
 	lookupLiveEntry("appblk").setLand("checks_red") // the integrated tree fails its checks
@@ -70,7 +70,7 @@ func TestApprove_overrideOpensThePRDespiteABlock(t *testing.T) {
 	restore := openPR
 	t.Cleanup(func() { openPR = restore })
 	var gotBranch, gotTitle string
-	openPR = func(_ context.Context, _, branch, title, _ string) (string, error) {
+	openPR = func(_ context.Context, _, _, branch, title, _ string) (string, error) {
 		gotBranch, gotTitle = branch, title
 		return "https://example/pr/1", nil
 	}
@@ -91,7 +91,7 @@ func TestApprove_overrideOpensThePRDespiteABlock(t *testing.T) {
 func TestApprove_cleanTreeOpensPRAndSurfacesTheURL(t *testing.T) {
 	restore := openPR
 	t.Cleanup(func() { openPR = restore })
-	openPR = func(_ context.Context, _, _, _, _ string) (string, error) {
+	openPR = func(_ context.Context, _, _, _, _, _ string) (string, error) {
 		return "https://example/pr/42", nil
 	}
 
@@ -110,7 +110,7 @@ func TestApprove_cleanTreeOpensPRAndSurfacesTheURL(t *testing.T) {
 func TestApprove_pushFailureSurfacesCalmly(t *testing.T) {
 	restore := openPR
 	t.Cleanup(func() { openPR = restore })
-	openPR = func(_ context.Context, _, _, _, _ string) (string, error) {
+	openPR = func(_ context.Context, _, _, _, _, _ string) (string, error) {
 		return "", errors.New("push rejected")
 	}
 

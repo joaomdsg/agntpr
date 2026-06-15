@@ -39,11 +39,16 @@ review-thread UX was sequenced last.
 | (h) open a PR | **WIRED** | `Approve` guards (`landBlocked`) → opens a PR via the `openPR` seam (push + `gh pr create`), surfaced in a land control (`internal/app/land.go`, `internal/app/land_action.go`) |
 
 **Net (branch `roadmap-auto`):** all of (a)–(h) wired. The three additive slices
-below are built. Remaining is *refinement*, not the spine: real squash-to-one on
-land, the deferred §12.4/§14/§28 thread/outdated/re-anchor machinery, the §29.2
-merge-queue lifecycle, and the live `openPR`/clone subprocess paths exercised
-against a real remote (the orchestration is unit-tested via swappable seams;
-the git/gh/clone I/O is verified by build + manual run).
+below are built. Remaining is *refinement*, not the spine: the deferred
+§12.4/§14/§28 thread/outdated/re-anchor machinery, the §29.2 merge-queue
+lifecycle, and the live `openPR`/clone subprocess paths exercised against a real
+remote (the orchestration is unit-tested via swappable seams; the git/gh/clone
+I/O is verified by build + manual run).
+
+*Done since:* **real squash-to-one on land** — `squashToCommit` (`internal/app/land_action.go`)
+collapses `BaseRev`..HEAD into one detached commit via `git commit-tree` (no ref
+move, no working-tree touch) and `realOpenPR` pushes that single SHA, so the
+opened PR is one clean squashed commit instead of every session revision.
 
 ## The plan — three additive slices
 

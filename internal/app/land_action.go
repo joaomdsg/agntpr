@@ -19,13 +19,35 @@ import (
 // the session's branch and opens a PR, returning the PR URL.
 var openPR = realOpenPR
 
-// realOpenPR pushes the session repo's current HEAD to branch and opens a PR against
-// the default branch via gh, returning the PR URL it prints. v1 pushes a direct branch
-// + PR (the merge-queue path, DESIGN §29.2, is deferred). Auth: in production a
-// short-lived token is injected into the environment at land time (the agntpr
-// x-access-token pattern) — never a long-lived host credential.
-func realOpenPR(ctx context.Context, repoDir, branch, title, body string) (string, error) {
-	push := exec.CommandContext(ctx, "git", "push", "--force-with-lease", "origin", "HEAD:refs/heads/"+branch)
+// squashToCommit collapses the whole baseRev→HEAD range into a SINGLE commit object
+// with HEAD's tree and baseRev as its sole parent, returning the new commit's SHA. It
+// uses `git commit-tree`, which builds a detached commit object — it moves no local ref
+// and never touches the working tree, so the session repo is left exactly as it was.
+// The opened PR can then push this one squashed commit instead of every session
+// revision (DESIGN §16). An empty range (HEAD == baseRev) is benign: it yields a commit
+// one ahead of base carrying base's own tree (the land guard refuses empty work
+// upstream). A bad baseRev surfaces as an error rather than a bogus commit.
+func squashToCommit(ctx context.Context, repoDir, baseRev, message string) (string, error) {
+	c := exec.CommandContext(ctx, "git", "-C", repoDir, "commit-tree", "HEAD^{tree}", "-p", baseRev, "-m", message)
+	out, err := c.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("commit-tree: %v: %s", err, strings.TrimSpace(string(out)))
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// realOpenPR squashes the session repo's baseRev→HEAD range into one commit, pushes that
+// single commit to branch, and opens a PR against the default branch via gh, returning
+// the PR URL it prints. v1 pushes a direct branch + PR (the merge-queue path, DESIGN
+// §29.2, is deferred). Auth: in production a short-lived token is injected into the
+// environment at land time (the agntpr x-access-token pattern) — never a long-lived
+// host credential.
+func realOpenPR(ctx context.Context, repoDir, baseRev, branch, title, body string) (string, error) {
+	sha, err := squashToCommit(ctx, repoDir, baseRev, title+"\n\n"+body)
+	if err != nil {
+		return "", err
+	}
+	push := exec.CommandContext(ctx, "git", "push", "--force-with-lease", "origin", sha+":refs/heads/"+branch)
 	push.Dir = repoDir
 	if out, err := push.CombinedOutput(); err != nil {
 		return "", fmt.Errorf("push: %v: %s", err, strings.TrimSpace(string(out)))
@@ -64,7 +86,7 @@ func (c *LiveCard) Approve(ctx *via.Ctx) {
 		return
 	}
 	title, body := prTitleAndBody(key, latestDispatchPrompt(log))
-	url, err := openPR(context.Background(), cfg.RepoDir, prBranchName(key), title, body)
+	url, err := openPR(context.Background(), cfg.RepoDir, cfg.BaseRev, prBranchName(key), title, body)
 	if err != nil {
 		setLandResult(key, "PR failed — "+err.Error())
 		c.Landed.Write(ctx, "error")
