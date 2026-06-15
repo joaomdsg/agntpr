@@ -45,10 +45,19 @@ lifecycle, and the live `openPR`/clone subprocess paths exercised against a real
 remote (the orchestration is unit-tested via swappable seams; the git/gh/clone
 I/O is verified by build + manual run).
 
-*Done since:* **real squash-to-one on land** — `squashToCommit` (`internal/app/land_action.go`)
-collapses `BaseRev`..HEAD into one detached commit via `git commit-tree` (no ref
-move, no working-tree touch) and `realOpenPR` pushes that single SHA, so the
-opened PR is one clean squashed commit instead of every session revision.
+*Done since (autonomous refinement loop, branch `roadmap-auto`):*
+- **real squash-to-one on land** — `squashToCommit` (`internal/app/land_action.go`)
+  collapses `BaseRev`..HEAD into one detached commit via `git commit-tree` (no ref
+  move, no working-tree touch) and `realOpenPR` pushes that single SHA, so the
+  opened PR is one clean squashed commit instead of every session revision.
+- **pre-push secret-scan gate** — `settle.ScanCommitRange(base, rev)` scans only what
+  the pushed range adds (two-dot diff); `realOpenPR` runs it between squash and push
+  and refuses rather than leak, closing the blind spot that the squashed commit was
+  built from HEAD's tree and never re-scanned (RISKS.md secret-leak is CRITICAL).
+
+*Council-queued next slices (not yet built):* demo-fidelity land-result classifier
+(`classifyLandResult` → clickable PR link + distinct opened/blocked/error styling on
+the land control); multi-hit secret-refusal message (UX, low priority).
 
 ## The plan — three additive slices
 
