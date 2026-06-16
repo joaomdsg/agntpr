@@ -22,6 +22,12 @@ const AnchorEdited = "anchor_edited"
 // not actually detect.
 const AnchorDeleted = "anchor_deleted"
 
+// OracleIncomplete is the surface verdict for a quiet card whose anchored line HAS
+// mutable operators but a mutation run did not finish (a mutant timed out). Distinct from
+// the operator-free no-oracle-signal token so the card never claims a line is un-mutable
+// when the truth is the run was incomplete — a false reason the honesty layer must avoid.
+const OracleIncomplete = "oracle_incomplete"
+
 // PresentVerdict maps a catch-cycle's state to the verdict token a ReviewCard
 // renders, keeping the surface's quiet states distinct. A bare catch.Outcome
 // cannot express them — NoOracleSignal alone has three different causes — so
@@ -52,6 +58,8 @@ func PresentVerdict(running bool, outcome catch.Outcome, reason pipe.Reason, aft
 			return AnchorEdited
 		case pipe.ReasonAnchorDeleted:
 			return AnchorDeleted
+		case pipe.ReasonOracleIncomplete:
+			return OracleIncomplete // the line HAS operators; the run just didn't finish
 		default: // ReasonNoMutableOperator (or none): the line truly has no operator
 			return string(catch.NoOracleSignal)
 		}

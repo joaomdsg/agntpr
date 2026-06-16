@@ -119,7 +119,17 @@ I/O is verified by build + manual run).
   so a Lead fixes them in one pass; `.land-control__result` gets `white-space: pre-wrap` so the
   per-secret lines stack legibly.
 
+- **surface honesty: incomplete-oracle no longer lies** — `ReasonOracleIncomplete` (added in the
+  catch-economy fix) had no surface case, so `PresentVerdict` fell through and the card rendered
+  the FALSE "This line has no mutable operator" for a line that *has* operators (the run just
+  timed out). Added a distinct `OracleIncomplete` verdict + honest render ("Oracle incomplete —
+  the line has mutable operators, but a mutation run did not finish"). A self-introduced
+  regression (the tick-7 reason wasn't wired through the presentation layer); verified end-to-end.
+
 *Council-queued next slices (not yet built):*
+- board "why" tag renders RAW verdict tokens (`oracle_incomplete`, `lost_via_rename`) instead of
+  human copy (board.go:640) — cosmetic, NOT a lie; a shared token→label map would align board with
+  the card headlines. (polish, low)
 - cache-after-success recoverability: if push succeeds but `gh` (create OR view) fails, the
   un-cached SHA wedges the next re-land (fails closed, not data loss) — cache the pushed SHA
   as soon as the push succeeds, independent of PR-URL resolution. (low)

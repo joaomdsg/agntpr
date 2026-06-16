@@ -59,14 +59,17 @@ func TestPresentVerdict_splitsQuietReasonsIntoDistinctHonestTokens(t *testing.T)
 	edited := surface.PresentVerdict(false, catch.NoOracleSignal, pipe.ReasonAnchorEdited, 0, 0)
 	deleted := surface.PresentVerdict(false, catch.NoOracleSignal, pipe.ReasonAnchorDeleted, 0, 0)
 	operatorFree := surface.PresentVerdict(false, catch.NoOracleSignal, pipe.ReasonNoMutableOperator, 0, 0)
+	incomplete := surface.PresentVerdict(false, catch.NoOracleSignal, pipe.ReasonOracleIncomplete, 1, 0)
 
 	assert.Equal(t, surface.LostViaRename, renamed, "a renamed anchor must carry its own token, not the operator-free one")
 	assert.Equal(t, surface.AnchorEdited, edited, "an edited anchor must carry its own token, not the operator-free one")
 	assert.Equal(t, surface.AnchorDeleted, deleted, "a deleted/vanished file must carry its own token, not the edited-in-place one")
 	assert.Equal(t, string(catch.NoOracleSignal), operatorFree, "only a genuinely operator-free line keeps the no-oracle-signal token")
+	assert.Equal(t, surface.OracleIncomplete, incomplete, "an incomplete oracle run carries its own token — the line HAS operators, the run just didn't finish")
+	assert.NotEqual(t, string(catch.NoOracleSignal), incomplete, "an incomplete run must NOT read as 'no mutable operator' — that is a false reason")
 
-	tokens := []string{renamed, edited, deleted, operatorFree}
-	assert.Len(t, dedupTokens(tokens), 4, "the four quiet causes must map to four distinct tokens")
+	tokens := []string{renamed, edited, deleted, operatorFree, incomplete}
+	assert.Len(t, dedupTokens(tokens), 5, "the five quiet causes must map to five distinct tokens")
 }
 
 func dedupTokens(xs []string) []string {
@@ -89,6 +92,7 @@ func TestPresentVerdict_onlyProducesTokensTheCardRenders(t *testing.T) {
 		surface.LostViaRename:        true,
 		surface.AnchorEdited:         true,
 		surface.AnchorDeleted:        true,
+		surface.OracleIncomplete:     true,
 		string(catch.Catch):          true,
 		string(catch.NoCatch):        true,
 		string(catch.NoOracleSignal): true,
@@ -109,6 +113,7 @@ func TestPresentVerdict_onlyProducesTokensTheCardRenders(t *testing.T) {
 		{false, catch.NoOracleSignal, pipe.ReasonFileRenamed, 0, 0},
 		{false, catch.NoOracleSignal, pipe.ReasonAnchorEdited, 0, 0},
 		{false, catch.NoOracleSignal, pipe.ReasonAnchorDeleted, 0, 0},
+		{false, catch.NoOracleSignal, pipe.ReasonOracleIncomplete, 1, 0},
 		{false, catch.PartialCatch, pipe.ReasonNone, 2, 1},
 		{false, catch.Outcome("wat"), pipe.ReasonNone, 9, 9},
 	}

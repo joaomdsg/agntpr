@@ -82,6 +82,9 @@ func present(verdict string) (state, headline, detail string) {
 	case AnchorDeleted:
 		return "anchor-deleted", "Anchor lost: file gone",
 			"The anchored file was deleted — or renamed beyond recognition — so the oracle cannot follow this line."
+	case OracleIncomplete:
+		return "oracle-incomplete", "Oracle incomplete",
+			"The line has mutable operators, but a mutation run did not finish — no verdict yet."
 	default: // empty or unrecognized → the oracle is still working
 		return "in-flight", "Oracle running…", "Mutating the changed lines and checking your tests."
 	}

@@ -68,6 +68,17 @@ func TestReviewCard_rendersZeroSurvivorAsTestedNotEmpty(t *testing.T) {
 	assert.Contains(t, frame, "ship it")
 }
 
+// An incomplete oracle run must render its OWN honest state — never the operator-free
+// "no mutable operator" lie. The line plainly has operators; the run just didn't finish.
+func TestReviewCard_rendersOracleIncompleteWithoutClaimingNoMutableOperator(t *testing.T) {
+	t.Parallel()
+	frame := resolveTo(t, surface.OracleIncomplete, `data-state="oracle-incomplete"`)
+	assert.Contains(t, frame, `data-state="oracle-incomplete"`)
+	assert.NotContains(t, frame, "no mutable operator",
+		"an incomplete run must not claim the line is un-mutable — that is a false reason")
+	assert.NotContains(t, frame, "Caught", "an incomplete run must never claim a catch")
+}
+
 func TestReviewCard_rendersNoOracleSignalDistinctFromCatch(t *testing.T) {
 	t.Parallel()
 	caught := resolveTo(t, string(catch.Catch), `data-state="catch"`)
