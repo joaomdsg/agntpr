@@ -368,3 +368,21 @@ func TestSupervisor_scrubsAnErroredTurnsSecretBearingFile(t *testing.T) {
 	assert.True(t, os.IsNotExist(statErr), "the errored turn's secret file is scrubbed from the working tree")
 	assert.Equal(t, base, runGit(t, dir, "rev-parse", "HEAD"), "HEAD stays at base — the secret never persists")
 }
+
+// A FAILED rollback must abort the run, never be swallowed: if DiscardWorkingTree can't
+// roll the working tree back on an errored turn (e.g. a bad base rev), Run surfaces the
+// error rather than silently continuing with un-scrubbed residue on disk. Driven with an
+// unresolvable baseRev so the reset fails.
+func TestSupervisor_surfacesAFailedRollbackOnAnErroredTurn(t *testing.T) {
+	t.Parallel()
+	dir := initRepo(t)
+
+	stream := script(
+		frame{do: write(t, dir, "f.txt", "partial\n"), line: editing("f.txt")},
+		frame{line: errorTurnEnd()},
+	)
+
+	// A base rev that does not resolve makes DiscardWorkingTree's `git reset --hard` fail.
+	_, err := harness.New(dir, "no-such-rev-xyz").Run(context.Background(), stream)
+	require.Error(t, err, "a failed working-tree rollback must surface, not be swallowed")
+}
