@@ -236,6 +236,13 @@ input in the directions checked.
   `adjAnchors` to one entry per commented line (closing the prior unbounded-append note). Distinct
   lines still each get their own badge.
 
+*Demo-fidelity feature stream — also EXHAUSTED (council-confirmed).* The review-thread loop is now
+at good fidelity (multiple adjustments tracked, each with its comment + addressed/moved/outdated
+badge; re-comment replaces; resolve clears). A focused council verdict confirmed the resolve slice
+was the LAST genuine tick-sized demo-fidelity item — everything else is cosmetic (e.g. a diff
+snippet in the badge — noise, the Monaco diff is one click away) or an explicitly-deferred large
+subsystem (§14 thread projection, §29.2 merge-queue), not tick-sized.
+
 Deliberately NOT built (net-negative or out of scope, not gaps):
 - `scanStagedDiff` giant-line bound — a size cap before the regex could MISS a secret in a large
   line; capping the secret scanner is the wrong trade. Left uncapped (the cost is bounded ~1.3x).
