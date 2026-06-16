@@ -167,3 +167,48 @@ func TestDeriveCatch_refusesATranscriptForADifferentAnchor(t *testing.T) {
 		})
 	}
 }
+
+// A transcript whose Survivors/Undetermined escape its own declared Inventory is
+// MALFORMED — evidence of a buggy or hostile cage. catch.LineState declares the invariant
+// Survivors ⊆ Inventory, but Detect computes set relations over whatever the cage reports,
+// so a phantom out-of-alphabet operator can flip the verdict (e.g. NoCatch → PartialCatch)
+// and the self-report agrees with that forged computation. The verifier must refuse
+// malformed evidence wholesale rather than trust the verdict it implies. Each case below
+// is constructed so the self-report MATCHES Detect's output on the malformed data — so the
+// disagreement check passes and the well-formedness gate is what must refuse.
+func TestDeriveCatch_refusesMalformedEvidenceWhoseOperatorsEscapeTheInventory(t *testing.T) {
+	t.Parallel()
+	target := anchorTarget()
+	base := func(o catch.Outcome, before, after catch.LineState) pipe.Transcript {
+		return pipe.Transcript{Outcome: o, Reason: pipe.ReasonNone, Path: "adult.go", Line: 4, Land: pipe.LandClean, Before: before, After: after}
+	}
+	cases := []struct {
+		name string
+		tr   pipe.Transcript
+	}{
+		{"phantom in before.Survivors (forges a PartialCatch)",
+			base(catch.PartialCatch,
+				catch.LineState{Inventory: []string{">="}, Survivors: []string{">=", "PHANTOM"}},
+				catch.LineState{Inventory: []string{">="}, Survivors: []string{">="}})},
+		{"phantom in after.Survivors",
+			base(catch.NoCatch,
+				catch.LineState{Inventory: []string{">="}, Survivors: []string{">="}},
+				catch.LineState{Inventory: []string{">="}, Survivors: []string{">=", "PHANTOM"}})},
+		{"phantom in before.Undetermined",
+			base(catch.NoOracleSignal,
+				catch.LineState{Inventory: []string{">="}, Undetermined: []string{"PHANTOM"}},
+				catch.LineState{Inventory: []string{">="}})},
+		{"phantom in after.Undetermined",
+			base(catch.NoOracleSignal,
+				catch.LineState{Inventory: []string{">="}, Survivors: []string{">="}},
+				catch.LineState{Inventory: []string{">="}, Undetermined: []string{"PHANTOM"}})},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rec, err := cage.DeriveCatch(tc.tr, target)
+			require.Error(t, err, "malformed evidence must be refused, never trusted")
+			assert.Nil(t, rec, "no record is minted from malformed evidence")
+			assert.Contains(t, err.Error(), "PHANTOM", "the refusal names the offending out-of-alphabet operator")
+		})
+	}
+}

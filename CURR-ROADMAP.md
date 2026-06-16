@@ -161,11 +161,15 @@ I/O is verified by build + manual run).
   the run if rollback fails); the container path inherits it via the same reducer. Verified by an
   errored-then-successful end-to-end leak test.
 
+- **cage verifier well-formedness gate** — `DeriveCatch` (`internal/cage/derive.go`) now refuses a
+  transcript whose Before/After `Survivors`/`Undetermined` contain an operator absent from that
+  side's `Inventory` (`escapesInventory`), BEFORE `catch.Detect` — so a malformed/forged transcript
+  from an untrusted cage (a phantom out-of-alphabet operator that flips the verdict) is refused
+  wholesale rather than trusted. Enforces the `Survivors ⊆ Inventory` invariant catch.go only
+  declared. Correct asymmetry: the host's trusted pipe path builds `LineState` via `catch.LineStateAt`
+  (well-formed by construction), so only the untrusted cage path needed the gate.
+
 *Council-queued next slices (not yet built):*
-- cage verifier well-formedness gate: `DeriveCatch` trusts cage-reported `LineState` without checking
-  `Survivors/Undetermined ⊆ Inventory` (an invariant the code declares but doesn't enforce at the
-  untrusted boundary) — a phantom out-of-alphabet operator can flip NoCatch→PartialCatch (a
-  positive-looking, non-recordable surface verdict). Refuse malformed evidence. (integrity, medium)
 - `scanStagedDiff` giant-line bound: with `--text`, a large genuinely-binary file emits its bytes as
   one huge `+` line — bounded (~1.3x) but uncapped memory/CPU per regex. A size cap / binary-skip
   before regex would bound it. (hardening, low)
