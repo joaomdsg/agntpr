@@ -54,6 +54,13 @@ func TestStartListening_confinesAProducerToItsOwnClaimSubtree(t *testing.T) {
 	// Denied: another session's subtree (no cross-session forgery).
 	assert.Error(t, producerPublish(t, f, "prodA", "pwA",
 		fabric.EventSubject("B", "i", fabric.StatusClaim, "diff")))
+
+	// Denied: the VERDICT kind — even within its own subtree. A verdict resolves a bet
+	// (drops it from in-flight, counts it a verified-loss); it is the host verifier's to
+	// publish. A producer forging one would self-resolve its bets, bypassing the cage.
+	assert.Error(t, producerPublish(t, f, "prodA", "pwA",
+		fabric.EventSubject("A", "i", fabric.StatusClaim, fabric.ClaimVerdictKind)),
+		"a producer must not forge a claim verdict on its own subtree")
 }
 
 func TestStartListening_deniesAProducerSubscribingBeyondItsInbox(t *testing.T) {
@@ -129,4 +136,9 @@ func TestStartListening_keepsMintingAvailableToTheInProcessHost(t *testing.T) {
 	_, err := f.Publish(context.Background(),
 		fabric.EventSubject("A", "i", fabric.StatusMinted, "catch"), []byte("m"))
 	assert.NoError(t, err, "the in-process host retains full minting publish")
+
+	// The verdict kind is denied to producers but remains the host verifier's to publish.
+	_, verr := f.Publish(context.Background(),
+		fabric.EventSubject("A", "i", fabric.StatusClaim, fabric.ClaimVerdictKind), []byte("v"))
+	assert.NoError(t, verr, "the in-process host retains verdict publish (the verifier resolves bets)")
 }

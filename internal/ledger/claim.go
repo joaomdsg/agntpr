@@ -30,8 +30,10 @@ const subjectKindClaim = "work"
 // StatusClaim subtree as the claims (so the SSE bridge tailing StatusClaim,">"
 // surfaces it per committed event), but is a distinct kind so a verdict is never
 // confused with a fresh claim. Only a rejection is marked; a confirmed claim is
-// already represented by its mint on the minted subtree.
-const subjectKindVerdict = "verdict"
+// already represented by its mint on the minted subtree. It references the shared
+// fabric constant so the publisher's subject and the producer-grant's Deny (which reserves
+// this kind to the host) can never drift apart.
+const subjectKindVerdict = fabric.ClaimVerdictKind
 
 // ClaimVerdict is the host's terminal ruling on a submitted target: Rejected
 // means the oracle ran and found no catch, so the bet resolves OUT of flight

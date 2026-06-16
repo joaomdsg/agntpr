@@ -53,7 +53,16 @@ func StartListening(ctx context.Context, dir, addr string, grants ...ProducerGra
 			Username: g.User,
 			Password: g.Pass,
 			Permissions: &server.Permissions{
-				Publish:   &server.SubjectPermission{Allow: []string{EventSubject(g.Session, g.Instance, StatusClaim, ">")}},
+				// Allow the producer's whole claim subtree EXCEPT the verdict kind: a verdict
+				// resolves a bet (drops it from in-flight, counts it a verified-loss) and must
+				// come only from the in-process host's verifier — a producer forging one would
+				// self-resolve its own bets, bypassing the cage. NATS Deny overrides Allow, so
+				// this carves out exactly that one kind while every other producer claim kind
+				// stays publishable.
+				Publish: &server.SubjectPermission{
+					Allow: []string{EventSubject(g.Session, g.Instance, StatusClaim, ">")},
+					Deny:  []string{EventSubject(g.Session, g.Instance, StatusClaim, ClaimVerdictKind)},
+				},
 				Subscribe: &server.SubjectPermission{Allow: []string{"_INBOX.>"}},
 			},
 		})

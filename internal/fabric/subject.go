@@ -24,6 +24,14 @@ const (
 	StatusClaim Status = "claim"
 )
 
+// ClaimVerdictKind is the host-reserved <kind> token in the claim subtree for a TERMINAL
+// rejection of a claim (the verifier's verdict that resolves a bet — drops it from
+// in-flight, counts it a verified-loss). Only the in-process host's verifier may publish
+// it; cross-process producers are DENIED this kind (StartListening) so a producer cannot
+// forge a verdict and self-resolve its own bets, bypassing the cage verifier. Producers
+// may still publish every OTHER kind in their own claim subtree.
+const ClaimVerdictKind = "verdict"
+
 // EventSubject builds the canonical event subject
 // packets.session.<session>.events.<instance>.<status>.<kind>. All event
 // publishers must construct subjects through this function so the taxonomy

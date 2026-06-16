@@ -169,6 +169,21 @@ I/O is verified by build + manual run).
   declared. Correct asymmetry: the host's trusted pipe path builds `LineState` via `catch.LineStateAt`
   (well-formed by construction), so only the untrusted cage path needed the gate.
 
+- **claims: producer can't forge a verdict** — the cross-process producer grant allowed publishing
+  its whole `claim.>` subtree, including the host-reserved `verdict` kind — so a producer could
+  publish a forged `ClaimVerdict{Rejected:true}` to self-resolve its own bets (drop from in-flight,
+  count a verified-loss), corrupting the fleet board's loss half WITHOUT the cage verifier running.
+  Added `fabric.ClaimVerdictKind` + a `Deny` on that one kind in the producer grant (NATS Deny
+  overrides Allow); `ledger.subjectKindVerdict` now references the shared constant (no drift). The
+  host verifier's verdict publish is unaffected; producers keep every other claim kind. Verified the
+  fabric authz is the complete chokepoint (in-process = host; no non-host path to inject a verdict).
+
+*Investigated & found sound:*
+- supply / backlog draw-down — no double-draw/off-by-one/re-draw: `fundableBacklog` keys `consumed`
+  on the full Target struct (pure projection of persisted orders, debit+order under one lock). Only a
+  LOW, currently-unreachable defensive item (guard split-expansion against an already-consumed parent
+  in the pure fn rather than only at the action layer). Not built.
+
 *Council-queued next slices (not yet built):*
 - `scanStagedDiff` giant-line bound: with `--text`, a large genuinely-binary file emits its bytes as
   one huge `+` line — bounded (~1.3x) but uncapped memory/CPU per regex. A size cap / binary-skip
