@@ -85,9 +85,14 @@ func (s *Supervisor) Run(ctx context.Context, r io.Reader) ([]Turn, error) {
 			}
 			// An errored/crashed turn (out of turns, harness died) leaves a partial,
 			// truncated working tree. Do NOT mint it — keep the prior revision so the user
-			// can re-prompt (DESIGN §1183). Record the turn as non-minted so the base does
-			// not advance and the catch cycle never sees fabricated work.
+			// can re-prompt (DESIGN §1183). Discard the partial edits (roll the tree back to
+			// baseRev) so settle's whole-tree `git add -A` can't sweep the residue into a
+			// LATER turn's mint, then record the turn as non-minted so the base does not
+			// advance and the catch cycle never sees fabricated work.
 			if translate.TurnErrored(e) {
+				if err := orchestrator.DiscardWorkingTree(ctx, s.repoDir, s.baseRev); err != nil {
+					return nil, err
+				}
 				turns = append(turns, Turn{Events: pending, Outcome: orchestrator.TurnOutcome{}})
 				pending = nil
 				continue

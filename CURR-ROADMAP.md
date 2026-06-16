@@ -154,11 +154,14 @@ I/O is verified by build + manual run).
   (fail-closed: only "success" mints) + a reducer guard that records an errored turn as non-minted
   (base doesn't advance, `lastMintedSHA` skips it).
 
+- **harness: errored turn discards its partial edits** — completing the errored-turn fix:
+  `orchestrator.DiscardWorkingTree` (`git reset --hard rev` + `git clean -fd`) rolls the working tree
+  back to `baseRev` on an errored turn, so the residue can't be swept into a LATER turn's whole-tree
+  `git add -A` mint (§1183 "partial edits discarded"). Wired into the harness errored branch (fails
+  the run if rollback fails); the container path inherits it via the same reducer. Verified by an
+  errored-then-successful end-to-end leak test.
+
 *Council-queued next slices (not yet built):*
-- COMPLETING follow-up to the above (Blue-surfaced): an errored turn's abandoned partial edits stay
-  on disk, and `settle.Settle`'s `git add -A` is whole-tree — so the NEXT successful turn's mint
-  sweeps in the residue (§1183/timeout row: "partial edits discarded"). Reset the working tree to
-  `baseRev` on the errored branch before continuing. Needs a Red test for errored-then-successful. (integrity, medium-high)
 - cage verifier well-formedness gate: `DeriveCatch` trusts cage-reported `LineState` without checking
   `Survivors/Undetermined ⊆ Inventory` (an invariant the code declares but doesn't enforce at the
   untrusted boundary) — a phantom out-of-alphabet operator can flip NoCatch→PartialCatch (a

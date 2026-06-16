@@ -141,3 +141,34 @@ func TestSettleTurn_sumsStatsAcrossAllChangedFiles(t *testing.T) {
 	assert.Equal(t, 3, out.Added, "totals across files")
 	assert.Equal(t, 1, out.Deleted, "totals across files")
 }
+
+// An errored/timed-out turn must roll the working tree back to the prior revision so its
+// partial edits are discarded (DESIGN §1183 / timeout row) — otherwise settle's whole-tree
+// `git add -A` would sweep the residue into a LATER turn's mint. DiscardWorkingTree
+// restores tracked files, removes untracked ones, and leaves HEAD at the revision.
+func TestDiscardWorkingTree_rollsBackPartialEditsToTheRevision(t *testing.T) {
+	dir := initRepo(t)
+	base := runGit(t, dir, "rev-parse", "HEAD")
+
+	write(t, dir, "f.txt", "partial\n")  // tracked file modified
+	write(t, dir, "new.txt", "junk\n")   // untracked file created
+
+	require.NoError(t, orchestrator.DiscardWorkingTree(context.Background(), dir, base))
+
+	got, err := os.ReadFile(filepath.Join(dir, "f.txt"))
+	require.NoError(t, err)
+	assert.Equal(t, "one\ntwo\nthree\n", string(got), "the modified tracked file is restored to the revision")
+	_, statErr := os.Stat(filepath.Join(dir, "new.txt"))
+	assert.True(t, os.IsNotExist(statErr), "the untracked partial file is removed")
+	assert.Empty(t, runGit(t, dir, "status", "--porcelain"), "the working tree is clean after the rollback")
+	assert.Equal(t, base, runGit(t, dir, "rev-parse", "HEAD"), "HEAD stays at the prior revision")
+}
+
+// Rolling back an already-clean tree is a benign no-op (the trailing-errored-turn case).
+func TestDiscardWorkingTree_isANoOpOnACleanTree(t *testing.T) {
+	dir := initRepo(t)
+	base := runGit(t, dir, "rev-parse", "HEAD")
+	require.NoError(t, orchestrator.DiscardWorkingTree(context.Background(), dir, base))
+	assert.Equal(t, base, runGit(t, dir, "rev-parse", "HEAD"))
+	assert.Empty(t, runGit(t, dir, "status", "--porcelain"))
+}

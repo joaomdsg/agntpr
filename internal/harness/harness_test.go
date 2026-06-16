@@ -314,3 +314,32 @@ func TestSupervisor_keepsPriorRevisionWhenATurnErrors(t *testing.T) {
 	assert.Equal(t, base, runGit(t, dir, "rev-parse", "HEAD"),
 		"HEAD stays at the prior revision; the truncated working tree is never committed")
 }
+
+// An errored turn's partial edits must be DISCARDED, not left on disk where settle's
+// whole-tree `git add -A` would sweep them into the NEXT successful turn's mint. After an
+// errored turn that created leak.txt, a later successful turn editing a different file must
+// mint a revision containing only its OWN change — leak.txt must be absent from the tree.
+func TestSupervisor_discardsPartialEditsOfAnErroredTurnSoTheyDoNotLeakIntoTheNextMint(t *testing.T) {
+	t.Parallel()
+	dir := initRepo(t)
+	base := runGit(t, dir, "rev-parse", "HEAD")
+
+	stream := script(
+		frame{line: thinking("half-writing a file before I run out of turns")},
+		frame{do: write(t, dir, "leak.txt", "SMUGGLED\n"), line: editing("leak.txt")},
+		frame{line: errorTurnEnd()},
+		frame{line: thinking("a fresh successful turn editing a different file")},
+		frame{do: write(t, dir, "real.txt", "legit\n"), line: editing("real.txt")},
+		frame{line: turnEnd()},
+	)
+
+	turns, err := harness.New(dir, base).Run(context.Background(), stream)
+	require.NoError(t, err)
+	require.Len(t, turns, 2)
+	assert.False(t, turns[0].Outcome.Minted, "the errored turn mints nothing")
+	assert.True(t, turns[1].Outcome.Minted, "the successful turn mints its own revision")
+
+	tree := runGit(t, dir, "ls-tree", "-r", "--name-only", "HEAD")
+	assert.Contains(t, tree, "real.txt", "the successful turn's own change is committed")
+	assert.NotContains(t, tree, "leak.txt", "the errored turn's discarded residue must NOT leak into the mint")
+}

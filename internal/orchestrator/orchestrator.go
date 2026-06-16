@@ -9,6 +9,9 @@ package orchestrator
 
 import (
 	"context"
+	"fmt"
+	"os/exec"
+	"strings"
 
 	"github.com/joaomdsg/packets/internal/diff"
 	"github.com/joaomdsg/packets/internal/settle"
@@ -56,4 +59,26 @@ func SettleTurn(ctx context.Context, repoDir, baseRev, message string) (TurnOutc
 		deleted += f.Deleted
 	}
 	return TurnOutcome{Minted: true, SHA: res.SHA, Added: added, Deleted: deleted, Diff: d}, nil
+}
+
+// DiscardWorkingTree rolls the repo's working tree back to rev: it restores tracked files
+// (git reset --hard) and removes untracked, non-ignored files/dirs a partial turn created
+// (git clean -fd). It is the rollback for an errored/timed-out turn (DESIGN §1183 / the
+// timeout row: "partial edits discarded"): the residue is cleared so settle's whole-tree
+// `git add -A` cannot sweep it into a LATER turn's mint. It resets to the explicit rev
+// (the caller's last revision), not HEAD, so the intended base is honored even if HEAD
+// ever drifts.
+func DiscardWorkingTree(ctx context.Context, repoDir, rev string) error {
+	if err := gitDiscard(ctx, repoDir, "reset", "--hard", rev); err != nil {
+		return err
+	}
+	return gitDiscard(ctx, repoDir, "clean", "-fd")
+}
+
+func gitDiscard(ctx context.Context, repoDir string, args ...string) error {
+	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", repoDir}, args...)...)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git %s: %v: %s", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
+	}
+	return nil
 }
