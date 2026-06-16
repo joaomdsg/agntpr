@@ -207,22 +207,23 @@ I/O is verified by build + manual run).
   `--text` catches a secret in a `.gitattributes`-coerced "binary" file. Each fails if its guard
   is removed.
 
-*Council-queued next slices (not yet built):*
-- `realOpenPR` post-push-failure sha-return characterization test: the contract (push succeeded but
-  gh failed ⇒ return the real sha) is the load-bearing half of the unwedge fix but only stub-asserted
-  at the Approve boundary; a local-bare-repo + failing-`gh`-on-PATH test would lock it against a silent
-  revert. (test-debt, low — against the project's "seam verified by build+manual run" convention)
-- `scanStagedDiff` giant-line bound: with `--text`, a large genuinely-binary file emits its bytes as
-  one huge `+` line — bounded (~1.3x) but uncapped memory/CPU per regex. A size cap / binary-skip
-  before regex would bound it. (hardening, low)
-- `ScanHistory` coercion test: add the attribute-coercion characterization test when ScanHistory is
-  wired into a live gate (currently unwired). (test-debt, low)
-- board "why" tag renders RAW verdict tokens (`oracle_incomplete`, `lost_via_rename`) instead of
-  human copy (board.go:640) — cosmetic, NOT a lie; a shared token→label map would align board with
-  the card headlines. (polish, low)
-- cache-after-success recoverability: if push succeeds but `gh` (create OR view) fails, the
-  un-cached SHA wedges the next re-land (fails closed, not data loss) — cache the pushed SHA
-  as soon as the push succeeds, independent of PR-URL resolution. (low)
+*Hardening queue — EXHAUSTED (as of the autonomous loop's final sweep).* Every major subsystem
+has been swept and hardened with a shipped, tested fix; a final council micro-sweep of the last
+unexplored corners — authoring/analyze (incl. the analysisCancel supersede race), gc/prune,
+bundle-guard accounting, tokenstore (no secret-logging), ingest pruning — found them all SOUND
+(no race, swallowed-error, leak, miscount, or lying projection). The economy firewall, the
+trust spine (catch/reanchor/cage), the secret gates, the harness revision discipline, the
+cross-process auth, and the surface honesty layer all hold against forged/incomplete/malformed
+input in the directions checked.
+
+Deliberately NOT built (net-negative or out of scope, not gaps):
+- `scanStagedDiff` giant-line bound — a size cap before the regex could MISS a secret in a large
+  line; capping the secret scanner is the wrong trade. Left uncapped (the cost is bounded ~1.3x).
+- `realOpenPR` post-push sha-return test — would need a `gh`-on-PATH stub, against the project's
+  "I/O seam verified by build + manual run" convention; the contract is already stub-asserted at
+  the `Approve` boundary.
+- nested/recursive split expansion — single-level by design; whether multi-level sharpening is a
+  real workflow is a product-scope question for the Lead, not a bug.
 
 ## The plan — three additive slices
 
