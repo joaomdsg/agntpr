@@ -43,12 +43,13 @@ func (c *ReviewCard) AddAdjustment(ctx *via.Ctx) {
 	// Quote the line under review when we can read it (best-effort; a missing/unreadable
 	// line just omits the quote — the file:line and the comment still carry the turn).
 	codeLine := readSourceLine(cfg.RepoDir, file, line)
-	// Remember the anchor so a later render can relocate it against the settled revision
-	// and show whether the agent addressed it (DESIGN §28 thin slice). Only when we could
-	// read the line — an unquotable anchor has nothing to relocate by content.
+	// Remember the anchor (with the comment) so a later render can relocate it against the
+	// settled revision and show whether the agent addressed it (DESIGN §28 thin slice).
+	// Only when we could read the line — an unquotable anchor has nothing to relocate by
+	// content. Appended, so several adjustments are each tracked, not just the last.
 	if codeLine != "" {
 		if e := lookupLiveEntry(key); e != nil {
-			e.setAdjAnchor(file, line, codeLine)
+			e.addAdjAnchor(file, line, codeLine, text)
 		}
 	}
 	tgt := ledger.Target{BaseRev: head, Prompt: assist.ReviewTurnPrompt(file, line, codeLine, text)}
@@ -77,13 +78,36 @@ type adjReanchor struct {
 	Line  int
 }
 
-// adjAnchorRecord is the LAST adjustment's anchor cached on a liveEntry: the file:line
-// the Lead commented and the content of that line at comment time, against which a later
-// revision is relocated (reanchorAdjustment).
+// adjAnchorRecord is one adjustment's anchor cached on a liveEntry: the file:line the Lead
+// commented, the content of that line at comment time (against which a later revision is
+// relocated — reanchorAdjustment), and the Lead's comment text (shown beside the status).
 type adjAnchorRecord struct {
 	file    string
 	line    int
 	content string
+	comment string
+}
+
+// adjStatus is one adjustment's relocated state for the surface: its file + the Lead's
+// comment, plus where the commented line ended up in the settled revision.
+type adjStatus struct {
+	File    string
+	Comment string
+	State   adjAnchorState
+	Line    int
+}
+
+// relocateAdjustments relocates EVERY remembered adjustment against its file's current
+// content (read injected — no disk here), preserving order and carrying each anchor's own
+// comment through. So the surface shows every adjustment's addressed/moved/outdated state,
+// not just the last. An unreadable file (read returns "") relocates to Outdated.
+func relocateAdjustments(anchors []adjAnchorRecord, read func(file string) string) []adjStatus {
+	out := make([]adjStatus, 0, len(anchors))
+	for _, a := range anchors {
+		r := reanchorAdjustment(a.content, a.line, read(a.file))
+		out = append(out, adjStatus{File: a.file, Comment: a.comment, State: r.State, Line: r.Line})
+	}
+	return out
 }
 
 // reanchorAdjustment relocates an adjustment's commented line against a new revision's
@@ -123,18 +147,16 @@ func renderAdjustmentForm(c *ReviewCard) h.H {
 		h.Input(h.Type("text"), c.AdjText.Bind(), h.Class("pk-input review-adjust__text"), h.Placeholder("what should change?")),
 		h.Button(on.Click(c.AddAdjustment), h.Class("pk-btn review-adjust__submit"), h.Text("Leave adjustment")),
 	}
-	if badge := renderAdjustmentStatus(c); badge != nil {
-		parts = append(parts, badge)
-	}
+	parts = append(parts, renderAdjustmentStatuses(c)...)
 	return h.Div(parts...)
 }
 
-// renderAdjustmentStatus shows whether the LAST adjustment was addressed: it relocates
-// the cached anchor against the file's CURRENT content (the settled revision on disk) and
-// renders a badge — still-here / moved / line-edited — so "leave an adjustment → watch it
-// addressed" has a visible payoff (DESIGN §28 thin slice). Returns nil when no adjustment
-// was left this session (nothing to report).
-func renderAdjustmentStatus(c *ReviewCard) h.H {
+// renderAdjustmentStatuses shows whether EACH adjustment this session was addressed: it
+// relocates every cached anchor against its file's CURRENT content (the settled revision
+// on disk) and renders one badge per adjustment — the Lead's comment plus still-here /
+// moved / line-edited — so "leave adjustmentS → watch them addressed" has a visible
+// payoff (DESIGN §28 thin slice). Empty when none were left this session.
+func renderAdjustmentStatuses(c *ReviewCard) []h.H {
 	key := c.Key
 	if key == "" {
 		key = defaultSessionKey
@@ -143,26 +165,32 @@ func renderAdjustmentStatus(c *ReviewCard) h.H {
 	if e == nil {
 		return nil
 	}
-	anchor := e.adjAnchorSnapshot()
-	if anchor == nil {
+	anchors := e.adjAnchorsSnapshot()
+	if len(anchors) == 0 {
 		return nil
 	}
 	cfg, _ := readLiveState(key)
-	content := ""
-	if data, err := os.ReadFile(filepath.Join(cfg.RepoDir, anchor.file)); err == nil {
-		content = string(data)
+	read := func(file string) string {
+		if data, err := os.ReadFile(filepath.Join(cfg.RepoDir, file)); err == nil {
+			return string(data)
+		}
+		return ""
 	}
-	r := reanchorAdjustment(anchor.content, anchor.line, content)
-	var cls, text string
-	switch r.State {
-	case adjSame:
-		cls, text = "review-adjust__status--same", "still on line "+strconv.Itoa(r.Line)
-	case adjMoved:
-		cls, text = "review-adjust__status--moved", "addressed — moved to line "+strconv.Itoa(r.Line)
-	default: // adjOutdated
-		cls, text = "review-adjust__status--outdated", "addressed — line edited"
+	var badges []h.H
+	for _, s := range relocateAdjustments(anchors, read) {
+		var cls, status string
+		switch s.State {
+		case adjSame:
+			cls, status = "review-adjust__status--same", "still on line "+strconv.Itoa(s.Line)
+		case adjMoved:
+			cls, status = "review-adjust__status--moved", "addressed — moved to line "+strconv.Itoa(s.Line)
+		default: // adjOutdated
+			cls, status = "review-adjust__status--outdated", "addressed — line edited"
+		}
+		badges = append(badges, h.Span(h.Class("review-adjust__status "+cls),
+			h.Text(s.Comment+" — "+status)))
 	}
-	return h.Span(h.Class("review-adjust__status "+cls), h.Text(text))
+	return badges
 }
 
 // readSourceLine returns the 1-indexed content of file's line within repoDir, so the

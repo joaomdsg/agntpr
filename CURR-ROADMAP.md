@@ -216,6 +216,18 @@ trust spine (catch/reanchor/cage), the secret gates, the harness revision discip
 cross-process auth, and the surface honesty layer all hold against forged/incomplete/malformed
 input in the directions checked.
 
+*Feature progress (beyond hardening):*
+- **review loop remembers MULTIPLE adjustments** — `liveEntry.adjAnchors` (was a single
+  overwriting `adjAnchor`) now appends every adjustment; `relocateAdjustments` (pure, injected
+  reader) relocates each against its file's current content and `renderAdjustmentStatuses` shows
+  one badge per adjustment with the Lead's comment + addressed/moved/outdated status. The goal
+  flow is "leave adjustmentS → watch them addressed"; a Lead leaving several no longer sees only
+  the last. Reuses the `reanchorAdjustment` core unchanged. (tick-4 council demo-fidelity slice.)
+
+*Queued (low):* cap or dedupe-by-file:line for `adjAnchors` (currently unbounded append, unlike
+`activityLog`'s cap; human-rate-limited + session-ephemeral so low severity — a dedupe so
+re-commenting a line replaces rather than stacks is the nicer product touch).
+
 Deliberately NOT built (net-negative or out of scope, not gaps):
 - `scanStagedDiff` giant-line bound — a size cap before the regex could MISS a secret in a large
   line; capping the secret scanner is the wrong trade. Left uncapped (the cost is bounded ~1.3x).

@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -158,7 +159,7 @@ func TestReviewCard_surfacesWhetherTheAdjustmentWasAddressed(t *testing.T) {
 	log := ledger.Bind(f, "adjstat", "i")
 	registerSession("adjstat", LiveConfig{RepoDir: repo, BaseRev: head, Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 	// initGitRepoForOrder seeds base.txt whose line 1 is "base"; anchor there.
-	lookupLiveEntry("adjstat").setAdjAnchor("base.txt", 1, "base")
+	lookupLiveEntry("adjstat").addAdjAnchor("base.txt", 1, "base", "address this")
 
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
@@ -172,6 +173,42 @@ func TestReviewCard_surfacesWhetherTheAdjustmentWasAddressed(t *testing.T) {
 	body := bodyOf(vt.NewClient(t, server, "/review?key=adjstat").HTML())
 	assert.Contains(t, body, "still on line 1",
 		"an adjustment whose line is unchanged surfaces as still-anchored, not a stale silent comment")
+	assert.Contains(t, body, "address this", "the adjustment's own comment is shown beside its status")
+}
+
+// A real review leaves SEVERAL adjustments — each must surface its OWN status badge with
+// its OWN comment, not just the last one. NOT parallel (shared globals).
+func TestReviewCard_surfacesEveryAdjustmentNotJustTheLast(t *testing.T) {
+	resetConsumersForTest()
+	repo := initGitRepoForOrder(t)
+	head := gitOrder(t, repo, "rev-parse", "HEAD")
+	// Seed a second line so two distinct anchors exist.
+	require.NoError(t, os.WriteFile(filepath.Join(repo, "base.txt"), []byte("base\nsecond\n"), 0o644))
+	gitOrder(t, repo, "add", "-A")
+	gitOrder(t, repo, "commit", "-qm", "two lines")
+	ctx := context.Background()
+	f, err := fabric.Start(ctx, t.TempDir())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = f.Close() })
+	log := ledger.Bind(f, "adjmulti", "i")
+	registerSession("adjmulti", LiveConfig{RepoDir: repo, BaseRev: head, Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
+	e := lookupLiveEntry("adjmulti")
+	e.addAdjAnchor("base.txt", 1, "base", "guard the first line")
+	e.addAdjAnchor("base.txt", 2, "second", "and the second line")
+
+	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
+	var server *httptest.Server
+	_, defLog, err := NewServer(LiveConfig{
+		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
+		TestCmd: []string{"true"}, LedgerPath: defLogPath,
+	}, via.WithTestServer(&server))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = defLog.Close() })
+
+	body := bodyOf(vt.NewClient(t, server, "/review?key=adjmulti").HTML())
+	assert.Contains(t, body, "guard the first line", "the first adjustment is not clobbered by the second")
+	assert.Contains(t, body, "and the second line", "the second adjustment also surfaces")
+	assert.Equal(t, 2, strings.Count(body, "still on line"), "both adjustments render their own status badge")
 }
 
 // When the agent's settled revision shifted the commented line, the badge must say it
@@ -188,7 +225,7 @@ func TestReviewCard_surfacesMovedAndOutdatedAdjustments(t *testing.T) {
 		t.Cleanup(func() { _ = f.Close() })
 		log := ledger.Bind(f, key, "i")
 		registerSession(key, LiveConfig{RepoDir: repo, BaseRev: head, Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
-		lookupLiveEntry(key).setAdjAnchor("base.txt", 1, "base")
+		lookupLiveEntry(key).addAdjAnchor("base.txt", 1, "base", "address this")
 		// The settled revision: rewrite the working-tree file the badge reads.
 		require.NoError(t, os.WriteFile(filepath.Join(repo, "base.txt"), []byte(fileContent), 0o644))
 

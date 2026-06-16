@@ -182,11 +182,11 @@ type liveEntry struct {
 	// landResult is the outcome of the last Approve (PR URL / guard / error), surfaced
 	// on the card. Ephemeral, off-ledger; guarded by findingsMu.
 	landResult string
-	// adjAnchor records the LAST adjustment's anchor (file:line + the commented line's
-	// content), so a later render can relocate it against the new revision and show
-	// whether the agent addressed it (DESIGN §28 thin slice). Ephemeral, off the economy
-	// ledger; guarded by findingsMu. nil = no adjustment left this session.
-	adjAnchor *adjAnchorRecord
+	// adjAnchors records EVERY adjustment's anchor this session (file:line + the commented
+	// line's content + the Lead's comment), in order, so a later render can relocate each
+	// against the new revision and show whether the agent addressed it (DESIGN §28 thin
+	// slice). Append-only; ephemeral, off the economy ledger; guarded by findingsMu.
+	adjAnchors []adjAnchorRecord
 	// lastPushedSHA is the squashed commit the last land push put on the PR branch, so a
 	// re-land leases its force against it (pushRefspec). Ephemeral, off-ledger; guarded by
 	// findingsMu. ""=never pushed.
@@ -481,21 +481,25 @@ func (e *liveEntry) landResultSnapshot() string {
 	return e.landResult
 }
 
-// setAdjAnchor records the LAST adjustment's anchor (the file:line the Lead commented and
-// the line's content at comment time) so a later render can relocate it against the new
-// revision (reanchorAdjustment) and show whether the agent addressed it. Ephemeral,
-// off the economy ledger, guarded by findingsMu — exactly like landResult.
-func (e *liveEntry) setAdjAnchor(file string, line int, content string) {
+// addAdjAnchor APPENDS one adjustment's anchor (the file:line the Lead commented, the
+// line's content at comment time, and the comment text) so a later render can relocate
+// each against the new revision (relocateAdjustments) and show whether the agent addressed
+// it. Ephemeral, off the economy ledger, guarded by findingsMu — like landResult.
+func (e *liveEntry) addAdjAnchor(file string, line int, content, comment string) {
 	e.findingsMu.Lock()
-	e.adjAnchor = &adjAnchorRecord{file: file, line: line, content: content}
+	e.adjAnchors = append(e.adjAnchors, adjAnchorRecord{file: file, line: line, content: content, comment: comment})
 	e.findingsMu.Unlock()
 }
 
-// adjAnchorSnapshot returns the last adjustment's anchor, or nil if none this session.
-func (e *liveEntry) adjAnchorSnapshot() *adjAnchorRecord {
+// adjAnchorsSnapshot returns a COPY of this session's adjustment anchors, in order (nil if
+// none) — safe to read outside the lock.
+func (e *liveEntry) adjAnchorsSnapshot() []adjAnchorRecord {
 	e.findingsMu.Lock()
 	defer e.findingsMu.Unlock()
-	return e.adjAnchor
+	if len(e.adjAnchors) == 0 {
+		return nil
+	}
+	return append([]adjAnchorRecord(nil), e.adjAnchors...)
 }
 
 // setLastPushedSHA records the squashed commit the last land push put on the session's PR
