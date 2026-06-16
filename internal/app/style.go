@@ -250,6 +250,10 @@ body {
 .board-row__land { font-size: var(--pk-font-sm); }
 .board-row__land[data-state="land-conflict"] { color: var(--pk-inflight); }
 .board-row__land[data-state="land-checks-red"] { color: var(--pk-lost); }
+/* post-open lifecycle across the fleet (§29.2: Landed ≠ Merged) — terminal outcomes only */
+.board-row__lifecycle { font-size: var(--pk-font-sm); }
+.board-row__lifecycle[data-state="merged"] { color: var(--pk-confirmed); }
+.board-row__lifecycle[data-state="bounced"] { color: var(--pk-lost); }
 /* fleet-level merge-readiness roll-up: how much of the fleet is blocked from
    landing. A calm dim summary line, surfaced only when ≥1 session is blocked — a
    count, never a gauge or alarm. */

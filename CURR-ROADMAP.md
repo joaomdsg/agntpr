@@ -246,6 +246,15 @@ input in the directions checked.
   economy stream / ledger event kind (verified) — that constraint is why it was safe to start
   autonomously. The full merge-queue/bounce-retry machinery and any DURABLE lifecycle record (§29.3
   `landing_outcomes` table) stay GATED for the Lead (they touch the authoritative substrate).
+- **§29.2 lifecycle on the FLEET BOARD** — the merge outcome now surfaces per board row, not just on
+  the open card: pure `boardLifecycle(lc)` (merged→"merged"/bounced→"closed unmerged"/show=true;
+  landed/""/unknown→show=false), `CardRow.LandLifecycle` set from `e.landLifecycleSnapshot()` next to
+  `row.Land`, and a `board-row__lifecycle` render span shown ONLY for terminal merged/bounced — the
+  routine "landed, not yet merged" transient stays off the board so it stays CALM (mirrors how
+  `boardLand` only surfaces BLOCKED). RENDER/STATE-ONLY: reads ephemeral `landLifecycle`, no ledger /
+  economy-stream change (Blue-verified). Known follow-up (low, non-defect): `fleetFingerprint`
+  (board.go:181) doesn't fold `LandLifecycle`, so a lifecycle change won't auto-live-refresh a board
+  tab until another folded field moves.
 
 *Demo-fidelity feature stream — also EXHAUSTED (council-confirmed).* The review-thread loop is now
 at good fidelity (multiple adjustments tracked, each with its comment + addressed/moved/outdated

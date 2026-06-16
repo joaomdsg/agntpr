@@ -40,6 +40,7 @@ type CardRow struct {
 	BacklogRemaining int
 	OpenQuestions    int    // the session's latest-cycle open review questions (surviving mutants) — test debt the green verdict hides, made visible across the fleet; a diagnostic, never scored (off the economy)
 	Land             string // the session's latest-cycle integration verdict (clean/conflict/checks_red) — surfaced on the board only when BLOCKED, so "Landed ≠ Merged" is visible across the fleet
+	LandLifecycle    string // the opened PR's post-land lifecycle (§29.2: landed/merged/bounced) — surfaced on the fleet board only for the TERMINAL merged/bounced outcomes (the board stays calm on the routine landed-not-merged transient)
 	Activity         string // the agent's latest live activity beat (e.g. "editing auth.go") while an order fills — the cross-session "watch the shop" ticker; "" when idle, so an idle row stays calm
 	seq              int    // registration ordinal — the deterministic tie-break, not rendered
 }
@@ -100,6 +101,9 @@ func BoardRows() []CardRow {
 		// The latest integration verdict, read from the in-memory cache (not the log)
 		// — surfaced on the board only when it blocks a merge (see View).
 		row.Land = e.landState()
+		// The opened PR's post-land lifecycle (§29.2) — also in-memory; surfaced on the
+		// board only for terminal merged/bounced outcomes (see View + boardLifecycle).
+		row.LandLifecycle = e.landLifecycleSnapshot()
 		// The agent's live activity beat (in-process, read straight from the session's
 		// fill buffer) — the cross-session ticker, surfaced only while an order fills.
 		row.Activity = e.activitySnapshot()
@@ -553,6 +557,16 @@ func (c *BoardCard) View(ctx *via.CtxR) h.H {
 				h.Text(label),
 			))
 		}
+		// Post-open lifecycle across the fleet (§29.2: Landed ≠ Merged) — surfaced only for
+		// the terminal merged/bounced outcomes, so a finished or closed-unmerged PR stands
+		// out while the routine landed-not-merged transient keeps the board calm.
+		if state, label, show := boardLifecycle(r.LandLifecycle); show {
+			row = append(row, h.Span(
+				h.Class("board-row__lifecycle"),
+				h.Data("state", state),
+				h.Text(label),
+			))
+		}
 		// What the agent is doing RIGHT NOW — a calm dim ticker, surfaced only while an
 		// order fills (a beat exists), so the Lead watches the shop across sessions
 		// without opening each card. Absent on an idle row (no dead "·").
@@ -591,6 +605,22 @@ func boardLand(land string) (state, label string, blocked bool) {
 	case pipe.LandChecksRed:
 		return "land-checks-red", "merge blocked: checks red", true
 	default: // clean / pending / unknown — nothing blocking to surface
+		return "", "", false
+	}
+}
+
+// boardLifecycle maps a session's opened-PR lifecycle (§29.2 "Landed ≠ Merged") to the
+// board's (data-state, label, show). It surfaces only TERMINAL outcomes — merged or
+// bounced — so the fleet view flags a finished (or closed-unmerged) PR while staying calm
+// on the routine "landed, not yet merged" transient and on anything unrecognized. The
+// data-state hooks R45's honest palette (confirmed-green merged / miss-hue bounced).
+func boardLifecycle(lc string) (state, label string, show bool) {
+	switch landLifecycle(lc) {
+	case lifecycleMerged:
+		return "merged", "merged", true
+	case lifecycleBounced:
+		return "bounced", "closed unmerged", true
+	default: // landed (routine transient) / empty / unknown — nothing terminal to surface
 		return "", "", false
 	}
 }
