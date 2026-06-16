@@ -177,7 +177,7 @@ func (c *BoardCard) OnConnect(ctx *via.Ctx) error {
 // OnConnect can re-render only when the board would actually look different. It
 // covers the fields View renders and that change over time (membership, stock,
 // balance, the bet lifecycle, dispatch activity, hit/miss, backlog, open questions,
-// land, the live activity beat).
+// land, the terminal merge lifecycle, the live activity beat).
 func fleetFingerprint(rows []CardRow) string {
 	var b strings.Builder
 	for _, r := range rows {
@@ -190,6 +190,13 @@ func fleetFingerprint(rows []CardRow) string {
 		}
 		b.WriteByte('|')
 		b.WriteString(r.Land)
+		b.WriteByte('|')
+		// Fold only the DISPLAYED lifecycle state: terminal merged/bounced move the
+		// fingerprint (board live-refreshes the badge), the hidden landed/""/unknown
+		// transients do not (so an idle board never pushes a look-identical frame).
+		if state, _, show := boardLifecycle(r.LandLifecycle); show {
+			b.WriteString(state)
+		}
 		b.WriteByte('|')
 		b.WriteString(r.Activity)
 		b.WriteByte(';')

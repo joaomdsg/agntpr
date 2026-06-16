@@ -252,9 +252,11 @@ input in the directions checked.
   `row.Land`, and a `board-row__lifecycle` render span shown ONLY for terminal merged/bounced — the
   routine "landed, not yet merged" transient stays off the board so it stays CALM (mirrors how
   `boardLand` only surfaces BLOCKED). RENDER/STATE-ONLY: reads ephemeral `landLifecycle`, no ledger /
-  economy-stream change (Blue-verified). Known follow-up (low, non-defect): `fleetFingerprint`
-  (board.go:181) doesn't fold `LandLifecycle`, so a lifecycle change won't auto-live-refresh a board
-  tab until another folded field moves.
+  economy-stream change (Blue-verified). `fleetFingerprint` (board.go:181) now folds the DISPLAYED
+  lifecycle state (gated on `boardLifecycle` show), so a terminal merged/bounced auto-live-refreshes
+  a board tab — while the hidden landed/""/unknown transients do NOT move the fingerprint, preserving
+  the idle-no-flood invariant (a `""→landed` change pushes no look-identical frame). Delimiter scheme
+  audited collision-free; tests assert both the live-refresh and the idle-calm halves.
 
 *Demo-fidelity feature stream — also EXHAUSTED (council-confirmed).* The review-thread loop is now
 at good fidelity (multiple adjustments tracked, each with its comment + addressed/moved/outdated
