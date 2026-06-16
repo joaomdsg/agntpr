@@ -59,8 +59,16 @@ func (p Projection) Bandwidth() int {
 
 // Balance is credits (confirmed catches) minus debits (positive spends), folded
 // identically to Log.Balance — a non-positive spend amount never debits, and a
-// non-catch outcome never credits.
-func (p Projection) Balance() int { return p.balance }
+// non-catch outcome never credits. It floors at zero: a legit balance can never go
+// negative (the AppendSpend gate enforces spend ≤ balance), so a negative balance is only
+// reachable via forged stream data published past the gate — the projection never reads
+// below zero, exactly as Bandwidth() does.
+func (p Projection) Balance() int {
+	if p.balance < 0 {
+		return 0
+	}
+	return p.balance
+}
 
 // Records is the catch-kind record stream, UNFILTERED by ShouldRecord (mirroring
 // Log.Records): a forged non-catch line survives the projection, while never

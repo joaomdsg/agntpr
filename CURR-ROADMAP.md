@@ -141,10 +141,13 @@ I/O is verified by build + manual run).
   value, never lets an overdraft through). Mirrors the project's "projection holds against forged
   stream data" invariant.
 
+- **economy: balance floors at zero too** — `Projection.Balance()` now floors at zero (twin of the
+  bandwidth floor), so a forged positive over-spend published past the `AppendSpend` gate can't drive
+  the balance negative. Both economy projections now hold against forged stream data in both
+  directions (negative-spend can't mint credit; positive-over-spend can't go negative). Strict-safe:
+  only lowers the reported value, gate stays correct, no raw-field reader bypasses it.
+
 *Council-queued next slices (not yet built):*
-- SYMMETRIC: `Balance()` has no negative floor — a forged POSITIVE over-spend drives balance
-  negative (same class as the bandwidth gap just fixed; the existing balance forge test only covers
-  the negative-spend direction). Add `TestBalance_aForgedOverspendCannotDriveBalanceNegative` + floor. (integrity, medium)
 - `scanStagedDiff` giant-line bound: with `--text`, a large genuinely-binary file emits its bytes as
   one huge `+` line — bounded (~1.3x) but uncapped memory/CPU per regex. A size cap / binary-skip
   before regex would bound it. (hardening, low)

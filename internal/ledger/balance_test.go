@@ -155,3 +155,23 @@ func TestBalance_aForgedNegativeSpendCannotMintCredit(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, bal, "a spend can never mint credit — a non-positive amount on the stream contributes nothing")
 }
+
+// The positive-direction twin of TestBalance_aForgedNegativeSpendCannotMintCredit: a
+// forged OVER-spend published straight to the subject (past the AppendSpend overdraft
+// gate) must not drive the balance negative. A legit balance can never go below zero (the
+// gate enforces spend <= balance), so a negative balance is always corrupt — the
+// projection floors at zero, exactly as the bandwidth meter does.
+func TestBalance_aForgedOverspendCannotDriveBalanceNegative(t *testing.T) {
+	t.Parallel()
+	l, f := openLog(t)
+	require.NoError(t, l.Append(distinctRecord(0)))
+	require.NoError(t, l.Append(distinctRecord(1))) // balance 2
+
+	_, err := ledger.PublishSpend(context.Background(), f, t.Name(), "i",
+		ledger.SpendRecord{Kind: "spend", Amount: 99, Reason: "forged overspend"})
+	require.NoError(t, err)
+
+	bal, err := l.Balance()
+	require.NoError(t, err)
+	assert.Equal(t, 0, bal, "a forged over-spend floors the balance at 0, never negative (got %d)", bal)
+}
