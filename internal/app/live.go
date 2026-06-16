@@ -185,7 +185,8 @@ type liveEntry struct {
 	// adjAnchors records EVERY adjustment's anchor this session (file:line + the commented
 	// line's content + the Lead's comment), in order, so a later render can relocate each
 	// against the new revision and show whether the agent addressed it (DESIGN §28 thin
-	// slice). Append-only; ephemeral, off the economy ledger; guarded by findingsMu.
+	// slice). Upserted by file:line (re-commenting a line replaces, never stacks);
+	// ephemeral, off the economy ledger; guarded by findingsMu.
 	adjAnchors []adjAnchorRecord
 	// lastPushedSHA is the squashed commit the last land push put on the PR branch, so a
 	// re-land leases its force against it (pushRefspec). Ephemeral, off-ledger; guarded by
@@ -481,13 +482,14 @@ func (e *liveEntry) landResultSnapshot() string {
 	return e.landResult
 }
 
-// addAdjAnchor APPENDS one adjustment's anchor (the file:line the Lead commented, the
-// line's content at comment time, and the comment text) so a later render can relocate
-// each against the new revision (relocateAdjustments) and show whether the agent addressed
-// it. Ephemeral, off the economy ledger, guarded by findingsMu — like landResult.
+// addAdjAnchor UPSERTS one adjustment's anchor by file:line (the file:line the Lead
+// commented, the line's content at comment time, and the comment text) — re-commenting a
+// line replaces its entry rather than stacking a duplicate — so a later render can
+// relocate each against the new revision (relocateAdjustments) and show whether the agent
+// addressed it. Ephemeral, off the economy ledger, guarded by findingsMu — like landResult.
 func (e *liveEntry) addAdjAnchor(file string, line int, content, comment string) {
 	e.findingsMu.Lock()
-	e.adjAnchors = append(e.adjAnchors, adjAnchorRecord{file: file, line: line, content: content, comment: comment})
+	e.adjAnchors = upsertAnchor(e.adjAnchors, adjAnchorRecord{file: file, line: line, content: content, comment: comment})
 	e.findingsMu.Unlock()
 }
 

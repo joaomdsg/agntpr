@@ -246,3 +246,26 @@ func TestReviewCard_surfacesMovedAndOutdatedAdjustments(t *testing.T) {
 	outdated := render(t, "adjgone", "nothing here now\n") // "base" edited away
 	assert.Contains(t, outdated, "addressed — line edited", "an edited-away line surfaces as addressed/outdated")
 }
+
+// Re-commenting the SAME file:line replaces that adjustment rather than stacking a
+// duplicate badge — the surface shows one entry per commented line with the latest
+// comment. NOT parallel (shared globals).
+func TestLiveEntry_reCommentingTheSameLineReplacesNotStacks(t *testing.T) {
+	resetConsumersForTest()
+	repo := initGitRepoForOrder(t)
+	head := gitOrder(t, repo, "rev-parse", "HEAD")
+	ctx := context.Background()
+	f, err := fabric.Start(ctx, t.TempDir())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = f.Close() })
+	log := ledger.Bind(f, "adjdedupe", "i")
+	registerSession("adjdedupe", LiveConfig{RepoDir: repo, BaseRev: head, Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
+	e := lookupLiveEntry("adjdedupe")
+
+	e.addAdjAnchor("base.txt", 1, "base", "first thought")
+	e.addAdjAnchor("base.txt", 1, "base", "actually, this instead") // same line, re-commented
+
+	got := e.adjAnchorsSnapshot()
+	require.Len(t, got, 1, "re-commenting the same line replaces, never stacks a duplicate")
+	assert.Equal(t, "actually, this instead", got[0].comment, "the latest comment wins")
+}

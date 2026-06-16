@@ -46,7 +46,8 @@ func (c *ReviewCard) AddAdjustment(ctx *via.Ctx) {
 	// Remember the anchor (with the comment) so a later render can relocate it against the
 	// settled revision and show whether the agent addressed it (DESIGN §28 thin slice).
 	// Only when we could read the line — an unquotable anchor has nothing to relocate by
-	// content. Appended, so several adjustments are each tracked, not just the last.
+	// content. Upserted by file:line, so several distinct adjustments are each tracked
+	// (not just the last) while re-commenting a line replaces rather than stacks.
 	if codeLine != "" {
 		if e := lookupLiveEntry(key); e != nil {
 			e.addAdjAnchor(file, line, codeLine, text)
@@ -95,6 +96,21 @@ type adjStatus struct {
 	Comment string
 	State   adjAnchorState
 	Line    int
+}
+
+// upsertAnchor adds an adjustment anchor with last-writer semantics per file:line: if an
+// entry for the same file AND line already exists, it is REPLACED in place (latest
+// content+comment, position preserved) so re-commenting a line updates its one badge
+// rather than stacking a duplicate; otherwise the record is appended. Bounds the list to
+// one entry per commented line.
+func upsertAnchor(anchors []adjAnchorRecord, rec adjAnchorRecord) []adjAnchorRecord {
+	for i, a := range anchors {
+		if a.file == rec.file && a.line == rec.line {
+			anchors[i] = rec
+			return anchors
+		}
+	}
+	return append(anchors, rec)
 }
 
 // relocateAdjustments relocates EVERY remembered adjustment against its file's current

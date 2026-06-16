@@ -224,9 +224,11 @@ input in the directions checked.
   flow is "leave adjustmentS → watch them addressed"; a Lead leaving several no longer sees only
   the last. Reuses the `reanchorAdjustment` core unchanged. (tick-4 council demo-fidelity slice.)
 
-*Queued (low):* cap or dedupe-by-file:line for `adjAnchors` (currently unbounded append, unlike
-`activityLog`'s cap; human-rate-limited + session-ephemeral so low severity — a dedupe so
-re-commenting a line replaces rather than stacks is the nicer product touch).
+- **review loop: re-commenting a line replaces, not stacks** — `upsertAnchor` gives `addAdjAnchor`
+  last-writer-per-`file:line` semantics (mirroring `splitRefinements`): re-commenting a line updates
+  its single badge with the latest comment+anchor instead of stacking a duplicate, and bounds
+  `adjAnchors` to one entry per commented line (closing the prior unbounded-append note). Distinct
+  lines still each get their own badge.
 
 Deliberately NOT built (net-negative or out of scope, not gaps):
 - `scanStagedDiff` giant-line bound — a size cap before the regex could MISS a secret in a large

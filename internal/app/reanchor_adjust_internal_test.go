@@ -109,3 +109,38 @@ func TestRelocateAdjustments_treatsAnUnreadableFileAsOutdated(t *testing.T) {
 func TestRelocateAdjustments_emptyForNoAnchors(t *testing.T) {
 	assert.Empty(t, relocateAdjustments(nil, func(string) string { return "" }))
 }
+
+// Re-commenting the same file:line must REPLACE that adjustment (last-writer), not stack a
+// duplicate badge — so the surface shows one entry per commented line with the latest
+// comment. upsertAnchor replaces-in-place by file:line, else appends, preserving order.
+func TestUpsertAnchor_replacesByFileAndLineElseAppends(t *testing.T) {
+	rec := func(file string, line int, content, comment string) adjAnchorRecord {
+		return adjAnchorRecord{file: file, line: line, content: content, comment: comment}
+	}
+
+	// Append to empty.
+	got := upsertAnchor(nil, rec("a.go", 5, "x", "c1"))
+	require.Equal(t, []adjAnchorRecord{rec("a.go", 5, "x", "c1")}, got)
+
+	// Fresh base per case — upsert may replace in place, so each case must not see a
+	// prior case's mutation.
+	freshBase := func() []adjAnchorRecord {
+		return []adjAnchorRecord{rec("a.go", 5, "x", "c1"), rec("b.go", 9, "y", "c2")}
+	}
+
+	// Same file:line → replaced IN PLACE (position preserved, content+comment updated).
+	rep := upsertAnchor(freshBase(), rec("a.go", 5, "xx", "c1-new"))
+	require.Len(t, rep, 2, "a re-comment on the same line does not grow the list")
+	assert.Equal(t, rec("a.go", 5, "xx", "c1-new"), rep[0], "slot 0 updated to the latest content+comment")
+	assert.Equal(t, rec("b.go", 9, "y", "c2"), rep[1], "the other anchor is untouched, order preserved")
+
+	// Same file, DIFFERENT line → appended (distinct anchor).
+	ap := upsertAnchor(freshBase(), rec("a.go", 6, "z", "c3"))
+	require.Len(t, ap, 3)
+	assert.Equal(t, rec("a.go", 6, "z", "c3"), ap[2])
+
+	// Same line, DIFFERENT file → appended (distinct anchor).
+	af := upsertAnchor(freshBase(), rec("c.go", 5, "w", "c4"))
+	require.Len(t, af, 3)
+	assert.Equal(t, rec("c.go", 5, "w", "c4"), af[2])
+}
