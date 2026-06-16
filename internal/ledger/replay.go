@@ -44,6 +44,16 @@ func (p Projection) Bandwidth() int {
 		latency := time.Duration(unblockMs-blockMs) * time.Millisecond
 		total += bandwidthAward(latency)
 	}
+	// Floor at zero: the earned total is independent of the spend sink, so a forged or
+	// over-published bwspend bypassing the AppendBandwidthSpend overdraft gate could drive
+	// bwSpent past total and make the meter negative — a corrupt projection the `< cost`
+	// gates and the board would misread. The fold already drops non-positive spends
+	// (Amount>0, like the balance guard); this output floor additionally bounds the
+	// positive-over-spend case the fold can't (spends accrue independent of earn). The
+	// earned total is authoritative; the meter never reads below zero.
+	if p.bwSpent > total {
+		return 0
+	}
 	return total - p.bwSpent
 }
 

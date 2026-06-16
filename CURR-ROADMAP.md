@@ -134,7 +134,17 @@ I/O is verified by build + manual run).
   artifact surfacing (`--numstat`) is unaffected so genuine binaries still surface. Verified no
   false-positive on high-entropy binary (high-confidence structured rules).
 
+- **economy: bandwidth meter floors at zero** — `Projection.Bandwidth()` returned `total - bwSpent`
+  unfloored, so a forged/over-published `bwspend` (past the `AppendBandwidthSpend` overdraft gate,
+  the same forge path the balance test exercises) drove the meter negative — a corrupt projection
+  the `< cost` gates and board would misread. Floored at zero (strict-safe: only lowers the reported
+  value, never lets an overdraft through). Mirrors the project's "projection holds against forged
+  stream data" invariant.
+
 *Council-queued next slices (not yet built):*
+- SYMMETRIC: `Balance()` has no negative floor — a forged POSITIVE over-spend drives balance
+  negative (same class as the bandwidth gap just fixed; the existing balance forge test only covers
+  the negative-spend direction). Add `TestBalance_aForgedOverspendCannotDriveBalanceNegative` + floor. (integrity, medium)
 - `scanStagedDiff` giant-line bound: with `--text`, a large genuinely-binary file emits its bytes as
   one huge `+` line — bounded (~1.3x) but uncapped memory/CPU per regex. A size cap / binary-skip
   before regex would bound it. (hardening, low)

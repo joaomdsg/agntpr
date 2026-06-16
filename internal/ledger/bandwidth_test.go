@@ -117,3 +117,42 @@ func TestLog_negativeLatencyFloorsAtTheThroughputBase(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, bw, "a skewed (negative) latency never pays more than the throughput base")
 }
+
+// The bandwidth meter must hold against forged data on the stream, exactly as
+// TestBalance_aForgedNegativeSpendCannotMintCredit guards the balance projection: the
+// stream is the authoritative substrate, so a forged bwspend published straight to the
+// subject (bypassing the AppendBandwidthSpend overdraft gate) must NOT drive the earned
+// meter negative — a negative meter is a corrupt projection the `< cost` gates and the
+// board would misread.
+func TestBandwidth_aForgedOverspendCannotDriveTheMeterNegative(t *testing.T) {
+	t.Parallel()
+	l, f := openLog(t)
+	base := time.Unix(1_700_000_000, 0)
+	require.NoError(t, l.AppendBlock("wo:1", base))
+	require.NoError(t, l.AppendUnblock("wo:1", base.Add(30*time.Second))) // fast clear → earns 3
+
+	// Forge an over-spend directly onto the subject, past the atomic overdraft gate.
+	_, err := ledger.PublishBandwidthSpend(context.Background(), f, t.Name(), "i",
+		ledger.BandwidthSpendRecord{Kind: "bwspend", Amount: 99, Reason: "forged"})
+	require.NoError(t, err)
+
+	bw, err := l.Bandwidth()
+	require.NoError(t, err)
+	assert.Equal(t, 0, bw, "a forged over-spend floors the meter at 0, never negative (got %d)", bw)
+}
+
+// The floor must clamp ONLY negatives, never legitimate arithmetic: a real in-budget
+// spend through the gate still subtracts normally (earn 3, spend 1 → 2).
+func TestBandwidth_aLegitimateInBudgetSpendStillSubtracts(t *testing.T) {
+	t.Parallel()
+	l, _ := openLog(t)
+	base := time.Unix(1_700_000_000, 0)
+	require.NoError(t, l.AppendBlock("wo:1", base))
+	require.NoError(t, l.AppendUnblock("wo:1", base.Add(30*time.Second))) // earns 3
+
+	require.NoError(t, l.AppendBandwidthSpend(1, "real spend"))
+
+	bw, err := l.Bandwidth()
+	require.NoError(t, err)
+	assert.Equal(t, 2, bw, "an in-budget spend subtracts normally; the floor only clamps negatives")
+}
