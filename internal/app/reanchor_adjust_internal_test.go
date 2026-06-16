@@ -144,3 +144,42 @@ func TestUpsertAnchor_replacesByFileAndLineElseAppends(t *testing.T) {
 	require.Len(t, af, 3)
 	assert.Equal(t, rec("c.go", 5, "w", "c4"), af[2])
 }
+
+// The Lead must be able to RESOLVE (clear) an addressed adjustment so the list doesn't
+// accumulate for the session. removeAnchor drops the entry matching file AND line (order
+// preserved), and is a no-op for an unknown file:line. Twin of upsertAnchor.
+func TestRemoveAnchor_dropsTheMatchingFileAndLineElseNoOp(t *testing.T) {
+	rec := func(file string, line int) adjAnchorRecord {
+		return adjAnchorRecord{file: file, line: line, content: "c", comment: "m"}
+	}
+	base := func() []adjAnchorRecord {
+		return []adjAnchorRecord{rec("a.go", 5), rec("b.go", 9), rec("c.go", 12)}
+	}
+
+	// Remove the middle → order preserved, others untouched.
+	got := removeAnchor(base(), "b.go", 9)
+	require.Equal(t, []adjAnchorRecord{rec("a.go", 5), rec("c.go", 12)}, got)
+
+	// Unknown file:line → unchanged.
+	assert.Equal(t, base(), removeAnchor(base(), "nope.go", 1))
+
+	// Remove from empty → empty.
+	assert.Empty(t, removeAnchor(nil, "a.go", 5))
+
+	// Same line, DIFFERENT file → NOT removed (both file AND line must match).
+	assert.Equal(t, base(), removeAnchor(base(), "x.go", 5))
+	// Same file, DIFFERENT line → NOT removed.
+	assert.Equal(t, base(), removeAnchor(base(), "a.go", 6))
+}
+
+// jsStr produces a JS string literal safe to embed in a datastar expression: a file path
+// containing a quote/backslash/newline must not break out of the quotes (injection guard
+// for the resolve button's inline-assign).
+func TestJsStr_escapesQuotesBackslashesNewlines(t *testing.T) {
+	assert.Equal(t, `"plain.go"`, jsStr("plain.go"))
+	assert.Equal(t, `"a\"b.go"`, jsStr(`a"b.go`), "a double-quote is escaped so it can't close the literal")
+	assert.Equal(t, `"a\\b.go"`, jsStr(`a\b.go`), "a backslash is escaped")
+	assert.Equal(t, `"a\nb"`, jsStr("a\nb"), "a newline can't break the expression onto a new line")
+	assert.Equal(t, `"a\rb"`, jsStr("a\rb"))
+	assert.Equal(t, `""`, jsStr(""))
+}

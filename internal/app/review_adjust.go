@@ -14,6 +14,28 @@ import (
 	"github.com/joaomdsg/packets/internal/ledger"
 )
 
+// ResolveAdjustment clears the adjustment anchored at the AdjFile:AdjLine signals — the
+// Lead marking it addressed so it leaves the list (closing the review-thread loop
+// symmetrically with the answer-vanish flow). Off the economy ledger, no harness dispatch
+// (unlike AddAdjustment): it only forgets the anchor. A missing entry / treeless session /
+// blank or non-positive line is a silent no-op.
+func (c *ReviewCard) ResolveAdjustment(ctx *via.Ctx) {
+	key := c.Key
+	if key == "" {
+		key = defaultSessionKey
+	}
+	e := lookupLiveEntry(key)
+	if e == nil {
+		return
+	}
+	file := strings.TrimSpace(c.AdjFile.Read(ctx))
+	line, _ := strconv.Atoi(strings.TrimSpace(c.AdjLine.Read(ctx)))
+	if file == "" || line < 1 {
+		return
+	}
+	e.removeAdjAnchor(file, line)
+}
+
 // AddAdjustment is the keystone of the review-thread loop (DESIGN §12.3): leaving an
 // anchored comment on a line dispatches a harness TURN that tells the agent what to
 // fix, run against the session's live HEAD — so "leave an adjustment" becomes "watch
@@ -113,6 +135,20 @@ func upsertAnchor(anchors []adjAnchorRecord, rec adjAnchorRecord) []adjAnchorRec
 	return append(anchors, rec)
 }
 
+// removeAnchor drops the adjustment matching file AND line (order preserved), returning a
+// new slice; a file:line not present is a no-op. The twin of upsertAnchor — used to RESOLVE
+// (clear) an addressed adjustment so the list doesn't accumulate for the session.
+func removeAnchor(anchors []adjAnchorRecord, file string, line int) []adjAnchorRecord {
+	out := make([]adjAnchorRecord, 0, len(anchors))
+	for _, a := range anchors {
+		if a.file == file && a.line == line {
+			continue
+		}
+		out = append(out, a)
+	}
+	return out
+}
+
 // relocateAdjustments relocates EVERY remembered adjustment against its file's current
 // content (read injected — no disk here), preserving order and carrying each anchor's own
 // comment through. So the surface shows every adjustment's addressed/moved/outdated state,
@@ -192,8 +228,9 @@ func renderAdjustmentStatuses(c *ReviewCard) []h.H {
 		}
 		return ""
 	}
+	statuses := relocateAdjustments(anchors, read)
 	var badges []h.H
-	for _, s := range relocateAdjustments(anchors, read) {
+	for i, s := range statuses {
 		var cls, status string
 		switch s.State {
 		case adjSame:
@@ -203,10 +240,27 @@ func renderAdjustmentStatuses(c *ReviewCard) []h.H {
 		default: // adjOutdated
 			cls, status = "review-adjust__status--outdated", "addressed — line edited"
 		}
+		// Resolve button keyed on the ORIGINAL anchor file:line (anchors is 1:1 with
+		// statuses by index). The datastar inline-assign sets the adj signals to THIS
+		// badge's file:line then posts ResolveAdjustment — the maplibre/answer-flow bridge,
+		// so the shared per-tab signals carry the right anchor regardless of form state.
+		a := anchors[i]
+		resolveExpr := "$adjfile=" + jsStr(a.file) + ";$adjline=" + jsStr(strconv.Itoa(a.line)) + ";@post('/_action/ResolveAdjustment')"
 		badges = append(badges, h.Span(h.Class("review-adjust__status "+cls),
-			h.Text(s.Comment+" — "+status)))
+			h.Text(s.Comment+" — "+status),
+			h.Button(h.Type("button"), h.Class("pk-btn review-adjust__resolve"),
+				h.Data("on:click", resolveExpr), h.Text("resolve")),
+		))
 	}
 	return badges
+}
+
+// jsStr renders s as a double-quoted JS string literal for a datastar expression, escaping
+// the characters that would break out of the quotes (so a path with a quote/backslash
+// can't corrupt the inline-assign).
+func jsStr(s string) string {
+	r := strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\n`, "\r", `\r`)
+	return `"` + r.Replace(s) + `"`
 }
 
 // readSourceLine returns the 1-indexed content of file's line within repoDir, so the

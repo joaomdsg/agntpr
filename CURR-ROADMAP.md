@@ -224,6 +224,12 @@ input in the directions checked.
   flow is "leave adjustmentS → watch them addressed"; a Lead leaving several no longer sees only
   the last. Reuses the `reanchorAdjustment` core unchanged. (tick-4 council demo-fidelity slice.)
 
+- **review loop: resolve/dismiss an adjustment** — closes (e)/(f) symmetrically with the
+  answer-vanish flow: `ReviewCard.ResolveAdjustment` (off-ledger, no harness — just forgets the
+  anchor via `removeAnchor`/`removeAdjAnchor`) lets the Lead clear an addressed adjustment, with a
+  per-badge "resolve" button wired through the datastar inline-assign bridge (keyed on the original
+  anchor file:line, escaped via `jsStr`). The adjustment list is no longer accumulate-only.
+
 - **review loop: re-commenting a line replaces, not stacks** — `upsertAnchor` gives `addAdjAnchor`
   last-writer-per-`file:line` semantics (mirroring `splitRefinements`): re-commenting a line updates
   its single badge with the latest comment+anchor instead of stacking a duplicate, and bounds

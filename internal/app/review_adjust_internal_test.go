@@ -174,6 +174,8 @@ func TestReviewCard_surfacesWhetherTheAdjustmentWasAddressed(t *testing.T) {
 	assert.Contains(t, body, "still on line 1",
 		"an adjustment whose line is unchanged surfaces as still-anchored, not a stale silent comment")
 	assert.Contains(t, body, "address this", "the adjustment's own comment is shown beside its status")
+	assert.Contains(t, body, "/_action/ResolveAdjustment",
+		"each adjustment carries a resolve affordance so the Lead can clear it")
 }
 
 // A real review leaves SEVERAL adjustments — each must surface its OWN status badge with
@@ -268,4 +270,43 @@ func TestLiveEntry_reCommentingTheSameLineReplacesNotStacks(t *testing.T) {
 	got := e.adjAnchorsSnapshot()
 	require.Len(t, got, 1, "re-commenting the same line replaces, never stacks a duplicate")
 	assert.Equal(t, "actually, this instead", got[0].comment, "the latest comment wins")
+}
+
+// The Lead can RESOLVE an addressed adjustment — it leaves the list (closing the loop),
+// while other adjustments stay. An unknown file:line is a calm no-op. NOT parallel.
+func TestReviewCard_resolveAdjustmentClearsOneAnchor(t *testing.T) {
+	resetConsumersForTest()
+	repo := initGitRepoForOrder(t)
+	head := gitOrder(t, repo, "rev-parse", "HEAD")
+	ctx := context.Background()
+	f, err := fabric.Start(ctx, t.TempDir())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = f.Close() })
+	log := ledger.Bind(f, "adjresolve", "i")
+	registerSession("adjresolve", LiveConfig{RepoDir: repo, BaseRev: head, Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
+	e := lookupLiveEntry("adjresolve")
+	e.addAdjAnchor("base.txt", 1, "base", "first")
+	e.addAdjAnchor("other.go", 7, "x := 1", "second")
+
+	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
+	var server *httptest.Server
+	_, defLog, err := NewServer(LiveConfig{
+		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
+		TestCmd: []string{"true"}, LedgerPath: defLogPath,
+	}, via.WithTestServer(&server))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = defLog.Close() })
+
+	// An unknown file:line is a calm no-op (both kept).
+	tc := vt.NewClient(t, server, "/review?key=adjresolve")
+	require.Equal(t, 200, tc.Action((&ReviewCard{Key: "adjresolve"}).ResolveAdjustment).
+		WithSignal("adjfile", "nope.go").WithSignal("adjline", "99").Fire())
+	require.Len(t, e.adjAnchorsSnapshot(), 2, "an unknown anchor resolves nothing")
+
+	// Resolve the first → it leaves, the second stays.
+	require.Equal(t, 200, tc.Action((&ReviewCard{Key: "adjresolve"}).ResolveAdjustment).
+		WithSignal("adjfile", "base.txt").WithSignal("adjline", "1").Fire())
+	got := e.adjAnchorsSnapshot()
+	require.Len(t, got, 1, "the resolved adjustment leaves the list")
+	assert.Equal(t, "other.go", got[0].file, "the other adjustment stays")
 }

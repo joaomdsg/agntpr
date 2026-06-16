@@ -493,6 +493,15 @@ func (e *liveEntry) addAdjAnchor(file string, line int, content, comment string)
 	e.findingsMu.Unlock()
 }
 
+// removeAdjAnchor clears the adjustment anchored at file:line (the Lead resolved it), a
+// no-op if absent. Ephemeral, off the economy ledger, guarded by findingsMu — twin of
+// addAdjAnchor.
+func (e *liveEntry) removeAdjAnchor(file string, line int) {
+	e.findingsMu.Lock()
+	e.adjAnchors = removeAnchor(e.adjAnchors, file, line)
+	e.findingsMu.Unlock()
+}
+
 // adjAnchorsSnapshot returns a COPY of this session's adjustment anchors, in order (nil if
 // none) — safe to read outside the lock.
 func (e *liveEntry) adjAnchorsSnapshot() []adjAnchorRecord {
