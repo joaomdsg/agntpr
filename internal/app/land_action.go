@@ -143,11 +143,13 @@ func realOpenPR(ctx context.Context, repoDir, baseRev, branch, title, body, expe
 		if isPRAlreadyExists(string(out)) {
 			url, verr := ghPRViewURL(ctx, repoDir, branch)
 			if verr != nil {
-				return "", "", verr
+				return "", sha, verr // the push landed — return the SHA so the caller caches it
 			}
 			return url, sha, nil
 		}
-		return "", "", fmt.Errorf("gh pr create: %v: %s", err, strings.TrimSpace(string(out)))
+		// The push already landed sha on the branch; return it (even on this failure) so the
+		// caller caches it and the next re-land leases against the SHA actually on the remote.
+		return "", sha, fmt.Errorf("gh pr create: %v: %s", err, strings.TrimSpace(string(out)))
 	}
 	return strings.TrimSpace(string(out)), sha, nil
 }
@@ -184,13 +186,19 @@ func (c *LiveCard) Approve(ctx *via.Ctx) {
 		expected = e.lastPushedSHASnapshot()
 	}
 	url, pushedSHA, err := openPR(context.Background(), cfg.RepoDir, cfg.BaseRev, prBranchName(key), title, body, expected)
+	// Cache the pushed SHA the moment the push lands (pushedSHA non-empty) — independent of
+	// whether the PR-open step then failed. Otherwise a gh failure after a successful push
+	// would leave the cache stale while the remote branch advanced, wedging the next
+	// re-land's lease (it would name the old SHA against a branch that moved).
+	if pushedSHA != "" {
+		if e := lookupLiveEntry(key); e != nil {
+			e.setLastPushedSHA(pushedSHA)
+		}
+	}
 	if err != nil {
 		setLandResult(key, "PR failed — "+err.Error())
 		c.Landed.Write(ctx, "error")
 		return
-	}
-	if e := lookupLiveEntry(key); e != nil {
-		e.setLastPushedSHA(pushedSHA) // the next re-land leases against this
 	}
 	setLandResult(key, url)
 	c.Landed.Write(ctx, "opened")

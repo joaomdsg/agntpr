@@ -189,7 +189,18 @@ I/O is verified by build + manual run).
   (delegates to `present()`, raw fallback for unknown/forward tokens) now gives the same human
   headline the review card shows ("Anchor lost: file renamed"). Completes the surface-legibility theme.
 
+- **land: cache the pushed SHA on a post-push failure (unwedge re-land)** — Approve cached the
+  pushed SHA only on full success, so a `gh` failure AFTER a successful push left the cache stale
+  while the remote branch advanced — wedging the next re-land's `--force-with-lease` (it leased the
+  old SHA against a branch that moved). Approve now caches whenever `pushedSHA != ""` (before the
+  err check); `realOpenPR` returns the pushed sha on its two post-push failure paths. Verified the
+  lease-loop unwedges (cached SHA matches the remote at every step).
+
 *Council-queued next slices (not yet built):*
+- `realOpenPR` post-push-failure sha-return characterization test: the contract (push succeeded but
+  gh failed ⇒ return the real sha) is the load-bearing half of the unwedge fix but only stub-asserted
+  at the Approve boundary; a local-bare-repo + failing-`gh`-on-PATH test would lock it against a silent
+  revert. (test-debt, low — against the project's "seam verified by build+manual run" convention)
 - `scanStagedDiff` giant-line bound: with `--text`, a large genuinely-binary file emits its bytes as
   one huge `+` line — bounded (~1.3x) but uncapped memory/CPU per regex. A size cap / binary-skip
   before regex would bound it. (hardening, low)

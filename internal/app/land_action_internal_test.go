@@ -104,6 +104,30 @@ func TestApprove_cleanTreeOpensPRAndSurfacesTheURL(t *testing.T) {
 	body := bodyOf(vt.NewClient(t, server, "/?key=appok").HTML())
 	assert.Contains(t, body, `href="https://example/pr/42"`,
 		"the opened PR URL surfaces as a CLICKABLE link, not bare text — it's the finish line")
+	assert.Equal(t, "sha42", lookupLiveEntry("appok").lastPushedSHASnapshot(),
+		"a successful land caches the pushed SHA so the next re-land leases against it")
+}
+
+// The push can succeed while a LATER step (gh pr create / pr view) fails. The pushed SHA
+// must STILL be cached — the remote branch already advanced to it, so the next re-land
+// must lease against it. Caching only on full success would leave the cache stale and
+// WEDGE the re-land (its lease would name the old SHA against a branch that moved). NOT
+// parallel (shared globals).
+func TestApprove_cachesThePushedSHAEvenWhenThePRStepFails(t *testing.T) {
+	restore := openPR
+	t.Cleanup(func() { openPR = restore })
+	openPR = func(_ context.Context, _, _, _, _, _, _ string) (string, string, error) {
+		return "", "pushedsha1", errors.New("gh pr create: boom") // pushed, but PR-open failed
+	}
+
+	_, server := approveServer(t, "appwedge")
+	tc := vt.NewClient(t, server, "/?key=appwedge")
+	require.Equal(t, 200, tc.Action((&LiveCard{Key: "appwedge"}).Approve).Fire())
+
+	assert.Equal(t, "pushedsha1", lookupLiveEntry("appwedge").lastPushedSHASnapshot(),
+		"the pushed SHA is cached despite the PR-open failure, so the next re-land's lease matches the remote")
+	body := bodyOf(vt.NewClient(t, server, "/?key=appwedge").HTML())
+	assert.Contains(t, body, "PR failed", "the failure still surfaces calmly on the card")
 }
 
 // A push/PR failure must surface calmly on the card, never crash the action. NOT
@@ -122,4 +146,6 @@ func TestApprove_pushFailureSurfacesCalmly(t *testing.T) {
 
 	body := bodyOf(vt.NewClient(t, server, "/?key=appfail").HTML())
 	assert.Contains(t, body, "push rejected", "the failure reason surfaces calmly on the card")
+	assert.Equal(t, "", lookupLiveEntry("appfail").lastPushedSHASnapshot(),
+		"a PRE-push failure pushed nothing, so there is no SHA to cache")
 }
