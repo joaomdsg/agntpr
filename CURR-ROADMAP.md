@@ -106,10 +106,15 @@ I/O is verified by build + manual run).
   window; >1 → `Outdated`. Hardens the trust anchor the catch economy keys off (the layer
   below `Detect`). Holds for multi-line blocks too. Fail-closed only reduces catches (safe).
 
+*Investigated & dropped:*
+- ~~orchestrator `registerSession` double-drain~~ — **not a reachable bug.** `CreateSession`
+  (board.go:228) already guards re-registration (`liveReg.Load(key)` → no-op) and is the only
+  multi-call path; boot seeds `default` once. The proposed fixes are net-negative here:
+  `e.cfg`/`e.log` are read UNLOCKED in hot paths, so in-place mutation would *introduce* races;
+  and replace-semantics are load-bearing for the test harness (re-seeding `default` across
+  `NewServer`). Left as-is.
+
 *Council-queued next slices (not yet built):*
-- orchestrator: `registerSession` re-registration allocates a NEW liveEntry (fresh runMu/sem),
-  breaking the "one drainer per session" invariant → possible double-drain TOCTOU on a re-booted
-  live key. Reuse the existing entry's runMu/sem on re-register. Needs `-race` test. (concurrency, medium)
 - cache-after-success recoverability: if push succeeds but `gh` (create OR view) fails, the
   un-cached SHA wedges the next re-land (fails closed, not data loss) — cache the pushed SHA
   as soon as the push succeeds, independent of PR-URL resolution. (low)
