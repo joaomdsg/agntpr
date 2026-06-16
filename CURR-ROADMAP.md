@@ -126,7 +126,20 @@ I/O is verified by build + manual run).
   the line has mutable operators, but a mutation run did not finish"). A self-introduced
   regression (the tick-7 reason wasn't wired through the presentation layer); verified end-to-end.
 
+- **secret gate: `--text` defeats `.gitattributes` binary-coercion** — a `*.env -diff` attribute
+  made `git diff` render a PLAINTEXT secret file as "Binary files differ" (zero `+` lines), so the
+  added-line scanner missed it and the secret entered history — defeating the §12.2.1 CRITICAL
+  invariant, and the same hole sat on `ScanCommitRange` (the pre-push land gate). `--text` is now
+  pinned on all three scan diffs (`Settle`, `ScanHistory`, `ScanCommitRange`) forcing a textual diff;
+  artifact surfacing (`--numstat`) is unaffected so genuine binaries still surface. Verified no
+  false-positive on high-entropy binary (high-confidence structured rules).
+
 *Council-queued next slices (not yet built):*
+- `scanStagedDiff` giant-line bound: with `--text`, a large genuinely-binary file emits its bytes as
+  one huge `+` line — bounded (~1.3x) but uncapped memory/CPU per regex. A size cap / binary-skip
+  before regex would bound it. (hardening, low)
+- `ScanHistory` coercion test: add the attribute-coercion characterization test when ScanHistory is
+  wired into a live gate (currently unwired). (test-debt, low)
 - board "why" tag renders RAW verdict tokens (`oracle_incomplete`, `lost_via_rename`) instead of
   human copy (board.go:640) — cosmetic, NOT a lie; a shared token→label map would align board with
   the card headlines. (polish, low)

@@ -85,8 +85,13 @@ func Settle(ctx context.Context, repoDir, message string) (Result, error) {
 	// diff.mnemonicPrefix change the "+++ b/<path>" header; diff.external swaps
 	// in a foreign formatter) would otherwise let a secret slip past the parser
 	// unscanned and into history. --no-color/--no-ext-diff and explicit
-	// src/dst prefixes pin the format scanStagedDiff parses.
-	diff, err := git(ctx, repoDir, "diff", "--cached", "--no-color", "--no-ext-diff", "--src-prefix=a/", "--dst-prefix=b/")
+	// src/dst prefixes pin the format scanStagedDiff parses. --text forces a
+	// TEXTUAL diff even for a path a .gitattributes entry coerces to binary
+	// (`*.env -diff`, hostile or merely present in the cloned repo) — otherwise
+	// git emits "Binary files differ" with NO added lines and a plaintext secret
+	// in such a file would never be scanned. (Artifact surfacing uses a separate
+	// --numstat call, so genuinely-binary files still surface as artifacts.)
+	diff, err := git(ctx, repoDir, "diff", "--cached", "--text", "--no-color", "--no-ext-diff", "--src-prefix=a/", "--dst-prefix=b/")
 	if err != nil {
 		return Result{}, err
 	}
@@ -122,7 +127,7 @@ func Settle(ctx context.Context, repoDir, message string) (Result, error) {
 // does. Merge-commit diffs are skipped (git log's default), so a secret
 // introduced only in a merge resolution is not covered — a noted limitation.
 func ScanHistory(ctx context.Context, repoDir string) ([]SecretHit, error) {
-	log, err := git(ctx, repoDir, "log", "-p", "--all", "--no-color", "--no-ext-diff", "--src-prefix=a/", "--dst-prefix=b/")
+	log, err := git(ctx, repoDir, "log", "-p", "--all", "--text", "--no-color", "--no-ext-diff", "--src-prefix=a/", "--dst-prefix=b/")
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +144,7 @@ func ScanHistory(ctx context.Context, repoDir string) ([]SecretHit, error) {
 // range adds. The pinned diff flags defeat a hostile/customized git config, exactly as
 // Settle and ScanHistory do.
 func ScanCommitRange(ctx context.Context, repoDir, base, rev string) ([]SecretHit, error) {
-	diff, err := git(ctx, repoDir, "diff", "--no-color", "--no-ext-diff", "--src-prefix=a/", "--dst-prefix=b/", base+".."+rev)
+	diff, err := git(ctx, repoDir, "diff", "--text", "--no-color", "--no-ext-diff", "--src-prefix=a/", "--dst-prefix=b/", base+".."+rev)
 	if err != nil {
 		return nil, err
 	}
