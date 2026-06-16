@@ -54,3 +54,22 @@ func TestScanHistory_isCleanForAHistoryWithNoSecrets(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, hits, "a history with no secrets must scan clean")
 }
+
+// Security regression guard: the history scan must catch a secret even in a file a
+// .gitattributes entry coerces to "binary" for diff. Without the pinned --text the
+// `git log -p` for such a file would emit "Binary files differ" (no added lines) and the
+// scanner would miss the secret living in history. (Parallel to the Settle/ScanCommitRange
+// coercion guards.)
+func TestScanHistory_catchesASecretInAnAttributeCoercedBinaryFile(t *testing.T) {
+	t.Parallel()
+	dir := initRepo(t)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".gitattributes"), []byte("*.env -diff\n"), 0o644))
+	runGit(t, dir, "add", "-A")
+	runGit(t, dir, "commit", "-qm", "attrs")
+	writeCommit(t, dir, "leak.env", "API_KEY=\"ABCDEFGHIJKLMNOP1234\"\n", "smuggle a key in a coerced file")
+
+	hits, err := settle.ScanHistory(context.Background(), dir)
+	require.NoError(t, err)
+	assert.True(t, hasHit(hits, "leak.env", "secret-assignment"),
+		"the history scan must catch a coerced-binary secret; got %v", hits)
+}

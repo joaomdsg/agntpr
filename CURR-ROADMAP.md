@@ -201,6 +201,12 @@ I/O is verified by build + manual run).
   err check); `realOpenPR` returns the pushed sha on its two post-push failure paths. Verified the
   lease-loop unwedges (cached SHA matches the remote at every step).
 
+- **security regression guards** — added two characterization tests locking shipped security
+  properties against regression: an errored turn's secret-bearing file is scrubbed by
+  `DiscardWorkingTree` (`git clean -fd`, so it can't leak into a later mint), and `ScanHistory`'s
+  `--text` catches a secret in a `.gitattributes`-coerced "binary" file. Each fails if its guard
+  is removed.
+
 *Council-queued next slices (not yet built):*
 - `realOpenPR` post-push-failure sha-return characterization test: the contract (push succeeded but
   gh failed ⇒ return the real sha) is the load-bearing half of the unwedge fix but only stub-asserted

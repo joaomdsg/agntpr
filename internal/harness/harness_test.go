@@ -343,3 +343,28 @@ func TestSupervisor_discardsPartialEditsOfAnErroredTurnSoTheyDoNotLeakIntoTheNex
 	assert.Contains(t, tree, "real.txt", "the successful turn's own change is committed")
 	assert.NotContains(t, tree, "leak.txt", "the errored turn's discarded residue must NOT leak into the mint")
 }
+
+// Security regression guard: an errored turn that wrote a SECRET-bearing file must leave
+// no trace — DiscardWorkingTree's `git clean -fd` removes the untracked file before any
+// later turn's `git add -A` could sweep it into a mint. (The errored turn is rolled back
+// to base; the secret never reaches disk-persistent history.)
+func TestSupervisor_scrubsAnErroredTurnsSecretBearingFile(t *testing.T) {
+	t.Parallel()
+	dir := initRepo(t)
+	base := runGit(t, dir, "rev-parse", "HEAD")
+
+	stream := script(
+		frame{line: thinking("writing a credentials file before running out of turns")},
+		frame{do: write(t, dir, "creds.env", "AWS_SECRET=AKIAIOSFODNN7EXAMPLE\n"), line: editing("creds.env")},
+		frame{line: errorTurnEnd()},
+	)
+
+	turns, err := harness.New(dir, base).Run(context.Background(), stream)
+	require.NoError(t, err)
+	require.Len(t, turns, 1)
+	assert.False(t, turns[0].Outcome.Minted, "the errored turn mints nothing")
+
+	_, statErr := os.Stat(filepath.Join(dir, "creds.env"))
+	assert.True(t, os.IsNotExist(statErr), "the errored turn's secret file is scrubbed from the working tree")
+	assert.Equal(t, base, runGit(t, dir, "rev-parse", "HEAD"), "HEAD stays at base — the secret never persists")
+}
