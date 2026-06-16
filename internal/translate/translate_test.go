@@ -180,3 +180,27 @@ func TestTranslate_degradesToolInputOfUnexpectedShapeNotErrors(t *testing.T) {
 		})
 	}
 }
+
+// A turn.ended that signals an ERROR (the agent crashed, ran out of turns, or the harness
+// died) must be recognizable so the reducer keeps the prior revision instead of minting a
+// partial/truncated working tree (DESIGN §1183). Fail closed: an empty/unknown subtype is
+// treated as errored — never mint on an ambiguous turn-end.
+func TestTurnErrored_recognizesErroredTurnEndsFailingClosed(t *testing.T) {
+	cases := []struct {
+		detail string
+		want   bool
+	}{
+		{"success", false},
+		{"error", true},
+		{"error_max_turns", true},
+		{"error_during_execution", true},
+		{"", true},
+		{"weird_unknown", true},
+	}
+	for _, tc := range cases {
+		got := translate.TurnErrored(translate.UIEvent{Type: "turn.ended", Detail: tc.detail})
+		if got != tc.want {
+			t.Errorf("TurnErrored(turn.ended %q) = %v, want %v", tc.detail, got, tc.want)
+		}
+	}
+}

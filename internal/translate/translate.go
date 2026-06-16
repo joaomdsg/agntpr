@@ -98,3 +98,14 @@ func Translate(raw []byte) ([]UIEvent, error) {
 		return nil, nil
 	}
 }
+
+// TurnErrored reports whether a turn.ended event signals a harness/agent ERROR (the
+// `result` subtype was "error"/"error_max_turns"/"error_during_execution", or anything
+// other than a clean "success") rather than a successful turn. It is meaningful only for
+// Type=="turn.ended" events (whose Detail carries the result subtype). FAIL-CLOSED: an
+// empty or unrecognized subtype is treated as errored, so an ambiguous turn-end never
+// mints a (possibly partial/truncated) revision (DESIGN §1183: an errored turn keeps the
+// prior revision).
+func TurnErrored(e UIEvent) bool {
+	return e.Detail != "success"
+}

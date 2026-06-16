@@ -147,7 +147,22 @@ I/O is verified by build + manual run).
   directions (negative-spend can't mint credit; positive-over-spend can't go negative). Strict-safe:
   only lowers the reported value, gate stays correct, no raw-field reader bypasses it.
 
+- **harness: errored turn keeps prior revision** — `Supervisor.Run` settled on EVERY `turn.ended`,
+  so a crashed/out-of-turns agent (`result subtype:"error_max_turns"`/`error_during_execution`)
+  minted its PARTIAL working tree as a real revision and threaded fabricated work into the catch
+  cycle — violating DESIGN §1183 ("error subtype → keep prior revision"). Added `translate.TurnErrored`
+  (fail-closed: only "success" mints) + a reducer guard that records an errored turn as non-minted
+  (base doesn't advance, `lastMintedSHA` skips it).
+
 *Council-queued next slices (not yet built):*
+- COMPLETING follow-up to the above (Blue-surfaced): an errored turn's abandoned partial edits stay
+  on disk, and `settle.Settle`'s `git add -A` is whole-tree — so the NEXT successful turn's mint
+  sweeps in the residue (§1183/timeout row: "partial edits discarded"). Reset the working tree to
+  `baseRev` on the errored branch before continuing. Needs a Red test for errored-then-successful. (integrity, medium-high)
+- cage verifier well-formedness gate: `DeriveCatch` trusts cage-reported `LineState` without checking
+  `Survivors/Undetermined ⊆ Inventory` (an invariant the code declares but doesn't enforce at the
+  untrusted boundary) — a phantom out-of-alphabet operator can flip NoCatch→PartialCatch (a
+  positive-looking, non-recordable surface verdict). Refuse malformed evidence. (integrity, medium)
 - `scanStagedDiff` giant-line bound: with `--text`, a large genuinely-binary file emits its bytes as
   one huge `+` line — bounded (~1.3x) but uncapped memory/CPU per regex. A size cap / binary-skip
   before regex would bound it. (hardening, low)

@@ -289,3 +289,28 @@ func TestSupervisor_skipsBlankStreamLines(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, turns, 1, "blank lines must not break turn detection")
 }
+
+func errorTurnEnd() string { return `{"type":"result","subtype":"error_max_turns"}` }
+
+// A turn that ERRORED (ran out of turns / crashed) leaves a partial, truncated working
+// tree. The supervisor must NOT mint it as a revision — DESIGN §1183 says keep the prior
+// revision so the user can re-prompt. Minting a half-finished tree would thread fabricated
+// work forward into the catch cycle as if the agent had completed it.
+func TestSupervisor_keepsPriorRevisionWhenATurnErrors(t *testing.T) {
+	t.Parallel()
+	dir := initRepo(t)
+	base := runGit(t, dir, "rev-parse", "HEAD")
+
+	stream := script(
+		frame{line: thinking("half-editing before I run out of turns")},
+		frame{do: write(t, dir, "f.txt", "one\nPARTIAL\n"), line: editing("f.txt")},
+		frame{line: errorTurnEnd()},
+	)
+
+	turns, err := harness.New(dir, base).Run(context.Background(), stream)
+	require.NoError(t, err, "an errored turn is a calm boundary, not a Run failure")
+	require.Len(t, turns, 1, "the errored turn is still recorded")
+	assert.False(t, turns[0].Outcome.Minted, "an errored turn mints no revision — the partial tree is not real work")
+	assert.Equal(t, base, runGit(t, dir, "rev-parse", "HEAD"),
+		"HEAD stays at the prior revision; the truncated working tree is never committed")
+}

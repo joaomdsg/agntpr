@@ -83,6 +83,15 @@ func (s *Supervisor) Run(ctx context.Context, r io.Reader) ([]Turn, error) {
 				activity = append(activity, e)
 				continue
 			}
+			// An errored/crashed turn (out of turns, harness died) leaves a partial,
+			// truncated working tree. Do NOT mint it — keep the prior revision so the user
+			// can re-prompt (DESIGN §1183). Record the turn as non-minted so the base does
+			// not advance and the catch cycle never sees fabricated work.
+			if translate.TurnErrored(e) {
+				turns = append(turns, Turn{Events: pending, Outcome: orchestrator.TurnOutcome{}})
+				pending = nil
+				continue
+			}
 			out, err := orchestrator.SettleTurn(ctx, s.repoDir, s.baseRev, "harness turn")
 			if err != nil {
 				return nil, err
