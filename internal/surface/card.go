@@ -89,3 +89,17 @@ func present(verdict string) (state, headline, detail string) {
 		return "in-flight", "Oracle running…", "Mutating the changed lines and checking your tests."
 	}
 }
+
+// VerdictLabel returns the human-readable label for a persisted verdict token — the same
+// headline the review card shows — so other surfaces (the fleet board's "why" tag) render
+// "Anchor lost: file renamed" instead of the raw "lost_via_rename" token. An unknown or
+// empty token (which present maps to the "in-flight" running default) is returned
+// unchanged: forward-compatible with a future verdict kind, and never the misleading
+// "Oracle running…" for a token the board persisted as a done order's verdict.
+func VerdictLabel(verdict string) string {
+	state, headline, _ := present(verdict)
+	if state == "in-flight" {
+		return verdict
+	}
+	return headline
+}

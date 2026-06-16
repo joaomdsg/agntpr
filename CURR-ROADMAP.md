@@ -184,6 +184,11 @@ I/O is verified by build + manual run).
   LOW, currently-unreachable defensive item (guard split-expansion against an already-consumed parent
   in the pure fn rather than only at the action layer). Not built.
 
+- **board renders human verdict labels** — the fleet board's "why" tag rendered the raw
+  snake_case verdict token (`lost_via_rename`, `oracle_incomplete`); `surface.VerdictLabel`
+  (delegates to `present()`, raw fallback for unknown/forward tokens) now gives the same human
+  headline the review card shows ("Anchor lost: file renamed"). Completes the surface-legibility theme.
+
 *Council-queued next slices (not yet built):*
 - `scanStagedDiff` giant-line bound: with `--text`, a large genuinely-binary file emits its bytes as
   one huge `+` line — bounded (~1.3x) but uncapped memory/CPU per regex. A size cap / binary-skip

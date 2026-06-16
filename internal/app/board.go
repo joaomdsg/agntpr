@@ -17,6 +17,7 @@ import (
 	"github.com/joaomdsg/packets/internal/ledger"
 	"github.com/joaomdsg/packets/internal/pipe"
 	"github.com/joaomdsg/packets/internal/reanchor"
+	"github.com/joaomdsg/packets/internal/surface"
 )
 
 // CardRow is one session's line on the fleet board — a calm cross-card tally
@@ -637,7 +638,7 @@ func renderDispatches(key string, views []ledger.DispatchView) h.H {
 		// (no-catch vs lost-via-rename vs no-oracle-signal …) — as a calm secondary
 		// detail. Omitted when none is persisted (never an empty "why" tag).
 		if v.Status == "done" && v.Verdict != "" {
-			span = append(span, h.Span(h.Class("board-row__dispatch-why"), h.Text(" "+v.Verdict)))
+			span = append(span, h.Span(h.Class("board-row__dispatch-why"), h.Text(" "+surface.VerdictLabel(v.Verdict))))
 		}
 		// The order's reviewable test-debt: how many open review questions (surviving
 		// mutants) the filled work left — a DRILL link into that order's review

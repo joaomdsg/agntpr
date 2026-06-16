@@ -122,3 +122,29 @@ func TestPresentVerdict_onlyProducesTokensTheCardRenders(t *testing.T) {
 		assert.Truef(t, known[got], "token %q is not a state the card renders", got)
 	}
 }
+
+// Other surfaces (the fleet board's "why" tag) must render the SAME human verdict label
+// the review card shows — not the raw snake_case token. VerdictLabel maps a persisted
+// verdict token to its headline; an unknown/empty token returns the token unchanged
+// (forward-compatible — never the misleading "Oracle running…" the in-flight default
+// would give).
+func TestVerdictLabel_humanizesKnownTokensAndPassesUnknownThrough(t *testing.T) {
+	cases := []struct{ token, want string }{
+		{"catch", "Caught"},
+		{"no_catch", "No catch"},
+		{"no_oracle_signal", "No oracle signal"},
+		{"partial_catch", "Partially caught"},
+		{surface.Tested, "Tested — ship it"},
+		{surface.LostViaRename, "Anchor lost: file renamed"},
+		{surface.AnchorEdited, "Anchor edited"},
+		{surface.AnchorDeleted, "Anchor lost: file gone"},
+		{surface.OracleIncomplete, "Oracle incomplete"},
+		{"future_kind", "future_kind"}, // unknown → raw, never "Oracle running…"
+		{"", ""},                       // empty → raw
+	}
+	for _, tc := range cases {
+		if got := surface.VerdictLabel(tc.token); got != tc.want {
+			t.Errorf("VerdictLabel(%q) = %q, want %q", tc.token, got, tc.want)
+		}
+	}
+}

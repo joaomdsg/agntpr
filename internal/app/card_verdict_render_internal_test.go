@@ -51,6 +51,37 @@ func TestLiveCard_showsThePerOrderVerdictSoAMissIsDiagnosable(t *testing.T) {
 	require.Contains(t, body, "board-row__dispatch-why", "the verdict carries its own calm hook so it reads as secondary detail")
 }
 
+// The board's "why" tag must render a HUMAN label for a real verdict token, not the raw
+// snake_case the surface persists — so the Lead reads "Anchor lost: file renamed", never
+// "lost_via_rename". NOT parallel (shared liveReg/liveFabric).
+func TestLiveCard_rendersTheVerdictWhyAsAHumanLabelNotARawToken(t *testing.T) {
+	ctx := context.Background()
+	f, err := fabric.Start(ctx, t.TempDir())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = f.Close() })
+	log := ledger.Bind(f, "whylabel", "i")
+
+	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 100, ReasonTag: "catch"}))
+	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
+	require.NoError(t, log.AppendDispatch("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
+	require.NoError(t, log.AppendStatus(1, "done"))
+	require.NoError(t, log.AppendWorkOrderVerdict(1, "lost_via_rename")) // a real persisted verdict token
+	registerSession("whylabel", LiveConfig{BaseRev: "own-b-whylabel", FixRev: "own-f", Anchor: anchorForCap()}, log)
+
+	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
+	var server *httptest.Server
+	_, defLog, err := NewServer(LiveConfig{
+		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
+		TestCmd: []string{"true"}, LedgerPath: defLogPath,
+	}, via.WithTestServer(&server))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = defLog.Close() })
+
+	body := bodyOf(vt.NewClient(t, server, "/?key=whylabel").HTML())
+	require.Contains(t, body, "Anchor lost: file renamed", "the why tag reads as a human label")
+	require.NotContains(t, body, "lost_via_rename", "the raw snake_case token must not leak to the board")
+}
+
 // An order with no persisted verdict (queued, or pre-diagnostics data) renders no
 // verdict element — never an empty "why" tag implying the oracle said something.
 // NOT parallel (shared liveReg/liveFabric).
