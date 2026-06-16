@@ -149,3 +149,135 @@ func TestApprove_pushFailureSurfacesCalmly(t *testing.T) {
 	assert.Equal(t, "", lookupLiveEntry("appfail").lastPushedSHASnapshot(),
 		"a PRE-push failure pushed nothing, so there is no SHA to cache")
 }
+
+// "Landed ≠ Merged" (DESIGN §29.2): an opened PR is NOT a merge. classifyLandLifecycle
+// maps gh's PR state to the post-open lifecycle, failing CLOSED — it never claims Merged
+// unless gh definitively says so (an unknown/empty state reads as the conservative
+// not-yet-merged Landed, never a false Merged).
+func TestClassifyLandLifecycle_failsClosedNeverFalselyMerged(t *testing.T) {
+	cases := []struct {
+		state string
+		want  landLifecycle
+	}{
+		{"MERGED", lifecycleMerged},
+		{"merged", lifecycleMerged},   // case-insensitive
+		{" MERGED ", lifecycleMerged}, // trimmed
+		{"CLOSED", lifecycleBounced},  // closed unmerged
+		{"OPEN", lifecycleLanded},     // landed, not yet merged
+		{"", lifecycleLanded},         // unknown → conservative not-yet-merged
+		{"WeIrD", lifecycleLanded},    // unknown → never a false Merged
+	}
+	for _, tc := range cases {
+		if got := classifyLandLifecycle(tc.state); got != tc.want {
+			t.Errorf("classifyLandLifecycle(%q) = %q, want %q", tc.state, got, tc.want)
+		}
+	}
+}
+
+// CheckMergeState (DESIGN §29.2) refreshes an opened PR's merge lifecycle through the
+// mergeState seam: a definitive gh state caches the right lifecycle; a seam error is a
+// calm no-op; and it never runs (nor caches) when no PR was opened. NOT parallel.
+func TestCheckMergeState_refreshesLifecycleOnlyForAnOpenedPR(t *testing.T) {
+	restoreOpen := openPR
+	restoreMerge := mergeState
+	t.Cleanup(func() { openPR = restoreOpen; mergeState = restoreMerge })
+	openPR = func(_ context.Context, _, _, _, _, _, _ string) (string, string, error) {
+		return "https://example/pr/7", "shaX", nil
+	}
+
+	log, server := approveServer(t, "appmerge")
+	require.NoError(t, log.AppendLiveDispatch("liveorder", ledger.Target{BaseRev: "h", Prompt: "Do it."}, ledger.Target{}))
+	tc := vt.NewClient(t, server, "/?key=appmerge")
+	require.Equal(t, 200, tc.Action((&LiveCard{Key: "appmerge"}).Approve).Fire())
+	// A freshly opened PR is landed-not-merged immediately.
+	assert.Equal(t, string(lifecycleLanded), lookupLiveEntry("appmerge").landLifecycleSnapshot())
+
+	// gh says MERGED → lifecycle refreshes to merged.
+	mergeState = func(_ context.Context, _, _ string) (string, error) { return "MERGED", nil }
+	require.Equal(t, 200, tc.Action((&LiveCard{Key: "appmerge"}).CheckMergeState).Fire())
+	assert.Equal(t, string(lifecycleMerged), lookupLiveEntry("appmerge").landLifecycleSnapshot(),
+		"a definitive merged state is surfaced")
+
+	// A seam error is a calm no-op — the prior (merged) lifecycle stands, never a false downgrade.
+	mergeState = func(_ context.Context, _, _ string) (string, error) { return "", errors.New("gh down") }
+	require.Equal(t, 200, tc.Action((&LiveCard{Key: "appmerge"}).CheckMergeState).Fire())
+	assert.Equal(t, string(lifecycleMerged), lookupLiveEntry("appmerge").landLifecycleSnapshot(),
+		"a transient gh error leaves the prior lifecycle, never a false claim")
+}
+
+// CheckMergeState must NOT call the gh seam when no PR was opened (a blocked/none land) —
+// there's nothing to check. NOT parallel.
+func TestCheckMergeState_isANoOpWhenNoPRWasOpened(t *testing.T) {
+	restoreMerge := mergeState
+	t.Cleanup(func() { mergeState = restoreMerge })
+	called := false
+	mergeState = func(_ context.Context, _, _ string) (string, error) { called = true; return "MERGED", nil }
+
+	_, server := approveServer(t, "appnopr") // no Approve fired → no opened PR
+	tc := vt.NewClient(t, server, "/?key=appnopr")
+	require.Equal(t, 200, tc.Action((&LiveCard{Key: "appnopr"}).CheckMergeState).Fire())
+	assert.False(t, called, "with no opened PR, the merge-state seam is never invoked")
+	assert.Equal(t, "", lookupLiveEntry("appnopr").landLifecycleSnapshot())
+}
+
+// The land control surfaces the "Landed ≠ Merged" thesis on an opened PR (DESIGN §29.2):
+// the badge says not-yet-merged and a check-merge-state action is wired. NOT parallel.
+func TestRenderLandControl_surfacesLandedNotMergedOnAnOpenedPR(t *testing.T) {
+	restore := openPR
+	t.Cleanup(func() { openPR = restore })
+	openPR = func(_ context.Context, _, _, _, _, _, _ string) (string, string, error) {
+		return "https://example/pr/9", "shaY", nil
+	}
+	log, server := approveServer(t, "applife")
+	require.NoError(t, log.AppendLiveDispatch("liveorder", ledger.Target{BaseRev: "h", Prompt: "Do it."}, ledger.Target{}))
+	tc := vt.NewClient(t, server, "/?key=applife")
+	require.Equal(t, 200, tc.Action((&LiveCard{Key: "applife"}).Approve).Fire())
+
+	body := bodyOf(vt.NewClient(t, server, "/?key=applife").HTML())
+	assert.Contains(t, body, "not yet merged", "an opened PR is shown as landed, NOT merged (§29.2)")
+	assert.Contains(t, body, "/_action/CheckMergeState", "a check-merge-state affordance is wired")
+}
+
+// A stale "merged" badge must not linger under a new blocked/error outcome: a re-land that
+// gets BLOCKED clears the lifecycle, so the badge disappears. NOT parallel.
+func TestApprove_clearsLifecycleWhenAReLandIsBlocked(t *testing.T) {
+	restore := openPR
+	t.Cleanup(func() { openPR = restore })
+	openPR = func(_ context.Context, _, _, _, _, _, _ string) (string, string, error) {
+		return "https://example/pr/3", "shaZ", nil
+	}
+	log, server := approveServer(t, "appclear")
+	require.NoError(t, log.AppendLiveDispatch("liveorder", ledger.Target{BaseRev: "h", Prompt: "Do it."}, ledger.Target{}))
+	tc := vt.NewClient(t, server, "/?key=appclear")
+	require.Equal(t, 200, tc.Action((&LiveCard{Key: "appclear"}).Approve).Fire())
+	require.Equal(t, string(lifecycleLanded), lookupLiveEntry("appclear").landLifecycleSnapshot())
+
+	// A later land is now blocked (red checks) → the lifecycle badge is cleared.
+	lookupLiveEntry("appclear").setLand("checks_red")
+	require.Equal(t, 200, tc.Action((&LiveCard{Key: "appclear"}).Approve).Fire())
+	assert.Equal(t, "", lookupLiveEntry("appclear").landLifecycleSnapshot(),
+		"a blocked re-land clears the lifecycle so no stale 'merged'/'landed' badge lingers")
+}
+
+// The merged and bounced lifecycle badges render their honest copy after a merge check.
+// NOT parallel.
+func TestRenderLandControl_surfacesMergedAndBouncedLifecycle(t *testing.T) {
+	render := func(t *testing.T, key, ghState, want string) {
+		restoreOpen := openPR
+		restoreMerge := mergeState
+		t.Cleanup(func() { openPR = restoreOpen; mergeState = restoreMerge })
+		openPR = func(_ context.Context, _, _, _, _, _, _ string) (string, string, error) {
+			return "https://example/pr/1", "s", nil
+		}
+		log, server := approveServer(t, key)
+		require.NoError(t, log.AppendLiveDispatch("liveorder", ledger.Target{BaseRev: "h", Prompt: "Do it."}, ledger.Target{}))
+		tc := vt.NewClient(t, server, "/?key="+key)
+		require.Equal(t, 200, tc.Action((&LiveCard{Key: key}).Approve).Fire())
+		mergeState = func(_ context.Context, _, _ string) (string, error) { return ghState, nil }
+		require.Equal(t, 200, tc.Action((&LiveCard{Key: key}).CheckMergeState).Fire())
+		body := bodyOf(vt.NewClient(t, server, "/?key="+key).HTML())
+		assert.Contains(t, body, want)
+	}
+	render(t, "appmrg", "MERGED", "Merged")
+	render(t, "appbnc", "CLOSED", "PR closed unmerged")
+}

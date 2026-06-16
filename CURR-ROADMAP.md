@@ -236,6 +236,17 @@ input in the directions checked.
   `adjAnchors` to one entry per commented line (closing the prior unbounded-append note). Distinct
   lines still each get their own badge.
 
+*Deferred work — STARTED (council scope-approved, off-ledger only):*
+- **§29.2 "Landed ≠ Merged" — first slice** — the land control now surfaces that opening a PR is NOT
+  merging it: `classifyLandLifecycle` (gh state → landed/merged/bounced, fail-closed — never a false
+  Merged), a swappable `mergeState` gh seam, an ephemeral `liveEntry.landLifecycle` cache (set to
+  `landed` on Approve's open, cleared on blocked/error so no stale badge lingers), a `CheckMergeState`
+  action (no-op unless a PR was opened; gh error = calm no-op), and a land-control badge ("Landed —
+  not yet merged" / "Merged" / "PR closed unmerged") + check button. RENDER/STATE-ONLY: touches NO
+  economy stream / ledger event kind (verified) — that constraint is why it was safe to start
+  autonomously. The full merge-queue/bounce-retry machinery and any DURABLE lifecycle record (§29.3
+  `landing_outcomes` table) stay GATED for the Lead (they touch the authoritative substrate).
+
 *Demo-fidelity feature stream — also EXHAUSTED (council-confirmed).* The review-thread loop is now
 at good fidelity (multiple adjustments tracked, each with its comment + addressed/moved/outdated
 badge; re-comment replaces; resolve clears). A focused council verdict confirmed the resolve slice

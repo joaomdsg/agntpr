@@ -175,6 +175,7 @@ func (c *LiveCard) Approve(ctx *via.Ctx) {
 	override := landOverridden(c.LandOverride.Read(ctx))
 	if blocked, reason := landBlocked(len(sessionOpenThreads(key)), land); blocked && !override {
 		setLandResult(key, "blocked — "+reason)
+		setLandLifecycle(key, "") // no PR → no lifecycle badge
 		c.Landed.Write(ctx, "blocked")
 		return
 	}
@@ -197,10 +198,14 @@ func (c *LiveCard) Approve(ctx *via.Ctx) {
 	}
 	if err != nil {
 		setLandResult(key, "PR failed — "+err.Error())
+		setLandLifecycle(key, "") // no opened PR → no lifecycle badge
 		c.Landed.Write(ctx, "error")
 		return
 	}
 	setLandResult(key, url)
+	// A freshly opened PR is LANDED, not yet merged (DESIGN §29.2) — surface that
+	// immediately; CheckMergeState later refreshes it to merged/bounced.
+	setLandLifecycle(key, string(lifecycleLanded))
 	c.Landed.Write(ctx, "opened")
 }
 
@@ -260,6 +265,77 @@ func classifyLandResult(res string) (landResultKind, string) {
 	}
 }
 
+// landLifecycle is where an OPENED PR sits in the post-land lifecycle (DESIGN §29.2:
+// "Landed ≠ Merged" — opening a PR is not merging it). Rendered as a badge on the land
+// control so the Lead never reads "PR opened" as "merged/done".
+type landLifecycle string
+
+const (
+	lifecycleLanded  landLifecycle = "landed"  // PR open, NOT yet merged
+	lifecycleMerged  landLifecycle = "merged"  // the PR was merged into trunk
+	lifecycleBounced landLifecycle = "bounced" // the PR was closed without merging
+)
+
+// classifyLandLifecycle maps a gh PR `state` string to the post-open lifecycle, failing
+// CLOSED: only a definitive "MERGED" claims Merged; anything we can't confirm (unknown or
+// empty) reads as the conservative not-yet-merged Landed — never a false Merged (mirrors
+// classifyLandResult's defensive default). Case-insensitive and whitespace-trimmed.
+func classifyLandLifecycle(prState string) landLifecycle {
+	switch strings.ToUpper(strings.TrimSpace(prState)) {
+	case "MERGED":
+		return lifecycleMerged
+	case "CLOSED":
+		return lifecycleBounced
+	default: // "OPEN", unknown, or empty → not yet merged
+		return lifecycleLanded
+	}
+}
+
+// mergeState is the seam the merge-lifecycle check reads a PR's state through (process I/O
+// — verified by build + manual run, like openPR; tests swap it). It returns the gh PR
+// `state` string ("OPEN"/"MERGED"/"CLOSED").
+var mergeState = realMergeState
+
+// realMergeState reads the open PR's state for branch via gh, so CheckMergeState can show
+// whether it's merged yet. I/O seam, verified by build + manual run like ghPRViewURL.
+func realMergeState(ctx context.Context, repoDir, branch string) (string, error) {
+	c := exec.CommandContext(ctx, "gh", "pr", "view", branch, "--json", "state", "-q", ".state")
+	c.Dir = repoDir
+	out, err := c.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("gh pr view state: %v: %s", err, strings.TrimSpace(string(out)))
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// CheckMergeState refreshes the opened PR's merge lifecycle (DESIGN §29.2) — the Lead
+// asking "has it merged yet?". Only meaningful once a PR was opened; a seam error is a
+// calm no-op (the prior lifecycle stands). Off the economy ledger.
+func (c *LiveCard) CheckMergeState(ctx *via.Ctx) {
+	key := c.Key
+	if key == "" {
+		key = defaultSessionKey
+	}
+	if kind, _ := classifyLandResult(landResultSnapshot(key)); kind != landResultOpened {
+		return // nothing opened to check
+	}
+	cfg, _ := readLiveState(key)
+	state, err := mergeState(context.Background(), cfg.RepoDir, prBranchName(key))
+	if err != nil {
+		return // transient — leave the prior lifecycle, never a false claim
+	}
+	if e := lookupLiveEntry(key); e != nil {
+		e.setLandLifecycle(string(classifyLandLifecycle(state)))
+	}
+}
+
+// setLandLifecycle caches the opened PR's lifecycle on the session entry (no-op if unknown).
+func setLandLifecycle(key, lc string) {
+	if e := lookupLiveEntry(key); e != nil {
+		e.setLandLifecycle(lc)
+	}
+}
+
 // renderLandControl renders the approve-and-open-PR control: a button wired to
 // Approve, an override toggle (to push past the guard deliberately), and the last
 // approve outcome (the opened PR URL, a guard message, or a failure) when present.
@@ -289,7 +365,33 @@ func renderLandControl(c *LiveCard) h.H {
 		parts = append(parts, h.Span(h.Class("land-control__result land-control__result--error"),
 			h.Text(res)))
 	}
+	// Post-open lifecycle badge (DESIGN §29.2: Landed ≠ Merged). Shown only once a PR was
+	// opened (lifecycle cache non-empty); a "check merge state" button refreshes it.
+	if lc := landLifecycleSnapshot(key); lc != "" {
+		var cls, text string
+		switch landLifecycle(lc) {
+		case lifecycleMerged:
+			cls, text = "land-control__lifecycle--merged", "Merged"
+		case lifecycleBounced:
+			cls, text = "land-control__lifecycle--bounced", "PR closed unmerged"
+		default: // lifecycleLanded
+			cls, text = "land-control__lifecycle--landed", "Landed — not yet merged"
+		}
+		parts = append(parts,
+			h.Span(h.Class("land-control__lifecycle "+cls), h.Text(text)),
+			h.Button(on.Click(c.CheckMergeState), h.Class("pk-btn land-control__check-merge"),
+				h.Text("check merge state")),
+		)
+	}
 	return h.Div(parts...)
+}
+
+// landLifecycleSnapshot returns the cached opened-PR lifecycle for a session ("" if none).
+func landLifecycleSnapshot(key string) string {
+	if e := lookupLiveEntry(key); e != nil {
+		return e.landLifecycleSnapshot()
+	}
+	return ""
 }
 
 // sessionHasDispatches reports whether the session has at least one dispatched order —

@@ -188,6 +188,10 @@ type liveEntry struct {
 	// slice). Upserted by file:line (re-commenting a line replaces, never stacks);
 	// ephemeral, off the economy ledger; guarded by findingsMu.
 	adjAnchors []adjAnchorRecord
+	// landLifecycle is the opened PR's post-land lifecycle ("landed"/"merged"/"bounced",
+	// DESIGN §29.2 "Landed ≠ Merged"), surfaced as a badge on the land control. Ephemeral,
+	// off the economy ledger; guarded by findingsMu. ""=no opened PR / no lifecycle yet.
+	landLifecycle string
 	// lastPushedSHA is the squashed commit the last land push put on the PR branch, so a
 	// re-land leases its force against it (pushRefspec). Ephemeral, off-ledger; guarded by
 	// findingsMu. ""=never pushed.
@@ -491,6 +495,21 @@ func (e *liveEntry) addAdjAnchor(file string, line int, content, comment string)
 	e.findingsMu.Lock()
 	e.adjAnchors = upsertAnchor(e.adjAnchors, adjAnchorRecord{file: file, line: line, content: content, comment: comment})
 	e.findingsMu.Unlock()
+}
+
+// setLandLifecycle records the opened PR's lifecycle (DESIGN §29.2), guarded by findingsMu
+// — ephemeral, off the economy ledger, like landResult.
+func (e *liveEntry) setLandLifecycle(lc string) {
+	e.findingsMu.Lock()
+	e.landLifecycle = lc
+	e.findingsMu.Unlock()
+}
+
+// landLifecycleSnapshot returns the opened PR's cached lifecycle ("" if none).
+func (e *liveEntry) landLifecycleSnapshot() string {
+	e.findingsMu.Lock()
+	defer e.findingsMu.Unlock()
+	return e.landLifecycle
 }
 
 // removeAdjAnchor clears the adjustment anchored at file:line (the Lead resolved it), a

@@ -405,6 +405,12 @@ body {
 .land-control__result--ok { color: var(--pk-confirmed); }
 .land-control__result--blocked { color: var(--pk-ink-dim); }
 .land-control__result--error { color: var(--pk-lost); }
+/* post-open lifecycle (DESIGN §29.2: Landed ≠ Merged): a calm "not yet merged" notice, a
+   confirmed-green "Merged", or the miss hue for a closed-unmerged PR. */
+.land-control__lifecycle { flex-basis: 100%; font-size: var(--pk-font-sm); }
+.land-control__lifecycle--landed { color: var(--pk-ink-dim); }
+.land-control__lifecycle--merged { color: var(--pk-confirmed); }
+.land-control__lifecycle--bounced { color: var(--pk-lost); }
 /* a surviving-mutant line in the editor: a calm left-edge accent + a glyph, never
    an alarm — the honest "the tests didn't catch this here" marker. */
 .review-survivor-line { background: color-mix(in srgb, var(--pk-accent) 12%, transparent); }
