@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/joaomdsg/packets/internal/catch"
 	"github.com/joaomdsg/packets/internal/ledger"
 )
 
@@ -30,6 +31,36 @@ func TestFundableBacklog_aSplitReplacesItsParentTargetWithItsSubTargets(t *testi
 	assert.Equal(t, []ledger.Target{subA, subB, other}, out,
 		"the split's sub-targets replace the parent in order; the rest of the backlog is untouched")
 	assert.NotContains(t, out, parent, "the broad parent target is no longer fundable once split")
+}
+
+// A parent funded as a WHOLE must not have its sub-regions re-opened by a later split:
+// its work was already bought. The split sub-targets are distinct from the parent (a
+// different Line), so without checking the parent's consumed state the pure function would
+// re-draw them — a latent double-draw. The split only replaces a parent still fundable.
+func TestFundableBacklog_aSplitDoesNotReopenAnAlreadyFundedParent(t *testing.T) {
+	t.Parallel()
+	log := scratchLog(t)
+	parent := ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 88}
+	other := ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "auth.go", Line: 12}
+	subA := ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 90}
+	subB := ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 120}
+
+	cfg := LiveConfig{BaseRev: "own-b", FixRev: "own-f", TipRev: "own-f", Anchor: anchorForCap(),
+		DispatchBacklog: []ledger.Target{parent, other}}
+	// Mint a balance so the dispatch can be funded (its catch lives on an unrelated file).
+	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "unrelated.go", Line: 500, ReasonTag: "catch"}))
+	// Fund the parent as a whole — its work is now bought (consumed).
+	require.NoError(t, log.AppendDispatch("d", parent, ownTargetOf(cfg)))
+	// A split refinement arrives AFTER the parent was funded.
+	require.NoError(t, log.AppendRefine(ledger.RefinedOrderRecord{
+		RefineID: 1, Target: parent, Refine: "split", Splits: []ledger.Target{subA, subB},
+	}))
+
+	out := fundableBacklog(cfg, log)
+	assert.NotContains(t, out, subA, "a funded parent's sub-region is not re-drawable")
+	assert.NotContains(t, out, subB, "a funded parent's sub-region is not re-drawable")
+	assert.NotContains(t, out, parent, "the funded parent itself is consumed")
+	assert.Contains(t, out, other, "the untouched sibling remains fundable")
 }
 
 func TestFundableBacklog_criteriaAndConventionRefinementsLeaveTheTargetListUnchanged(t *testing.T) {

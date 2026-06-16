@@ -178,11 +178,16 @@ I/O is verified by build + manual run).
   host verifier's verdict publish is unaffected; producers keep every other claim kind. Verified the
   fabric authz is the complete chokepoint (in-process = host; no non-host path to inject a verdict).
 
+- **supply: a split can't re-open an already-funded parent** — `fundableBacklog` (`internal/app/supply.go`)
+  expanded a split's sub-targets without checking the parent's consumed state, so a split refinement
+  on an already-funded parent re-opened its sub-regions (a latent double-draw, gated only at the
+  action layer). Now `ok && !consumed[t]`: a split replaces a parent only while it's still fundable;
+  once bought, neither the parent nor its sub-regions re-draw. Makes the pure fn correct in isolation.
+
 *Investigated & found sound:*
-- supply / backlog draw-down — no double-draw/off-by-one/re-draw: `fundableBacklog` keys `consumed`
-  on the full Target struct (pure projection of persisted orders, debit+order under one lock). Only a
-  LOW, currently-unreachable defensive item (guard split-expansion against an already-consumed parent
-  in the pure fn rather than only at the action layer). Not built.
+- supply / backlog draw-down — no double-draw/off-by-one/re-draw in the live paths: `fundableBacklog`
+  keys `consumed` on the full Target struct (pure projection of persisted orders, debit+order under
+  one lock). The one pure-fn gap (split-on-consumed-parent) is now hardened (above).
 
 - **board renders human verdict labels** — the fleet board's "why" tag rendered the raw
   snake_case verdict token (`lost_via_rename`, `oracle_incomplete`); `surface.VerdictLabel`

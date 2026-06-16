@@ -52,9 +52,12 @@ func fundableBacklog(cfg LiveConfig, log *ledger.Log) []ledger.Target {
 	// catches' neighborhoods — so a drained config keeps refilling from the card's
 	// own output. A target the Lead SPLIT is replaced in place by its sub-targets
 	// (the dead-air sharpening, folded on read); criteria/convention refinements
-	// annotate the card body and are not folded here.
+	// annotate the card body and are not folded here. A split only replaces a parent
+	// that is STILL fundable — once the parent's work is bought (consumed), its
+	// sub-regions are not re-drawable, so a consumed parent falls through to add (which
+	// filters it) rather than re-opening its splits.
 	for _, t := range append(append([]ledger.Target{}, cfg.DispatchBacklog...), candidatesFromCatches(log)...) {
-		if subs, ok := splits[t]; ok {
+		if subs, ok := splits[t]; ok && !consumed[t] {
 			for _, s := range subs {
 				add(s)
 			}
