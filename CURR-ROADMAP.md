@@ -114,11 +114,15 @@ I/O is verified by build + manual run).
   and replace-semantics are load-bearing for the test harness (re-seeding `default` across
   `NewServer`). Left as-is.
 
+- **multi-hit secret-refusal message** — `formatSecretRefusal` (`internal/app/land_action.go`)
+  names EVERY detected secret (scan order, singular/plural count) instead of just the first,
+  so a Lead fixes them in one pass; `.land-control__result` gets `white-space: pre-wrap` so the
+  per-secret lines stack legibly.
+
 *Council-queued next slices (not yet built):*
 - cache-after-success recoverability: if push succeeds but `gh` (create OR view) fails, the
   un-cached SHA wedges the next re-land (fails closed, not data loss) — cache the pushed SHA
   as soon as the push succeeds, independent of PR-URL resolution. (low)
-- multi-hit secret-refusal message (name all hits, not just the first — UX, low priority).
 
 ## The plan — three additive slices
 

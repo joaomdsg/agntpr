@@ -398,7 +398,7 @@ body {
    in mono so a URL is selectable and a guard message stands apart from the buttons. */
 .land-control { display: flex; flex-wrap: wrap; gap: var(--pk-sm); align-items: center; margin-top: var(--pk-sm); }
 .land-control__override { display: inline-flex; align-items: center; gap: var(--pk-xs); color: var(--pk-ink-dim); font-size: var(--pk-font-sm); }
-.land-control__result { flex-basis: 100%; font-family: var(--pk-mono); font-size: var(--pk-font-sm); color: var(--pk-ink); overflow-wrap: anywhere; }
+.land-control__result { flex-basis: 100%; font-family: var(--pk-mono); font-size: var(--pk-font-sm); color: var(--pk-ink); overflow-wrap: anywhere; white-space: pre-wrap; }
 /* the outcome, in the honest palette: a minted PR reads as a confirmed-green link; a
    guard block is a calm dim notice (deliberate friction, not alarm); a failure takes the
    miss hue. */

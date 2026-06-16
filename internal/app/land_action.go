@@ -65,6 +65,26 @@ func pushSquash(ctx context.Context, repoDir, sha, branch, expected string) erro
 	return nil
 }
 
+// formatSecretRefusal builds the pre-push gate's refusal message naming EVERY detected
+// secret (in scan order) — so a Lead whose push carries several secrets fixes them all in
+// one pass instead of one re-land per secret. Empty hits yield "" (the caller only calls
+// it with hits, but it stays total).
+func formatSecretRefusal(hits []settle.SecretHit) string {
+	if len(hits) == 0 {
+		return ""
+	}
+	noun := "secret"
+	if len(hits) > 1 {
+		noun = "secrets"
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "refusing to push: %d %s detected:", len(hits), noun)
+	for _, h := range hits {
+		fmt.Fprintf(&b, "\n  %s:%d (%s)", h.File, h.Line, h.Rule)
+	}
+	return b.String()
+}
+
 // isPRAlreadyExists reports whether a `gh pr create` failure is the benign re-land signal
 // "a PR already exists for this branch" (gh 2.92 emits two shapes — a branch-form message
 // and a GraphQL-form one) rather than a real failure (auth, network, validation). It
@@ -107,7 +127,7 @@ func realOpenPR(ctx context.Context, repoDir, baseRev, branch, title, body, expe
 	if hits, err := settle.ScanCommitRange(ctx, repoDir, baseRev, sha); err != nil {
 		return "", "", fmt.Errorf("secret scan: %w", err)
 	} else if len(hits) > 0 {
-		return "", "", fmt.Errorf("refusing to push: secret detected in %s:%d (%s)", hits[0].File, hits[0].Line, hits[0].Rule)
+		return "", "", fmt.Errorf("%s", formatSecretRefusal(hits))
 	}
 	// Push under a leased force (pushSquash): expected=="" creates the branch on the first
 	// land, a cached SHA lets a re-land replace it only if nothing else moved it.
