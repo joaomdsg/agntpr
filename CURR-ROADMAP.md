@@ -258,6 +258,23 @@ input in the directions checked.
   the idle-no-flood invariant (a `""→landed` change pushes no look-identical frame). Delimiter scheme
   audited collision-free; tests assert both the live-refresh and the idle-calm halves.
 
+*AUTONOMOUS LOOP — CONVERGED & STOPPED (council verdict, code-verified).* A full-design-doc council
+sweep verified against actual code (not the self-report) that the safe off-ledger surface is genuinely
+swept: goal flow (a)–(h) all wired & green; §29.2 "Landed ≠ Merged" built on BOTH the card and the
+fleet board (badge + fingerprint-fold, idle-calm preserved) and reachable end-to-end via the Lead's
+"Check merge state" button; the "watch a real worker" surface complete (bounded scrolling
+`activityTranscript`, every `liveEntry.*Snapshot()` accessor wired to a render — no dead ephemeral
+field left to harvest). The ONE remaining off-ledger imperfection (the fill-buffer Stream signature
+at `live.go:1557` keys on the latest beat, not transcript length, so two identical consecutive beats
+lag one frame until the next distinct beat) was flagged as marginal — ~2 lines, self-corrects
+sub-second, near-zero payoff — i.e. manufacturing busywork; deliberately NOT built. Everything else of
+real value is Lead-gated by the council discriminator: §29.3 `landing_outcomes` durable records, the
+merge-queue/bounce-retry machinery, `CheckMergeState` on an automatic polling cadence (an
+external-I/O-on-a-cadence POLICY decision — today's explicit Lead-clicked button is correct), §14
+thread/message relational projection, fan-out, the trust-economy. These are Lead decisions, not ticks.
+The loop stopped itself here rather than churn idle re-assessments or manufacture marginal work; re-run
+`/loop` to resume once the Lead un-gates work or adds a new session/repo.
+
 *Demo-fidelity feature stream — also EXHAUSTED (council-confirmed).* The review-thread loop is now
 at good fidelity (multiple adjustments tracked, each with its comment + addressed/moved/outdated
 badge; re-comment replaces; resolve clears). A focused council verdict confirmed the resolve slice
