@@ -63,6 +63,68 @@ func linesOf(content string, start, end int) string {
 	return strings.Join(all[start-1:end], "\n")
 }
 
+// The catch economy mints a catch only when reanchor says the line provably survived
+// (Same/Moved). If the anchored line's content is DUPLICATED in the file, a positional
+// hash match at the delta-projected line cannot prove WHICH occurrence is the real
+// relocation — so Moved would risk anchoring (and confirming a catch) on the wrong line.
+// Fail closed to Outdated rather than mis-anchor.
+func TestReanchor_outdatesWhenMovedContentIsAmbiguous(t *testing.T) {
+	t.Parallel()
+	dir := initRepo(t)
+	// "DUP" appears at line 4 AND line 8 — the anchored content is not unique.
+	body := "1\n2\n3\nDUP\n5\n6\n7\nDUP\n9\n10\n"
+	write(t, dir, "f.txt", body)
+	base := commitAll(t, dir, "base")
+	write(t, dir, "f.txt", "a\nb\n"+body) // prepend 2 → anchor projects to a hash-matching DUP line
+	head := commitAll(t, dir, "prepend 2 lines")
+
+	a := reanchor.Anchor{Path: "f.txt", Start: 4, End: 4, LineHash: reanchor.HashLines("DUP")}
+	got, err := reanchor.Reanchor(context.Background(), dir, a, base, head)
+	require.NoError(t, err)
+	assert.Equal(t, reanchor.Outdated, got.State,
+		"duplicated anchor content makes the relocation ambiguous — fail closed, never mis-anchor")
+}
+
+// The ambiguity guard must check only the ANCHOR's content uniqueness, not whether the
+// file contains any duplicates at all: a uniquely-content anchor still resolves Moved
+// even when unrelated duplicate lines exist elsewhere.
+func TestReanchor_movesWhenAnchorContentIsUniqueDespiteOtherDuplicates(t *testing.T) {
+	t.Parallel()
+	dir := initRepo(t)
+	// "UNIQ" appears once (the anchor); "DUP" appears twice but is unrelated.
+	body := "1\n2\n3\nUNIQ\n5\n6\nDUP\n8\nDUP\n10\n"
+	write(t, dir, "f.txt", body)
+	base := commitAll(t, dir, "base")
+	write(t, dir, "f.txt", "a\nb\n"+body) // prepend 2 → UNIQ shifts from line 4 to line 6
+	head := commitAll(t, dir, "prepend 2 lines")
+
+	a := reanchor.Anchor{Path: "f.txt", Start: 4, End: 4, LineHash: reanchor.HashLines("UNIQ")}
+	got, err := reanchor.Reanchor(context.Background(), dir, a, base, head)
+	require.NoError(t, err)
+	assert.Equal(t, reanchor.Moved, got.State, "a uniquely-content anchor still relocates despite unrelated dups")
+	assert.Equal(t, 6, got.Start)
+	assert.Equal(t, 6, got.End)
+}
+
+// The ambiguity guard must also hold for a MULTI-line anchor: a duplicated BLOCK (not
+// just a single line) that projects onto a hash-matching copy is equally untrustworthy.
+func TestReanchor_outdatesWhenMovedMultiLineBlockIsAmbiguous(t *testing.T) {
+	t.Parallel()
+	dir := initRepo(t)
+	// The 2-line block (DUP-A,DUP-B) appears at lines 3-4 AND 7-8.
+	body := "1\n2\nDUP-A\nDUP-B\n5\n6\nDUP-A\nDUP-B\n9\n10\n"
+	write(t, dir, "f.txt", body)
+	base := commitAll(t, dir, "base")
+	write(t, dir, "f.txt", "a\nb\n"+body) // prepend 2 → block 3-4 projects to 5-6 (a hash-matching copy)
+	head := commitAll(t, dir, "prepend 2 lines")
+
+	a := reanchor.Anchor{Path: "f.txt", Start: 3, End: 4, LineHash: reanchor.HashLines("DUP-A\nDUP-B")}
+	got, err := reanchor.Reanchor(context.Background(), dir, a, base, head)
+	require.NoError(t, err)
+	assert.Equal(t, reanchor.Outdated, got.State,
+		"a duplicated multi-line block is an ambiguous relocation — fail closed")
+}
+
 func TestReanchor_keepsAnchorWhenFileUnchanged(t *testing.T) {
 	t.Parallel()
 	dir := initRepo(t)

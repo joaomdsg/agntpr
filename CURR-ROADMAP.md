@@ -98,7 +98,18 @@ I/O is verified by build + manual run).
   incompleteness to `ReasonOracleIncomplete`. Safe: ledger mints only on `Catch`, so
   flipped cases simply don't record (no orphan/balance risk; verified across cage+ledger).
 
+- **reanchor: no wrong-line Moved on ambiguous content** — the `Moved` branch
+  (`internal/reanchor/reanchor.go`) validated the relocated anchor with a single positional
+  hash check, so a duplicated line (`}`, `return nil`, blank) could mint `Moved` onto a
+  coincidentally-identical line — and the economy then confirms a catch on the WRONG line.
+  Now fails closed: `rangeHashMatchCount` requires the anchor's content to match EXACTLY ONE
+  window; >1 → `Outdated`. Hardens the trust anchor the catch economy keys off (the layer
+  below `Detect`). Holds for multi-line blocks too. Fail-closed only reduces catches (safe).
+
 *Council-queued next slices (not yet built):*
+- orchestrator: `registerSession` re-registration allocates a NEW liveEntry (fresh runMu/sem),
+  breaking the "one drainer per session" invariant → possible double-drain TOCTOU on a re-booted
+  live key. Reuse the existing entry's runMu/sem on re-register. Needs `-race` test. (concurrency, medium)
 - cache-after-success recoverability: if push succeeds but `gh` (create OR view) fails, the
   un-cached SHA wedges the next re-land (fails closed, not data loss) — cache the pushed SHA
   as soon as the push succeeds, independent of PR-URL resolution. (low)

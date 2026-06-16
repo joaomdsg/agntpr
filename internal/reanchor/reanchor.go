@@ -115,6 +115,13 @@ func Reanchor(ctx context.Context, repoDir string, a Anchor, fromRev, toRev stri
 	if !rangeHashMatches(content, s1, e1, a.LineHash) {
 		return Result{State: Outdated, Path: a.Path}, nil // drifted: don't mis-anchor
 	}
+	// Fail closed on AMBIGUOUS content: if the anchor's content hash matches more than one
+	// window in the new file (a duplicated line like `}` or `return nil`), the positional
+	// match cannot prove THIS is the real relocation — minting Moved risks anchoring (and
+	// confirming a catch) on the wrong line. Only an unambiguous match is trustworthy.
+	if rangeHashMatchCount(content, e1-s1, a.LineHash) > 1 {
+		return Result{State: Outdated, Path: a.Path}, nil
+	}
 	return Result{State: Moved, Path: a.Path, Start: s1, End: e1}, nil
 }
 
@@ -124,6 +131,22 @@ func rangeHashMatches(content string, start, end int, want string) bool {
 		return false
 	}
 	return HashLines(strings.Join(lines[start-1:end], "\n")) == want
+}
+
+// rangeHashMatchCount counts how many windows of length span+1 (span == end-start, the
+// extra lines beyond the first) in content hash to want — mirroring rangeHashMatches'
+// 1-based inclusive windowing exactly, so the two agree on what a window is. Used to
+// detect AMBIGUOUS relocation: more than one match means the anchor content is not unique
+// and the positional Moved cannot be trusted.
+func rangeHashMatchCount(content string, span int, want string) int {
+	lines := strings.Split(content, "\n")
+	count := 0
+	for start := 1; start+span <= len(lines); start++ {
+		if HashLines(strings.Join(lines[start-1:start+span], "\n")) == want {
+			count++
+		}
+	}
+	return count
 }
 
 type statusKind int
