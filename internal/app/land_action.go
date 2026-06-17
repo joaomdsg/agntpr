@@ -186,7 +186,11 @@ func (c *LiveCard) Approve(ctx *via.Ctx) {
 	if e := lookupLiveEntry(key); e != nil {
 		expected = e.lastPushedSHASnapshot()
 	}
-	url, pushedSHA, err := openPR(context.Background(), cfg.RepoDir, cfg.BaseRev, prBranchName(key), title, body, expected)
+	// A prompt-first session has no configured base; derive its origin from the order
+	// history so the squash parents onto where the work actually started (not "").
+	orders, _ := log.WorkOrders()
+	baseRev := landBaseRev(cfg.BaseRev, orders)
+	url, pushedSHA, err := openPR(context.Background(), cfg.RepoDir, baseRev, prBranchName(key), title, body, expected)
 	// Cache the pushed SHA the moment the push lands (pushedSHA non-empty) — independent of
 	// whether the PR-open step then failed. Otherwise a gh failure after a successful push
 	// would leave the cache stale while the remote branch advanced, wedging the next
@@ -207,6 +211,26 @@ func (c *LiveCard) Approve(ctx *via.Ctx) {
 	// immediately; CheckMergeState later refreshes it to merged/bounced.
 	setLandLifecycle(key, string(lifecycleLanded))
 	c.Landed.Write(ctx, "opened")
+}
+
+// landBaseRev resolves the base the land squash parents onto. A legacy anchored session
+// carries an explicit configured base and lands against THAT. A prompt-first session has
+// none (board.go zeroes the revs), so passing it straight to commit-tree would fail
+// ("not a valid object name" on an empty parent); instead the base is the session's
+// ORIGIN — the earliest order's recorded base (the repo HEAD before any harness commit,
+// an ancestor of the current HEAD) — so the squash collapses ALL the session's work onto
+// where it actually started. Empty early bases are skipped; "" means none is derivable
+// (the caller then surfaces an honest error rather than fabricating a parentless commit).
+func landBaseRev(cfgBaseRev string, orders []ledger.WorkOrderRecord) string {
+	if cfgBaseRev != "" {
+		return cfgBaseRev
+	}
+	for _, o := range orders {
+		if o.Target.BaseRev != "" {
+			return o.Target.BaseRev
+		}
+	}
+	return ""
 }
 
 // landOverridden reads the override signal tolerantly ("1" or "true").
