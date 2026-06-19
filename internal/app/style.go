@@ -363,6 +363,19 @@ body {
    side (a static, pre-funded diff; never a faked live agent). */
 .order-diff-island { display: block; }
 .order-diff-editor { width: 100%; height: 45vh; border: var(--pk-border); border-radius: var(--pk-radius); }
+/* the changed-file tree — the review surface's left rail: the full fix tree as
+   native collapsible <details> groups, expanded by default. Changed leaves take
+   the bronze accent, deletions the muted-mauve loss hue (both existing
+   honest-state tokens — no new color), the open file a quiet raised background. */
+.file-tree { display: flex; flex-direction: column; gap: 2px; font-family: var(--pk-mono); font-size: var(--pk-font-sm); }
+.file-tree__dir { cursor: pointer; color: var(--pk-ink-dim); padding: 2px 0; }
+.file-tree__children { padding-left: var(--pk-sm); border-left: var(--pk-border); margin-left: var(--pk-xs); }
+.file-tree__file { display: flex; align-items: baseline; gap: var(--pk-xs); padding: 1px var(--pk-xs); color: var(--pk-ink); text-decoration: none; border-radius: var(--pk-radius-sm); }
+.file-tree__file:hover { background: var(--pk-surface-2); }
+.file-tree__file--changed { color: var(--pk-accent); }
+.file-tree__file--deleted { color: var(--pk-lost); text-decoration: line-through; }
+.file-tree__file--selected { background: var(--pk-surface-2); outline: 1px solid var(--pk-accent); }
+.file-tree__counts { margin-left: auto; color: var(--pk-ink-dim); font-size: var(--pk-font-xs); }
 .review-editor:empty { height: 0; border: 0; } /* no editor mounted → no empty box */
 /* the answer affordance: write a killing test + submit. Calm, in the surface idiom —
    a monospace input area + a quiet submit; the reward is the question vanishing, so

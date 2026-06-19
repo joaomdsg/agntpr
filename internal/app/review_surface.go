@@ -47,6 +47,11 @@ type ReviewCard struct {
 	// order's own surviving mutants (the test-debt the funded work left), not the
 	// session's connect-cycle findings — the dispatch→review tie.
 	WO string `query:"wo"`
+	// File, when set (/review?wo=<id>&file=<path>), is the changed-file-tree leaf the
+	// Lead clicked — the file the diff editor shows. Empty = the order's anchored path.
+	// Pure navigation (a GET param), not a signal: the diff island is morph-shielded,
+	// so only a fresh navigation re-points it.
+	File string `query:"file"`
 	// The reviewer's answer submission, set by the editor before posting AnswerQuestion.
 	AnswerFile via.SignalStr `via:"answerfile"`
 	AnswerLine via.SignalStr `via:"answerline"`
@@ -107,18 +112,23 @@ func orderTarget(log *ledger.Log, orderID int) (ledger.Target, bool) {
 	return ledger.Target{}, false
 }
 
-// orderDiffIsland renders a Monaco DIFF editor of the order's base→fix edits on its
-// anchored file. The diff DATA (base + fix source) is the server contract; the diff
-// editor's rendering is the client island (browser-verified). Source unreadable at a
-// rev degrades to an empty side rather than breaking the surface.
-func orderDiffIsland(cfg LiveConfig, tgt ledger.Target) h.H {
-	base, _ := reviewFileReader(context.Background(), cfg.RepoDir, tgt.BaseRev, tgt.Path)
-	fix, _ := reviewFileReader(context.Background(), cfg.RepoDir, tgt.FixRev, tgt.Path)
+// orderDiffIsland renders a Monaco DIFF editor of the order's base→fix edits on the
+// SELECTED file — the leaf the Lead clicked in the changed-file tree, defaulting to
+// the order's anchored path when nothing is selected. The diff DATA (base + fix
+// source) is the server contract; the editor's rendering is the client island
+// (browser-verified). Source unreadable at a rev degrades to an empty side rather
+// than breaking the surface.
+func orderDiffIsland(cfg LiveConfig, tgt ledger.Target, selected string) h.H {
+	if selected == "" {
+		selected = tgt.Path
+	}
+	base, _ := reviewFileReader(context.Background(), cfg.RepoDir, tgt.BaseRev, selected)
+	fix, _ := reviewFileReader(context.Background(), cfg.RepoDir, tgt.FixRev, selected)
 	payload, _ := json.Marshal(struct {
 		Path string `json:"path"`
 		Base string `json:"base"`
 		Fix  string `json:"fix"`
-	}{Path: tgt.Path, Base: base, Fix: fix})
+	}{Path: selected, Base: base, Fix: fix})
 	return h.Div(
 		h.Class("order-diff-island"),
 		h.DataIgnoreMorph(),
@@ -144,7 +154,7 @@ const orderDiffBootstrapJS = `(function(){
     try { d = JSON.parse(dataEl.textContent); } catch (e) { return; }
     var orig = monaco.editor.createModel(d.base || '', 'go', monaco.Uri.file('base/' + (d.path || 'file.go')));
     var mod = monaco.editor.createModel(d.fix || '', 'go', monaco.Uri.file('fix/' + (d.path || 'file.go')));
-    var de = monaco.editor.createDiffEditor(el, { readOnly: true, automaticLayout: true, theme: 'vs-dark', renderSideBySide: true, minimap: { enabled: false }, scrollBeyondLastLine: false });
+    var de = monaco.editor.createDiffEditor(el, { readOnly: true, automaticLayout: true, theme: 'vs-dark', renderSideBySide: false, minimap: { enabled: false }, scrollBeyondLastLine: false });
     de.setModel({ original: orig, modified: mod });
   });
 })();`
@@ -258,9 +268,18 @@ func (c *ReviewCard) View(_ *via.CtxR) h.H {
 		// editor. The diff is STATIC and pre-funded (the fix revision the order ran) —
 		// honest framing, never a faked "live agent typing".
 		if tgt, ok := orderTarget(log, woID); ok {
+			// The full fix tree with the order's changes highlighted; the clicked leaf
+			// (or the anchored path by default) is what the diff editor below shows.
+			selected := c.File
+			if selected == "" {
+				selected = tgt.Path
+			}
 			parts = append(parts, h.P(h.Class("review__lead"),
-				h.Text("The edits WO#"+strconv.Itoa(woID)+" made — "+tgt.Path+":")))
-			parts = append(parts, orderDiffIsland(cfg, tgt))
+				h.Text("Changed files — WO#"+strconv.Itoa(woID)+" (pick one to inspect):")))
+			parts = append(parts, renderFileTree(cfg, tgt, woID, selected))
+			parts = append(parts, h.P(h.Class("review__lead"),
+				h.Text("The edits WO#"+strconv.Itoa(woID)+" made — "+selected+":")))
+			parts = append(parts, orderDiffIsland(cfg, tgt, selected))
 		}
 		orderThreads := orderOpenThreads(navKey, woID)
 		parts = append(parts, h.P(h.Class("review__lead"),
