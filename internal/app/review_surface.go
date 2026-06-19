@@ -112,6 +112,25 @@ func orderTarget(log *ledger.Log, orderID int) (ledger.Target, bool) {
 	return ledger.Target{}, false
 }
 
+// resolveSelectedFile decides which file the order's diff editor opens on: an
+// explicit ?file= pick (a clicked tree leaf) wins; else the order's anchored path;
+// else — for an anchorless live/prompt order — the FIRST changed file in the
+// base→fix diff, so the diff pane is never a blank box when there are edits to
+// inspect; else "" (no anchor and nothing changed → an honest empty selection).
+func resolveSelectedFile(cfg LiveConfig, tgt ledger.Target, requested string) string {
+	if requested != "" {
+		return requested
+	}
+	if tgt.Path != "" {
+		return tgt.Path
+	}
+	changed, _ := diffCompute(context.Background(), cfg.RepoDir, tgt.BaseRev, tgt.FixRev)
+	if len(changed.Files) > 0 {
+		return changed.Files[0].Path
+	}
+	return ""
+}
+
 // orderDiffIsland renders a Monaco DIFF editor of the order's base→fix edits on the
 // SELECTED file — the leaf the Lead clicked in the changed-file tree, defaulting to
 // the order's anchored path when nothing is selected. The diff DATA (base + fix
@@ -269,11 +288,9 @@ func (c *ReviewCard) View(_ *via.CtxR) h.H {
 		// honest framing, never a faked "live agent typing".
 		if tgt, ok := orderTarget(log, woID); ok {
 			// The full fix tree with the order's changes highlighted; the clicked leaf
-			// (or the anchored path by default) is what the diff editor below shows.
-			selected := c.File
-			if selected == "" {
-				selected = tgt.Path
-			}
+			// (or, by default, the anchor — or the first changed file for an anchorless
+			// order) is what the diff editor below shows.
+			selected := resolveSelectedFile(cfg, tgt, c.File)
 			parts = append(parts, h.P(h.Class("review__lead"),
 				h.Text("Changed files — WO#"+strconv.Itoa(woID)+" (pick one to inspect):")))
 			parts = append(parts, renderFileTree(cfg, tgt, woID, selected))

@@ -677,15 +677,25 @@ func renderDispatches(key string, views []ledger.DispatchView) h.H {
 		if v.Status == "done" && v.Verdict != "" {
 			span = append(span, h.Span(h.Class("board-row__dispatch-why"), h.Text(" "+surface.VerdictLabel(v.Verdict))))
 		}
-		// The order's reviewable test-debt: how many open review questions (surviving
-		// mutants) the filled work left — a DRILL link into that order's review
-		// (/review?wo=<id>), the dispatch→review tie. Shown only when the order left
-		// some; a calm accent count, never an alarm.
-		if v.Questions > 0 {
+		// A DRILL link into the order's review (/review?wo=<id>), the dispatch→review
+		// tie. A filled order that left surviving mutants frames it as its open-question
+		// count (the reviewable test-debt). A SETTLED order that left none still links —
+		// to inspect the producer's edits (the base→fix diff) — so a clean fill (caught
+		// or missed) is never a dead end. Queued/running orders have produced no diff
+		// yet, so they carry no link. A calm accent, never an alarm.
+		href := "/review?key=" + url.QueryEscape(key) + "&wo=" + strconv.Itoa(v.ID)
+		switch {
+		case v.Questions > 0:
 			span = append(span, h.A(
-				h.Href("/review?key="+url.QueryEscape(key)+"&wo="+strconv.Itoa(v.ID)),
+				h.Href(href),
 				h.Class("board-row__dispatch-questions"),
 				h.Text(" • "+strconv.Itoa(v.Questions)+" open questions"),
+			))
+		case v.Status == "done":
+			span = append(span, h.A(
+				h.Href(href),
+				h.Class("board-row__dispatch-inspect"),
+				h.Text(" • inspect diffs"),
 			))
 		}
 		spans = append(spans, h.Span(span...))

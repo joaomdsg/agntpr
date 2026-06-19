@@ -289,6 +289,9 @@ body {
 /* a filled order's reviewable test-debt — how many open review questions it left;
    a quiet accent count (the dispatch→review tie), never an alarm. */
 .board-row__dispatch-questions { color: var(--pk-ink-dim); }
+/* a settled order with no open questions still drills into its base→fix diff — so
+   a clean fill is never a dead end. Same quiet accent as the question count. */
+.board-row__dispatch-inspect { color: var(--pk-ink-dim); }
 /* "watch it fill": a calm live row while the runner fills an order — the cycle beats
    accruing as the oracle works. Dim mono, in the beat idiom; vanishes when done. */
 .order-filling { color: var(--pk-ink-dim); font-family: var(--pk-mono); font-size: var(--pk-font-sm); padding: var(--pk-xs) 0; }
