@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-via/via"
 	"github.com/go-via/via/vt"
 )
 
@@ -44,11 +43,12 @@ func TestBoardCard_surfacesMergedButNotLandedLifecycle(t *testing.T) {
 	resetConsumersForTest()
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 
 	merged, err := AddSession("mergedS", LiveConfig{
@@ -69,11 +69,12 @@ func TestBoardCard_omitsLifecycleForRoutineLanded(t *testing.T) {
 	resetConsumersForTest()
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 
 	landed, err := AddSession("landedS", LiveConfig{

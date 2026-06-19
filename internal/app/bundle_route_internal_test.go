@@ -11,8 +11,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/go-via/via"
 )
 
 // gitIn runs git in dir, failing the test on error (offline, no network).
@@ -60,11 +58,12 @@ func bundleServer(t *testing.T) (*httptest.Server, string) {
 	repoDir := freshGitRepo(t)
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: repoDir, BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 	return server, repoDir
 }
@@ -95,11 +94,12 @@ func TestPostBundle_ingestsAProducerBundleSoItsCommitsResolveInTheSessionRepo(t 
 // session's repo, so two producers' uploads never collide.
 func TestPostBundle_namespacesByTheSessionKeyNotADefault(t *testing.T) {
 	var server *httptest.Server
-	_, defLog, err := NewServer(LiveConfig{
+	viaApp, defLog, err := NewServer(LiveConfig{
 		RepoDir: freshGitRepo(t), BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: filepath.Join(t.TempDir(), "default.jsonl"),
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = defLog.Close() })
 
 	aliceRepo := freshGitRepo(t)
@@ -142,11 +142,12 @@ func TestPostBundle_refusesASessionWithNoRepoDirRatherThanWritingToTheProcessCwd
 	t.Chdir(cwdRepo) // the server process cwd is now a real git repo — the trap an empty store would write into
 
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: "", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: filepath.Join(t.TempDir(), "default.jsonl"),
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 
 	bundle, _ := producerCommitBundle(t)

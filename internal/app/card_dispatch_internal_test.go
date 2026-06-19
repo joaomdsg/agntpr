@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-via/via"
 	"github.com/go-via/via/vt"
 
 	"github.com/joaomdsg/packets/internal/catch"
@@ -44,11 +43,12 @@ func TestLiveCard_showsThisSessionsDispatchRoundTripOutcomes(t *testing.T) {
 
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
-	_, defLog, err := NewServer(LiveConfig{
+	viaApp, defLog, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = defLog.Close() })
 
 	body := vt.NewClient(t, server, "/?key=cardc").HTML()
@@ -75,11 +75,12 @@ func TestLiveCard_showsThisSessionsDispatchRoundTripOutcomes(t *testing.T) {
 func TestLiveCard_omitsTheDispatchClusterWhenNoOrdersFunded(t *testing.T) {
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 
 	// bodyOf scopes past the <head>: the stylesheet contains "board-row__dispatches"
@@ -108,11 +109,12 @@ func TestLiveCard_aQueuedOrderCarriesNoOutcomeHook(t *testing.T) {
 
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
-	_, defLog, err := NewServer(LiveConfig{
+	viaApp, defLog, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = defLog.Close() })
 
 	// bodyOf scopes past the head — the stylesheet's [data-outcome=...] selectors

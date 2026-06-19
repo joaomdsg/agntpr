@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-via/via"
 	"github.com/go-via/via/vt"
 
 	"github.com/joaomdsg/packets/internal/catch"
@@ -56,11 +55,12 @@ func TestLiveServer_capsConcurrentCyclesAtMaxConcurrentWithoutDroppingAny(t *tes
 
 	logPath := filepath.Join(t.TempDir(), "catches.jsonl")
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: logPath, MaxConcurrent: cap,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 
 	// Each SSE subscription triggers an OnConnect → one cycle goroutine that
@@ -102,11 +102,12 @@ func TestLiveServer_releasesTheSlotWhenACycleErrorsSoTheQueueNeverStalls(t *test
 
 	logPath := filepath.Join(t.TempDir(), "catches.jsonl")
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: logPath, MaxConcurrent: cap,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 
 	for i := 0; i < connects; i++ {

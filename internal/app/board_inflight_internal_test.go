@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-via/via"
 	"github.com/go-via/via/vt"
 
 	"github.com/joaomdsg/packets/internal/catch"
@@ -51,11 +50,12 @@ func TestBoardCard_showsClaimsInFlightDistinctFromConfirmed(t *testing.T) {
 	// Render: the board shows the in-flight count in its own span.
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
-	_, defLog, err := NewServer(LiveConfig{
+	viaApp, defLog, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = defLog.Close() })
 
 	body := vt.NewClient(t, server, "/board").HTML()
@@ -100,11 +100,12 @@ func TestBoardCard_showsVerifiedLostDistinctFromInFlightAndConfirmed(t *testing.
 
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
-	_, defLog, err := NewServer(LiveConfig{
+	viaApp, defLog, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = defLog.Close() })
 
 	body := vt.NewClient(t, server, "/board").HTML()
@@ -140,11 +141,12 @@ func TestBoardCard_sealsTheBetLifecycleIntoOneClusterApartFromConfirmedStock(t *
 
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
-	_, defLog, err := NewServer(LiveConfig{
+	viaApp, defLog, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = defLog.Close() })
 
 	// Scope to the rendered BODY: the base stylesheet in <head> legitimately
@@ -215,11 +217,12 @@ func TestBoardCard_showsRecentDispatchesWithCaughtOrMissedOutcome(t *testing.T) 
 
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
-	_, defLog, err := NewServer(LiveConfig{
+	viaApp, defLog, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = defLog.Close() })
 
 	body := vt.NewClient(t, server, "/board").HTML()

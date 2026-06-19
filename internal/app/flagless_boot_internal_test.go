@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-via/via"
 	"github.com/go-via/via/vt"
 )
 
@@ -20,8 +19,9 @@ func TestNewServer_bootsWithoutADefaultSessionWhenUnconfigured(t *testing.T) {
 	resetConsumersForTest() // clear any default registered by a prior test
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{LedgerPath: defLogPath}, via.WithTestServer(&server))
+	viaApp, log, err := NewServer(LiveConfig{LedgerPath: defLogPath})
 	require.NoError(t, err, "an unconfigured (flag-less) boot is valid")
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 
 	assert.Nil(t, lookupLiveEntry(defaultSessionKey), "no default session is registered when unconfigured")
@@ -44,10 +44,11 @@ func TestNewServer_repoOnlySessionIsUsableNotALanding(t *testing.T) {
 	resetConsumersForTest()
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err, "a repo-only boot is valid")
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 
 	assert.NotNil(t, lookupLiveEntry(defaultSessionKey), "a repo-only boot registers a usable default session")
@@ -64,11 +65,12 @@ func TestNewServer_stillRegistersTheDefaultWhenConfigured(t *testing.T) {
 	resetConsumersForTest()
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 
 	assert.NotNil(t, lookupLiveEntry(defaultSessionKey), "a configured boot registers the default session")

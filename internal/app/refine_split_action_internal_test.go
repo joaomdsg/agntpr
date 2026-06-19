@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-via/via"
 	"github.com/go-via/via/vt"
 
 	"github.com/joaomdsg/packets/internal/ledger"
@@ -34,12 +33,13 @@ func TestLiveCard_splitChosenSplitsTheTargetIntoItsChangedRegions(t *testing.T) 
 	dir, base, fix := splitRepo(t)
 	logPath := filepath.Join(t.TempDir(), "c.jsonl")
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: dir, BaseRev: "ownb", FixRev: "ownf", TipRev: "ownf", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: logPath,
 		DispatchBacklog: []ledger.Target{{BaseRev: base, FixRev: fix, TipRev: fix, Path: "pay.go", Line: 10}},
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 
 	tc := vt.NewClient(t, server, "/")
@@ -64,12 +64,13 @@ func TestLiveCard_splitChosenIsANoOpWhenThereIsNothingToSplitInto(t *testing.T) 
 	dir, base, fix := splitRepo(t)
 	logPath := filepath.Join(t.TempDir(), "c.jsonl")
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: dir, BaseRev: "ownb", FixRev: "ownf", TipRev: "ownf", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: logPath,
 		DispatchBacklog: []ledger.Target{{BaseRev: base, FixRev: fix, TipRev: fix, Path: "untouched.go", Line: 3}},
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 
 	tc := vt.NewClient(t, server, "/")
@@ -85,12 +86,13 @@ func TestLiveCard_benchCardOffersASplitFromTheDiff(t *testing.T) {
 	// can break a broad target into its changed regions. NOT parallel.
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: defLogPath,
 		DispatchBacklog: []ledger.Target{{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 88}},
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 
 	body := bodyOf(vt.NewClient(t, server, "/").HTML())

@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-via/via"
 	"github.com/go-via/via/vt"
 
 	"github.com/joaomdsg/packets/internal/catch"
@@ -54,8 +53,9 @@ func TestLiveCard_spendsDrawDistinctConfigWorkThenSupplyRefillsFromCatches(t *te
 		TestCmd: []string{"true"}, LedgerPath: logPath, DispatchBacklog: []ledger.Target{t1, t2},
 	}
 	var server *httptest.Server
-	_, log, err := NewServer(cfg, via.WithTestServer(&server))
+	viaApp, log, err := NewServer(cfg)
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Line: 1, ReasonTag: "catch"}))
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Line: 2, ReasonTag: "catch"}))

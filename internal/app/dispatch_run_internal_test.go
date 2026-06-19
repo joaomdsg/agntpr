@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-via/via"
 	"github.com/go-via/via/vt"
 
 	"github.com/joaomdsg/packets/internal/catch"
@@ -42,11 +41,12 @@ func TestLiveCard_spendDispatchesAnOrderThatRunsAndMintsBackADistinctCatch(t *te
 
 	logPath := filepath.Join(t.TempDir(), "catches.jsonl")
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: logPath, DispatchBacklog: []ledger.Target{tgt},
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Line: 1, ReasonTag: "catch"})) // balance 1 to spend
 
@@ -96,11 +96,12 @@ func TestLiveCard_dispatchingOwnAlreadyCaughtWorkIsAnHonestLossNotAFarm(t *testi
 
 	logPath := filepath.Join(t.TempDir(), "catches.jsonl")
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: logPath, DispatchBacklog: []ledger.Target{tgt},
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Line: 1, ReasonTag: "catch"})) // a credit to spend
 	require.NoError(t, log.Append(seededIdentity))                                                        // the identity the run will re-produce
@@ -144,11 +145,12 @@ func TestLiveCard_connectAndDispatchMintsCarryDistinctProducerProvenance(t *test
 
 	logPath := filepath.Join(t.TempDir(), "catches.jsonl")
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: logPath, DispatchBacklog: []ledger.Target{tgt},
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Line: 1, ReasonTag: "catch"})) // a balance to spend
 
@@ -197,11 +199,10 @@ func TestLiveCard_dispatchedRunDoesNotLeakItsBeatsDiscardGoroutine(t *testing.T)
 
 	logPath := filepath.Join(t.TempDir(), "catches.jsonl")
 	const orders = 8
-	var server *httptest.Server
 	_, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: logPath, DispatchBacklog: []ledger.Target{tgt},
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = log.Close() })
 	for i := 0; i < orders; i++ {
@@ -246,11 +247,12 @@ func TestLiveCard_dispatchedOrderProgressIsWatchableQueuedRunningDoneOverSSE(t *
 
 	logPath := filepath.Join(t.TempDir(), "catches.jsonl")
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: logPath, DispatchBacklog: []ledger.Target{tgt},
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Line: 1, ReasonTag: "catch"}))
 

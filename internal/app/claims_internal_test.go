@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"encoding/json"
-	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,8 +12,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/go-via/via"
 
 	"github.com/joaomdsg/packets/internal/catch"
 	"github.com/joaomdsg/packets/internal/ledger"
@@ -68,11 +65,10 @@ func TestStartCageClaimConsumers_wiresAWorkingCageVerifierThatMints(t *testing.T
 
 	resetConsumersForTest() // isolate from any prior test's stale registry + active spawner
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
 	_, log, err := NewServer(LiveConfig{
 		RepoDir: repo, BaseRev: base, FixRev: fix, TipRev: tip, Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = log.Close() })
 

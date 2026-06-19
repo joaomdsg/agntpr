@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-via/via"
 	"github.com/go-via/via/vt"
 
 	"github.com/joaomdsg/packets/internal/app"
@@ -88,11 +87,12 @@ func TestLiveServer_sharesOneLedgerAcrossConnectsSoTheStockAccumulates(t *testin
 	dir, base, fix := strengthenRepo(t)
 	logPath := t.TempDir() + "/catches.jsonl"
 	var server *httptest.Server
-	_, log, err := app.NewServer(app.LiveConfig{
+	viaApp, log, err := app.NewServer(app.LiveConfig{
 		RepoDir: dir, BaseRev: base, FixRev: fix, TipRev: fix, Anchor: anchor(),
 		TestCmd: goTestCmd, LedgerPath: logPath,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 
 	// Two SEQUENTIAL connects against the one default liveReg entry, each running

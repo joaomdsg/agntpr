@@ -9,8 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-via/via"
-
 	"github.com/joaomdsg/packets/internal/ledger"
 )
 
@@ -35,11 +33,12 @@ func publishClaim(t *testing.T, key string, tgt ledger.Target) {
 func TestPostClaim_isRetiredFromTheUnauthenticatedHTTPSurface(t *testing.T) {
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 
 	resp, err := http.Post(server.URL+"/claim", "application/json", nil)

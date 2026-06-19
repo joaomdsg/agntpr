@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-via/via"
 	"github.com/go-via/via/vt"
 
 	"github.com/joaomdsg/packets/internal/catch"
@@ -84,11 +83,12 @@ func TestLiveCard_supplyRefillsFromItsOwnCatchesSoSpendNeverSilentlyDeadEnds(t *
 
 	logPath := filepath.Join(t.TempDir(), "c.jsonl")
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: logPath, // NO DispatchBacklog — config supply is empty
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "x.go", Line: 50, BeforeRev: "b0", AfterRev: "f0", ReasonTag: "catch"}))
 
@@ -124,11 +124,12 @@ func TestLiveCard_aDerivedCandidateReproducingASeenCatchIsAnHonestLoss(t *testin
 
 	logPath := filepath.Join(t.TempDir(), "c.jsonl")
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: logPath,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 	require.NoError(t, log.Append(seen))                                                                                                                  // the identity the candidate will reproduce
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "x.go", Line: 70, BeforeRev: "b0", AfterRev: "f0", ReasonTag: "catch"})) // a balance to spend

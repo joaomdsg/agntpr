@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-via/via"
 	"github.com/go-via/via/vt"
 )
 
@@ -24,11 +23,12 @@ func TestBoardCard_rendersAServerSideDirectoryBrowser(t *testing.T) {
 	resetConsumersForTest()
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 
 	body := bodyOf(vt.NewClient(t, server, "/board").HTML())
@@ -45,11 +45,12 @@ func TestBoardCard_resolvesAPickedFolderNameUnderTheReposRoot(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "myproj"), 0o755))
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: defLogPath, ReposRoot: root,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 
 	tc := vt.NewClient(t, server, "/board")
@@ -68,11 +69,12 @@ func TestBoardCard_pickedFolderCannotEscapeTheReposRoot(t *testing.T) {
 	root := t.TempDir()
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: defLogPath, ReposRoot: root,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 
 	tc := vt.NewClient(t, server, "/board")
@@ -103,11 +105,12 @@ func TestBoardCard_dotOnlyPickInheritsTheServerRepo(t *testing.T) {
 			root := t.TempDir()
 			defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 			var server *httptest.Server
-			_, log, err := NewServer(LiveConfig{
+			viaApp, log, err := NewServer(LiveConfig{
 				RepoDir: "server-repo", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 				TestCmd: []string{"true"}, LedgerPath: defLogPath, ReposRoot: root,
-			}, via.WithTestServer(&server))
+			})
 			require.NoError(t, err)
+			server = httptest.NewServer(viaApp)
 			t.Cleanup(func() { _ = log.Close() })
 
 			vtc := vt.NewClient(t, server, "/board")
@@ -128,11 +131,12 @@ func TestBoardCard_dottyButRealFolderNameResolvesUnderTheRoot(t *testing.T) {
 	root := t.TempDir()
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: "server-repo", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: defLogPath, ReposRoot: root,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 
 	tc := vt.NewClient(t, server, "/board")
@@ -152,11 +156,12 @@ func TestBoardCard_createdSessionCanPlaceAPromptOrderImmediately(t *testing.T) {
 	resetConsumersForTest()
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 
 	tc := vt.NewClient(t, server, "/board")
@@ -183,11 +188,12 @@ func TestBoardCard_createSessionUsesTheTypedRepoDir(t *testing.T) {
 	resetConsumersForTest()
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 
 	typed := freshGitRepo(t)
@@ -207,11 +213,12 @@ func TestBoardCard_createSessionUsesTheTypedRepoDir(t *testing.T) {
 func TestBoardCard_createSessionFromTheUIRegistersAReachableSession(t *testing.T) {
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 
 	tc := vt.NewClient(t, server, "/board")
@@ -233,11 +240,12 @@ func TestBoardCard_createSessionFromTheUIRegistersAReachableSession(t *testing.T
 func TestBoardCard_rendersACreateSessionControl(t *testing.T) {
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 
 	body := bodyOf(vt.NewClient(t, server, "/board").HTML())
@@ -251,11 +259,12 @@ func TestBoardCard_rendersACreateSessionControl(t *testing.T) {
 func TestBoardCard_createSessionRejectsInvalidAndDuplicateKeys(t *testing.T) {
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 
 	tc := vt.NewClient(t, server, "/board")

@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-via/via"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -35,11 +34,12 @@ func catchAt(line int) ledger.CatchRecord {
 func bootServer(t *testing.T) (*httptest.Server, *ledger.Log) {
 	t.Helper()
 	var server *httptest.Server
-	_, log, err := app.NewServer(app.LiveConfig{
+	viaApp, log, err := app.NewServer(app.LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f",
 		TestCmd: []string{"true"},
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 	return server, log
 }

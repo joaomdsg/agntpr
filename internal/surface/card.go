@@ -23,8 +23,12 @@ const Tested = "tested"
 // orchestrator through the Post action; an empty verdict means the oracle is
 // still running (the in-flight state).
 type ReviewCard struct {
-	Verdict via.StateTabStr
-	Sig     via.SignalStr `via:"verdict"`
+	// Verdict is the per-tab resolved state the View renders; Sig is the inbound
+	// "verdict" signal Post delivers into it. They are wired by Post (not by a
+	// shared key), so Verdict carries a DISTINCT wire key — via v0.7.0 rejects two
+	// fields resolving to the same key.
+	Verdict via.StateTabStr `via:"verdictstate"`
+	Sig     via.SignalStr   `via:"verdict"`
 }
 
 // Post delivers an oracle verdict to the card — the path the orchestrator uses

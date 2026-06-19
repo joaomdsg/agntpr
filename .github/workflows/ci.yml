@@ -6,15 +6,16 @@ on:
   pull_request:
     branches: [main]
 
-# packets's go.mod uses `replace github.com/go-via/via => ../via`, so the build
-# needs the via module checked out as a SIBLING directory at the exact commit
-# the local build pins. Every job reproduces that two-checkout layout:
+# packets's go.mod pins the PUBLISHED github.com/go-via/via tag (no local
+# replace), so the proxy resolves it directly. The sibling via checkout pins the
+# matching source at the same commit for parity / local-replace fallback. Every
+# job reproduces the two-checkout layout:
 #   $GITHUB_WORKSPACE/packets  (this repo)
 #   $GITHUB_WORKSPACE/via     (go-via/via @ VIA_REF)
-# and runs go commands from the packets dir, where ../via resolves.
+# and runs go commands from the packets dir.
 env:
   VIA_REPO: go-via/via
-  VIA_REF: 60cf0cd775aa5a6f2d7c27ed24aff2ef6d38a277 # design/state-backplane; 36 ahead of v0.4.2
+  VIA_REF: 8bd5f1d6d6db2341b75241db998f5230a9f21792 # v0.7.0
   # NOT go-version-file: go.mod's `go 1.24.0` is the language MINIMUM, but via's
   # SSE handshake relies on net/http streaming behavior that only flushes the way
   # the tests expect on Go >= 1.26 (on 1.24 the SSE stream closes before the

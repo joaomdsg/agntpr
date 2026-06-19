@@ -22,9 +22,9 @@ import (
 // state.
 func newCard(t *testing.T) (*surface.ReviewCard, *vt.Client) {
 	t.Helper()
-	var server *httptest.Server
-	app := via.New(via.WithTestServer(&server))
+	app := via.New()
 	via.Mount[surface.ReviewCard](app, "/")
+	server := httptest.NewServer(app)
 	return &surface.ReviewCard{}, vt.NewClient(t, server, "/")
 }
 

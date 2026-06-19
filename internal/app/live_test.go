@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-via/via"
 	"github.com/go-via/via/vt"
 
 	"github.com/joaomdsg/packets/internal/app"
@@ -28,11 +27,12 @@ func TestLiveServer_streamsAVerdictFromInFlightToCaughtAndLogsIt(t *testing.T) {
 
 	logPath := filepath.Join(t.TempDir(), "catches.jsonl")
 	var server *httptest.Server
-	_, log, err := app.NewServer(app.LiveConfig{
+	viaApp, log, err := app.NewServer(app.LiveConfig{
 		RepoDir: dir, BaseRev: base, FixRev: fix, TipRev: fix, Anchor: anchor(),
 		TestCmd: goTestCmd, LedgerPath: logPath, SelfFlagged: true, WouldHaveShipped: true,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 
 	tc := vt.NewClient(t, server, "/")
@@ -62,11 +62,12 @@ func TestLiveServer_showsTheConfirmedCatchStockFromTheLedger(t *testing.T) {
 
 	logPath := filepath.Join(t.TempDir(), "catches.jsonl")
 	var server *httptest.Server
-	_, log, err := app.NewServer(app.LiveConfig{
+	viaApp, log, err := app.NewServer(app.LiveConfig{
 		RepoDir: dir, BaseRev: base, FixRev: fix, TipRev: fix, Anchor: anchor(),
 		TestCmd: goTestCmd, LedgerPath: logPath,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "a.go", ReasonTag: "catch"}))
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "b.go", ReasonTag: "catch"}))
@@ -91,11 +92,12 @@ func TestLiveServer_streamsBeatsBeforeTheVerdictResolves(t *testing.T) {
 
 	logPath := filepath.Join(t.TempDir(), "catches.jsonl")
 	var server *httptest.Server
-	_, log, err := app.NewServer(app.LiveConfig{
+	viaApp, log, err := app.NewServer(app.LiveConfig{
 		RepoDir: dir, BaseRev: base, FixRev: fix, TipRev: fix, Anchor: anchor(),
 		TestCmd: goTestCmd, LedgerPath: logPath,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 
 	tc := vt.NewClient(t, server, "/")

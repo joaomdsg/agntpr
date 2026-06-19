@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-via/via"
 	"github.com/go-via/via/vt"
 
 	"github.com/joaomdsg/packets/internal/app"
@@ -54,12 +53,13 @@ func TestGoldenReplay_realLoopShowsAWinTwoCompoundsAndAnHonestMissAndReplaysCons
 
 	logPath := filepath.Join(t.TempDir(), "catches.jsonl")
 	var server *httptest.Server
-	_, log, err := app.NewServer(app.LiveConfig{
+	viaApp, log, err := app.NewServer(app.LiveConfig{
 		RepoDir: dir, BaseRev: base, FixRev: fix, TipRev: fix,
 		Anchor:  reanchor.Anchor{Path: "adult.go", Start: 4, End: 4, LineHash: reanchor.HashLines("\tokA := a >= 18")},
 		TestCmd: goTestCmd, LedgerPath: logPath,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 
 	tc := vt.NewClient(t, server, "/")

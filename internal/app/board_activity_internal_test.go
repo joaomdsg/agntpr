@@ -7,7 +7,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-via/via"
 	"github.com/go-via/via/vt"
 )
 
@@ -34,11 +33,12 @@ func TestBoardCard_showsAnAgentsLiveActivityOnItsRow(t *testing.T) {
 	// NOT parallel (shared liveReg).
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 
 	boardSession(t, "act-render", 0, nil)
@@ -53,11 +53,10 @@ func TestBoardCard_omitsTheActivityBeatWhenTheAgentIsIdle(t *testing.T) {
 	// NOT parallel (shared liveReg). An idle session (no live fill) shows no beat —
 	// no dead "·" with nothing after it.
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
 	_, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = log.Close() })
 

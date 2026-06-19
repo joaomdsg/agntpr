@@ -2,14 +2,11 @@ package app
 
 import (
 	"context"
-	"net/http/httptest"
 	"os/exec"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/go-via/via"
 
 	"github.com/joaomdsg/packets/internal/ingest"
 	"github.com/joaomdsg/packets/internal/ledger"
@@ -25,11 +22,10 @@ func TestPruneIdleProducers_keepsASessionWithClaimsInFlightButReclaimsAnIdleOne(
 
 	// Session "idle": a fresh repo with an ingested bundle, no claims.
 	idleRepo := freshGitRepo(t)
-	var server *httptest.Server
 	_, defLog, err := NewServer(LiveConfig{
 		RepoDir: idleRepo, BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: filepath.Join(t.TempDir(), "default.jsonl"),
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = defLog.Close() })
 	idleBundle, _ := producerCommitBundle(t)
@@ -66,11 +62,10 @@ func TestPruneIdleProducers_keepsASessionWithClaimsInFlightButReclaimsAnIdleOne(
 // A session configured with no RepoDir has no store to prune: the sweep skips it
 // without error or panic (it must never fall back to the process cwd).
 func TestPruneIdleProducers_skipsASessionWithNoRepoDir(t *testing.T) {
-	var server *httptest.Server
 	_, defLog, err := NewServer(LiveConfig{
 		RepoDir: "", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: filepath.Join(t.TempDir(), "default.jsonl"),
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = defLog.Close() })
 

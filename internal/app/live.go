@@ -1574,7 +1574,8 @@ func (c *LiveCard) OnConnect(ctx *via.Ctx) error {
 // binds the default session's ledger (which OWNS the fabric's lifecycle), stashes
 // the cycle config, mounts the LiveCard, and returns the Via app (an
 // http.Handler) plus the ledger handle for the caller to close (closing it tears
-// the fabric down). Extra Via options (e.g. via.WithTestServer) are passed through.
+// the fabric down). Extra Via options are passed through; tests wrap the returned
+// app with httptest.NewServer(app) to drive it over HTTP.
 func NewServer(cfg LiveConfig, opts ...via.Option) (*via.App, *ledger.Log, error) {
 	f, err := startLiveFabric(cfg.LedgerPath, cfg.ListenAddr, cfg.Grants)
 	if err != nil {

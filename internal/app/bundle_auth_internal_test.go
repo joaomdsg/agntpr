@@ -10,8 +10,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-via/via"
-
 	"github.com/joaomdsg/packets/internal/fabric"
 )
 
@@ -39,12 +37,13 @@ func TestPostBundle_requiresGrantCredentialsWhenProducersAreConfigured(t *testin
 	resetBundleGuardsForTest()
 	repoDir := freshGitRepo(t)
 	var server *httptest.Server
-	_, log, err := NewServer(LiveConfig{
+	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: repoDir, BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: filepath.Join(t.TempDir(), "default.jsonl"),
 		Grants: []fabric.ProducerGrant{NewProducerGrant(defaultSessionKey, "prodA", "pw")},
-	}, via.WithTestServer(&server))
+	})
 	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
 	bundle, sha := producerCommitBundle(t)
 
