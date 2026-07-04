@@ -291,6 +291,13 @@ type liveEntry struct {
 	// there is no persisted event kind for this yet (a deferral: adding one
 	// is out of scope this slice).
 	intentFidelityConfirmed map[int]packet.Gate
+	// calibMu guards calibDraw: this session's currently-cached calibration
+	// sample (MVP.md concept 8) — the drawn packet id, kept STABLE across
+	// renders (drawCalibration) until it ages out of the auto-forwarded set.
+	// Separate from findingsMu/laneMu: a render-cheap, rarely-changing value
+	// with no reason to contend with either's own traffic.
+	calibMu   sync.Mutex
+	calibDraw int
 	// orderCatch holds a FILLED work-order's raw catch-cycle outcome and
 	// after-revision survivor/inventory counts (settleCatch's Resolution),
 	// carried alongside orderFindings — the data G3
@@ -519,6 +526,22 @@ func (e *liveEntry) laneFor(ctx context.Context, p packet.Packet) packet.Lane {
 func (e *liveEntry) cachedLane(orderID int) packet.Lane {
 	lane, _ := e.cachedLaneEntry(orderID)
 	return lane
+}
+
+// cachedCalibDraw returns this session's currently-cached calibration draw
+// id, 0 if none has been drawn yet (0 is never a real packet id — ids start
+// at 1).
+func (e *liveEntry) cachedCalibDraw() int {
+	e.calibMu.Lock()
+	defer e.calibMu.Unlock()
+	return e.calibDraw
+}
+
+// setCalibDraw caches id as this session's calibration draw.
+func (e *liveEntry) setCalibDraw(id int) {
+	e.calibMu.Lock()
+	e.calibDraw = id
+	e.calibMu.Unlock()
 }
 
 // maxActivityLog bounds the in-flight transcript so a long agent run can't grow the
@@ -1976,7 +1999,13 @@ func (c *LiveCard) OnConnect(ctx *via.Ctx) error {
 						caught++
 					}
 				}
-				if sig := caught*1_000_000_000_000 + threads*1_000_000_000 + queued*1_000_000 + running*1_000 + done; sig != lastDispatch {
+				// A new interrupt (a review question surfacing) is an off-ledger fact
+				// independent of the dispatch tally above — recordQuestionBlocks logs it
+				// straight to the ledger with no accompanying status/question/caught
+				// change, so without folding used in here the interrupt KPI could sit
+				// stale behind this open SSE connection until reload.
+				used, _ := weeklyInterrupts(c.Key)
+				if sig := used*1_000_000_000_000_000 + caught*1_000_000_000_000 + threads*1_000_000_000 + queued*1_000_000 + running*1_000 + done; sig != lastDispatch {
 					lastDispatch = sig
 					c.Dispatch.Write(ctx, strconv.Itoa(sig))
 				}

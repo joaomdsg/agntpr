@@ -180,9 +180,10 @@ func TestLiveCard_needsYouRailShowsVictoryEmptyStateWhenNoOpenThreads(t *testing
 	require.Contains(t, body, "console__card--dashed", "the empty state uses the dashed empty-card treatment")
 }
 
-// The calibration draw mechanic (slice 11) does not exist yet — the rail must
-// show the honest "no draws yet" empty state rather than a fabricated sample.
-// NOT parallel (shared liveReg/liveFabric).
+// A session with no Verified (auto-forwarded) packets has nothing honest to
+// draw from — the calibration mechanic (slice 11) must show the "no draws
+// yet" empty state rather than a fabricated sample. NOT parallel (shared
+// liveReg/liveFabric).
 func TestLiveCard_calibrationRailShowsHonestEmptyStateBeforeItsMechanicExists(t *testing.T) {
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server

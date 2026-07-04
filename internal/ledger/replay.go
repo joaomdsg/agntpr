@@ -70,6 +70,23 @@ func (p Projection) Balance() int {
 	return p.balance
 }
 
+// InterruptsSince counts real interrupts (MVP.md concept 8) raised on or
+// after since — one per distinct block id whose stamp meets the threshold,
+// reusing the SAME p.blocks fold Bandwidth() reads (first-block-stamp-wins
+// dedup, so a re-raised block never counts twice). Unlike Bandwidth, this
+// counts a block the moment it is RAISED, whether or not it has since been
+// cleared — an open block already interrupted the Lead.
+func (p Projection) InterruptsSince(since time.Time) int {
+	threshold := since.UnixMilli()
+	n := 0
+	for _, at := range p.blocks {
+		if at >= threshold {
+			n++
+		}
+	}
+	return n
+}
+
 // Records is the catch-kind record stream, UNFILTERED by ShouldRecord (mirroring
 // Log.Records): a forged non-catch line survives the projection, while never
 // contributing to Balance or the confirmed stock.

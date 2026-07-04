@@ -5,7 +5,7 @@ the spec). One slice per tick unless a slice says otherwise. Statuses:
 queued / in-flight / landed / dropped. Every landed slice carries one
 evidence line.
 
-NEXT: slice 11.
+NEXT: slice 12.
 
 ## Infra
 
@@ -185,11 +185,18 @@ NEXT: slice 11.
   separate concept from gate-failure — gate-failure IS the
   guardrail trip for MVP purposes. Evidence: full gate green;
   commit below.
-- [ ] **11. Attention economics** — queued. Interrupt budget
-  (n/week counted down by real interrupts, rendered as the Console
-  KPI), calibration draws (random sample of auto-forwarded packets
-  in the queue rail), empty-queue-is-success copy. Bandwidth
-  machinery reframed/renamed at this touch-point.
+- [x] **11. Attention economics** — landed. Reused the existing
+  block/unblock timestamps (real interrupt ground truth, no new
+  schema) via `ledger.InterruptsSince` — Console KPI renders the
+  locked `N/10 interrupts` format, live via the SSE poll. Calibration
+  draw: a pure, stable (non-flickering) random pick over Verified
+  packets, replacing the dashed placeholder when one exists. Added
+  the concepts.md dry-aside line ("an empty queue is success, not
+  idleness") to the victory empty state. Console-only; /board
+  /settings /inspect untouched. Noted, not fixed: the SSE poll's
+  composite-int signature assumes each folded count stays <1000 —
+  pre-existing pattern, extended one digit deeper, immaterial at
+  MVP session scale. Evidence: full gate green; commit below.
 - [ ] **12. Watches + precision** — queued. Standing watch/capture
   triggers with precision scores counted from real fired-vs-useful
   history; "no history yet" until real; noisy triggers lose

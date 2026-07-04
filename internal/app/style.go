@@ -750,6 +750,13 @@ body {
   color: var(--text-faint);
   text-align: center;
 }
+.console__dry-aside {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  color: var(--text-ghost);
+  text-align: center;
+  padding: 0 var(--sp-3);
+}
 .console__empty-kicker {
   font-family: var(--font-mono);
   font-size: var(--fs-micro);
@@ -775,6 +782,13 @@ body {
   line-height: 1;
 }
 .console__hero-label { color: var(--text-muted); font-size: var(--fs-body); }
+.console__interrupt-kpi {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-tiny);
+  font-weight: 700;
+  color: var(--verified);
+}
 .console__hero-addr {
   margin-left: auto;
   font-family: var(--font-mono);

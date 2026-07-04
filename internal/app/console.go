@@ -37,7 +37,7 @@ func renderConsole(navKey string, packets []packet.Packet, addr packet.Addr, cen
 			verified++
 		}
 	}
-	mainParts := []h.H{h.Class("console__main"), renderHeroStat(verified, addr)}
+	mainParts := []h.H{h.Class("console__main"), renderHeroStat(navKey, verified, addr)}
 	if strip := renderInFlightStrip(packets); strip != nil {
 		mainParts = append(mainParts, strip)
 	}
@@ -68,21 +68,29 @@ func heldPackets(packets []packet.Packet) []packet.Packet {
 	return held
 }
 
+// consoleDryAside is the house voice's one permitted editorial sentence per
+// screen (design/guidelines/voice.md rule 10), verbatim from concepts.md's
+// attention-economics framing — rendered lowercase, matching this repo's
+// operational-copy casing, exactly ONCE, only in the truly-empty needs-you
+// branch (never appended alongside real held cards).
+const consoleDryAside = "✱ an empty queue is success, not idleness."
+
 // renderNeedsYouRail is the left rail: one card per held packet (capped at
 // consoleNeedsYouCap, "+N more" beyond that), each linking straight into the
-// packet's own review — or the victory empty state when nothing is held. A
-// dashed "calibration" placeholder sits below it: the draw mechanic (slice 11)
-// doesn't exist yet, so it names that honestly rather than faking a sample.
+// packet's own review — or the victory empty state (plus the dry aside) when
+// nothing is held. A calibration draw (ROADMAP slice 11) sits below it: a
+// real skim-worthy card when the auto-forwarded set has something to draw
+// from, otherwise the honest dashed "no calibration draws yet" placeholder.
 func renderNeedsYouRail(navKey string, packets []packet.Packet) h.H {
 	held := heldPackets(packets)
 	header := h.Div(h.Class("console__panel-header"), h.Text("needs you · "+strconv.Itoa(len(held))))
 
 	body := []h.H{h.Class("console__rail-body")}
 	if len(held) == 0 {
-		body = append(body, h.Div(
-			h.Class("console__card", "console__card--dashed"),
-			h.Text("nothing needs you"),
-		))
+		body = append(body,
+			h.Div(h.Class("console__card", "console__card--dashed"), h.Text("nothing needs you")),
+			h.Div(h.Class("console__dry-aside"), h.Text(consoleDryAside)),
+		)
 	} else {
 		shown := held
 		more := 0
@@ -97,15 +105,51 @@ func renderNeedsYouRail(navKey string, packets []packet.Packet) h.H {
 			body = append(body, h.Div(h.Class("console__more"), h.Text("and "+strconv.Itoa(more)+" more")))
 		}
 	}
-	body = append(body, h.Div(
-		h.Class("console__card", "console__card--dashed"),
-		h.Div(h.Class("console__empty-kicker"), h.Text("calibration")),
-		h.Div(h.Text("no calibration draws yet")),
-	))
+	body = append(body, renderCalibrationCard(navKey, packets))
 
 	return h.Aside(h.Class("console__rail", "console__rail--needs-you"),
 		header,
 		h.Div(body...),
+	)
+}
+
+// renderCalibrationCard draws the Console's calibration sample (ROADMAP
+// slice 11, MVP.md concept 8): a real skim link into an auto-forwarded
+// (Verified) packet when one exists — cached per-session (liveEntry.calibMu)
+// so the draw stays STABLE across the 100ms poll's re-renders rather than
+// re-rolling on every tick — or the honest dashed empty state when nothing
+// has forwarded on its own yet.
+func renderCalibrationCard(navKey string, packets []packet.Packet) h.H {
+	e := lookupLiveEntry(navKey)
+	previous := 0
+	if e != nil {
+		previous = e.cachedCalibDraw()
+	}
+	id, ok := drawCalibration(packets, previous)
+	if !ok {
+		return h.Div(
+			h.Class("console__card", "console__card--dashed"),
+			h.Div(h.Class("console__empty-kicker"), h.Text("calibration")),
+			h.Div(h.Text("no calibration draws yet")),
+		)
+	}
+	if e != nil {
+		e.setCalibDraw(id)
+	}
+	name := ""
+	for _, p := range packets {
+		if p.ID == id {
+			name = p.Name
+			break
+		}
+	}
+	href := "/review?key=" + url.QueryEscape(navKey) + "&wo=" + strconv.Itoa(id)
+	return h.A(
+		h.Href(href),
+		h.Class("console__card"),
+		h.Div(h.Class("console__empty-kicker"), h.Text("calibration")),
+		h.Div(h.Class("console__thread-title"), h.Text(name)),
+		h.Div(h.Class("console__thread-arrow"), h.Text("skim →")),
 	)
 }
 
@@ -133,12 +177,17 @@ func renderNeedsYouCard(navKey string, p packet.Packet) h.H {
 // whose State is Verified (done, the order's own catch minted, no open
 // questions) — the only forward state the gauntlet actually proves today
 // (MVP.md vocabulary map: "forwarded"/"delivered" aren't mechanized yet, so
-// neither word belongs here). The addr line beside it is the honest repo
-// identity (packet.ParseAddr), never a fabricated owner.
-func renderHeroStat(verifiedCount int, addr packet.Addr) h.H {
+// neither word belongs here). Beside it, the interrupt KPI (ROADMAP slice 11)
+// names the session's REAL weekly interrupt count against the locked cap
+// (design/ui_kits/console/ConsoleScreen.jsx's "N/10 interrupts"), never a
+// fabricated number. The addr line is the honest repo identity
+// (packet.ParseAddr), never a fabricated owner.
+func renderHeroStat(navKey string, verifiedCount int, addr packet.Addr) h.H {
+	used, cap := weeklyInterrupts(navKey)
 	return h.Div(h.Class("console__hero"),
 		h.Span(h.Class("console__hero-stat"), h.Text(strconv.Itoa(verifiedCount))),
 		h.Span(h.Class("console__hero-label"), h.Text("packets verified")),
+		h.Span(h.Class("console__interrupt-kpi"), h.Text(strconv.Itoa(used)+"/"+strconv.Itoa(cap)+" interrupts")),
 		h.Span(h.Class("console__hero-addr"), h.Text("addr "+addr.String())),
 	)
 }
