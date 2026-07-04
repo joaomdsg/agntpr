@@ -8,105 +8,188 @@ import "github.com/go-via/via/h"
 // board and card markup already emit, so it changes no server markup.
 func styleHead() h.H { return h.StyleEl(h.Raw(packetsStyle)) }
 
-// packetsStyle is the base visual language (council R43): restrained dark
-// surface, system-font type, a calm spacing rhythm, and color that REINFORCES
-// honest state (confirmed / pending bet / verified-lost / missed / balance) —
-// never an alarm, a gauge, a progress bar, or a fabricated rank. Meaning lives in
-// structure + labels; color is calm reinforcement, so the page still reads with
-// the stylesheet stripped. Design tokens are `--pk-*` custom properties so later
+// packetsStyle is the base visual language: the MVP.md brand pack (council
+// bootstrap 2026-07-04) ported verbatim from design/tokens/ — IBM Plex type,
+// a dense operational spacing rhythm, and the state grammar (signal / verified
+// / held / risk / agent / delivered) that IS the product. Color REINFORCES
+// honest state — never an alarm, a gauge, a progress bar, or a fabricated
+// rank. Meaning lives in structure + labels; the page still reads with the
+// stylesheet stripped. Design tokens are named custom properties so later
 // slices (nav, menus, flows) inherit one palette.
 const packetsStyle = `
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap");
+
 :root {
-  /* surface + ink */
-  --pk-bg: #14171a;
-  --pk-surface: #1b1f24;
-  --pk-surface-2: #222831;
-  --pk-ink: #e6e8eb;
-  --pk-ink-dim: #9aa3ad;
-  --pk-line: #2b323b;
-  /* honest-state hues — muted, never alarm red/green */
-  --pk-confirmed: #6fb59a;   /* a calm teal-green: a minted catch, a thing that happened */
-  --pk-balance:   #7fa6c4;   /* cool blue-gray: a spendable resource, ready to act */
-  --pk-inflight:  #c2a878;   /* muted amber/tan: a pending bet, under verification */
-  --pk-lost:      #b08a8a;   /* desaturated mauve: a verified-loss / miss — acknowledged, not shamed */
-  --pk-accent:    #d4a574;   /* warm bronze: focus / keyboard cue (later slices) */
+  /* grounds & surfaces (darkest -> lightest) */
+  --ground: #0a0d13;
+  --surface-deep: #080a0f;
+  --surface-panel: #0f131b;
+  --surface-card: #141924;
+  --surface-raised: #1b212e;
+
+  /* borders */
+  --hairline: #1b212e;
+  --border-faint: rgba(255,255,255,.08);
+  --border-mid: #2a3242;
+  --border-dashed: #3a4150;
+
+  /* text ramp (brightest -> dimmest) */
+  --ink: #e8ebf1;
+  --text-body: #c3cad6;
+  --text-muted: #98a1b2;
+  --text-faint: #616b7c;
+  --text-ghost: #4e5666;
+  --text-disabled: #3a4150;
+
+  /* the state grammar — these ARE the product */
+  --signal: #4cc4d4;
+  --on-signal: #08222a;
+  --delivered: #2a7683;
+  --delivered-mid: #357f8a;
+  --verified: #46c08a;
+  --held: #e6b23e;
+  --risk: #f0666b;
+  --risk-deep: #d1585c;
+  --risk-muted: #cf9a97;
+  --agent: #a78bfa;
+
+  /* semantic aliases */
+  --you: var(--signal);
+  --accent: var(--signal);
+  --add: var(--verified);
+  --del: var(--risk);
+
+  /* spacing (dense console rhythm) */
+  --sp-1: 4px;
+  --sp-2: 7px;
+  --sp-3: 9px;
+  --sp-4: 12px;
+  --sp-5: 14px;
+  --sp-6: 16px;
+  --sp-7: 22px;
+  --sp-8: 32px;
+
+  /* radii */
+  --r-glyph: 4px;
+  --r-btn-sm: 7px;
+  --r-card-sm: 8px;
+  --r-ann: 9px;
+  --r-card: 10px;
+  --r-btn: 8px;
+  --r-cta: 11px;
+  --r-stat: 12px;
+  --r-frame: 14px;
+  --r-shell: 16px;
+  --r-pill: 999px;
+
+  /* component heights */
+  --h-chip-sm: 15px;
+  --h-chip: 17px;
+  --h-chip-lg: 20px;
+  --h-btn-sm: 26px;
+  --h-btn: 28px;
+  --h-btn-lg: 34px;
+  --h-cta: 50px;
+
   /* type */
-  --pk-font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-  --pk-mono: ui-monospace, "SF Mono", Menlo, Monaco, "Cascadia Code", monospace;
-  /* spacing rhythm */
-  --pk-xs: 4px;
-  --pk-sm: 8px;
-  --pk-md: 14px;
-  --pk-lg: 22px;
-  /* type scale — collapses the ad-hoc em fractions into three steps */
-  --pk-font-sm: 0.92em;   /* the dominant secondary size */
-  --pk-font-xs: 0.82em;   /* the uppercase section labels */
-  /* radius + border — promote the repeated literals */
-  --pk-radius: 6px;       /* the canonical corner (was ~14 literals) */
-  --pk-radius-sm: 4px;    /* the tighter corner (the review-submit drifter) */
-  --pk-border: 1px solid var(--pk-line);  /* the hairline (was ~12 literals) */
+  --font-ui: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* dense operational scale (mono UI text) */
+  --fs-micro: 9px;
+  --fs-tiny: 9.5px;
+  --fs-small: 10px;
+  --fs-label: 10.5px;
+  --fs-body-mono: 11px;
+  --fs-body: 12.5px;
+  --fs-emph: 13px;
+  --fs-hero-stat: 36px;
+
+  /* tracking */
+  --track-kicker: .2em;
+  --track-label: .1em;
+  --track-chip: .05em;
+  --track-word: .04em;
+
+  --lh-ui: 1.45;
+  --lh-prose: 1.7;
+  --lh-dense: 1.55;
+
+  /* effects — glows, shadows, washes */
+  --glow-signal: 0 0 8px var(--signal);
+  --glow-risk: 0 0 10px rgba(240,102,107,.55);
+  --glow-btn: 0 6px 18px rgba(76,196,212,.24);
+  --shadow-frame: 0 30px 70px rgba(0,0,0,.45);
+  --shadow-tooltip: 0 12px 30px rgba(0,0,0,.5);
+  --wash-signal: radial-gradient(90% 70% at 82% -12%, rgba(76,196,212,.08), transparent 55%);
 }
 
+/* motion — the three primitives the design allows: live pulse, held pulse
+   (a sharper amber pulse for a blocking hold), and the settle flow sweep. */
+@keyframes pk-pulse { 0%,100% { opacity:1 } 50% { opacity:.35 } }
+@keyframes pk-held-pulse { 0%,100% { box-shadow:0 0 6px rgba(240,102,107,.35) } 50% { box-shadow:0 0 16px rgba(240,102,107,.75) } }
+@keyframes pk-flow { 0% { transform:translateX(-140%) } 100% { transform:translateX(240%) } }
+
 /* The WCAG 2.4.7 fix: a real, calm focus ring on every keyboard-focused
-   control — bronze accent (the documented keyboard cue), an outline so it does
-   not reflow. The per-component border-color swap stays as reinforcement. */
+   control — the signal accent (the documented keyboard cue), an outline so it
+   does not reflow. The per-component border-color swap stays as reinforcement. */
 :focus-visible {
-  outline: 2px solid var(--pk-accent);
+  outline: 2px solid var(--signal);
   outline-offset: 2px;
 }
 
 /* ---- the shared component layer: box CSS lives once here; each surface adds
    its semantic class via multi-class for hue/state/layout only ---- */
 .pk-btn {
-  padding: var(--pk-xs) var(--pk-md);
-  background: var(--pk-surface-2);
-  color: var(--pk-balance);
-  border: var(--pk-border);
-  border-radius: var(--pk-radius);
+  padding: var(--sp-1) var(--sp-5);
+  background: var(--surface-raised);
+  color: var(--signal);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-btn);
   font: inherit;
   cursor: pointer;
 }
-.pk-btn:hover { border-color: var(--pk-balance); }
-.pk-btn:disabled { color: var(--pk-ink-dim); cursor: default; }
-.pk-btn:disabled:hover { border-color: var(--pk-line); }
-.pk-btn--quiet { background: transparent; color: var(--pk-ink-dim); }
-.pk-btn--quiet:hover { border-color: var(--pk-accent); color: var(--pk-ink); }
+.pk-btn:hover { border-color: var(--signal); }
+.pk-btn:disabled { color: var(--text-muted); cursor: default; }
+.pk-btn:disabled:hover { border-color: var(--hairline); }
+.pk-btn--quiet { background: transparent; color: var(--text-muted); }
+.pk-btn--quiet:hover { border-color: var(--signal); color: var(--ink); }
 .pk-input {
-  padding: var(--pk-xs) var(--pk-sm);
-  background: var(--pk-surface);
-  color: var(--pk-ink);
-  border: var(--pk-border);
-  border-radius: var(--pk-radius);
+  padding: var(--sp-1) var(--sp-3);
+  background: var(--surface-panel);
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-btn);
   font: inherit;
 }
-.pk-input:focus-visible { border-color: var(--pk-accent); }
+.pk-input:focus-visible { border-color: var(--signal); }
 .pk-chip {
-  padding: 1px var(--pk-sm);
-  border: var(--pk-border);
-  border-radius: var(--pk-radius);
-  font-family: var(--pk-mono);
-  font-size: var(--pk-font-sm);
-  color: var(--pk-ink-dim);
+  padding: 1px var(--sp-3);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-btn);
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  color: var(--text-muted);
 }
 .pk-section-label {
-  color: var(--pk-ink-dim);
-  font-size: var(--pk-font-xs);
+  color: var(--text-faint);
+  font-size: var(--fs-micro);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 .pk-card {
-  padding: var(--pk-sm) var(--pk-md);
-  background: var(--pk-surface);
-  border: var(--pk-border);
-  border-radius: var(--pk-radius);
+  padding: var(--sp-3) var(--sp-5);
+  background: var(--surface-panel);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-btn);
 }
 
 body {
   margin: 0;
-  padding: var(--pk-lg);
-  background: var(--pk-bg);
-  color: var(--pk-ink);
-  font-family: var(--pk-font);
+  padding: var(--sp-7);
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-ui);
   font-size: 14px;
   line-height: 1.5;
 }
@@ -115,199 +198,199 @@ body {
 .board-nav {
   display: flex;
   align-items: baseline;
-  gap: var(--pk-md);
-  padding-bottom: var(--pk-sm);
-  margin-bottom: var(--pk-lg);
-  border-bottom: 1px solid var(--pk-line);
+  gap: var(--sp-5);
+  padding-bottom: var(--sp-3);
+  margin-bottom: var(--sp-7);
+  border-bottom: 1px solid var(--hairline);
 }
-.board-nav__home { color: var(--pk-ink); font-weight: 700; text-decoration: none; }
-.board-nav__home:hover { color: var(--pk-accent); }
-.board-nav__breadcrumb { display: inline-flex; align-items: baseline; gap: var(--pk-xs); color: var(--pk-ink-dim); font-size: var(--pk-font-sm); }
-.board-nav__crumb { color: var(--pk-ink-dim); text-decoration: none; }
-.board-nav__crumb:hover { color: var(--pk-accent); }
-.board-nav__sep { color: var(--pk-ink-dim); }
-.board-nav__key { color: var(--pk-ink); }
+.board-nav__home { color: var(--ink); font-weight: 700; text-decoration: none; }
+.board-nav__home:hover { color: var(--signal); }
+.board-nav__breadcrumb { display: inline-flex; align-items: baseline; gap: var(--sp-1); color: var(--text-muted); font-size: var(--fs-small); }
+.board-nav__crumb { color: var(--text-muted); text-decoration: none; }
+.board-nav__crumb:hover { color: var(--signal); }
+.board-nav__sep { color: var(--text-muted); }
+.board-nav__key { color: var(--ink); }
 
 /* ---- the fleet board ---- */
-.board { display: flex; flex-direction: column; gap: var(--pk-sm); }
+.board { display: flex; flex-direction: column; gap: var(--sp-3); }
 /* the fleet view's one command: create a session. A calm inline input + button,
    in the surface idiom — no modal, no alarm. */
-.board-create { display: flex; flex-wrap: wrap; gap: var(--pk-sm); align-items: baseline; margin-bottom: var(--pk-md); }
+.board-create { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: baseline; margin-bottom: var(--sp-5); }
 /* box CSS now lives on .pk-input / .pk-btn (multi-class); the semantic classes
    are kept as stable hooks for future per-surface nudges. */
 /* the repo pick: the chosen full path shows quietly in mono, beside the Browse
    control that opens the server-side directory picker. */
-.board-create__repo { display: flex; gap: var(--pk-sm); align-items: baseline; }
-.board-create__selected { font-family: var(--pk-mono); font-size: var(--pk-font-xs); color: var(--pk-ink-dim); overflow-wrap: anywhere; }
+.board-create__repo { display: flex; gap: var(--sp-3); align-items: baseline; }
+.board-create__selected { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--text-muted); overflow-wrap: anywhere; }
 /* the server-side directory picker: a calm surface panel that drops to its own
    full-width row below the create controls (so navigating the filesystem never
    crowds them), scrollable when a directory is deep. */
 .board-create__browser {
   flex-basis: 100%;
-  display: flex; flex-direction: column; gap: var(--pk-xs);
-  margin-top: var(--pk-sm); padding: var(--pk-sm);
-  background: var(--pk-surface-2); border: 1px solid var(--pk-line); border-radius: var(--pk-radius);
+  display: flex; flex-direction: column; gap: var(--sp-1);
+  margin-top: var(--sp-3); padding: var(--sp-3);
+  background: var(--surface-raised); border: 1px solid var(--hairline); border-radius: var(--r-btn);
   max-height: 320px; overflow-y: auto;
 }
-.board-create__browser-head { display: flex; gap: var(--pk-sm); align-items: center; margin-bottom: var(--pk-xs); }
-.board-create__browser-dir { flex: 1; font-family: var(--pk-mono); font-size: var(--pk-font-xs); color: var(--pk-ink-dim); overflow-wrap: anywhere; }
+.board-create__browser-head { display: flex; gap: var(--sp-3); align-items: center; margin-bottom: var(--sp-1); }
+.board-create__browser-dir { flex: 1; font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--text-muted); overflow-wrap: anywhere; }
 /* the navigable rungs — up + child folders — read as a calm left-aligned list
    (borderless, mono), the accent cueing the hover target, not a grid of buttons. */
 .board-create__browser-up,
 .board-create__browser-entry {
   text-align: left; background: transparent; border: 0; cursor: pointer;
-  padding: var(--pk-xs) var(--pk-sm); border-radius: var(--pk-radius-sm);
-  font-family: var(--pk-mono); font-size: var(--pk-font-xs); color: var(--pk-ink);
+  padding: var(--sp-1) var(--sp-3); border-radius: var(--r-glyph);
+  font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--ink);
 }
-.board-create__browser-up { color: var(--pk-ink-dim); }
+.board-create__browser-up { color: var(--text-muted); }
 .board-create__browser-up:hover,
-.board-create__browser-entry:hover { background: var(--pk-surface); color: var(--pk-accent); }
+.board-create__browser-entry:hover { background: var(--surface-panel); color: var(--signal); }
 
 /* ---- the setup surface (the Anthropic key) ---- */
-.settings { display: flex; flex-direction: column; gap: var(--pk-md); }
+.settings { display: flex; flex-direction: column; gap: var(--sp-5); }
 /* configured/unconfigured are honest STATES, colored in the calm palette — never
    an alarm red/green. Unconfigured is dim (a calm "not yet"), configured reads in
    the balance hue (a live capability), mirroring the per-state convention. */
-.settings__status[data-state="unconfigured"] { color: var(--pk-ink-dim); }
-.settings__status[data-state="configured"] { color: var(--pk-balance); }
-.settings__token { display: flex; gap: var(--pk-sm); align-items: baseline; }
+.settings__status[data-state="unconfigured"] { color: var(--text-muted); }
+.settings__status[data-state="configured"] { color: var(--signal); }
+.settings__token { display: flex; gap: var(--sp-3); align-items: baseline; }
 .settings__token-input { min-width: 22ch; }  /* box CSS on .pk-input */
 /* .settings__save box CSS now on .pk-btn */
 
 /* ---- the authoring assist (the producer's draft read) ---- */
-.authoring { display: flex; flex-direction: column; gap: var(--pk-sm); }
-/* .compose__analyze is a .pk-btn--quiet; it kept the surface-2 background */
-.compose__analyze { background: var(--pk-surface-2); }
-.analysis { display: flex; flex-direction: column; gap: var(--pk-xs); }  /* box CSS on .pk-card */
-.analysis__summary { color: var(--pk-ink); }
+.authoring { display: flex; flex-direction: column; gap: var(--sp-3); }
+/* .compose__analyze is a .pk-btn--quiet; it kept the raised-surface background */
+.compose__analyze { background: var(--surface-raised); }
+.analysis { display: flex; flex-direction: column; gap: var(--sp-1); }  /* box CSS on .pk-card */
+.analysis__summary { color: var(--ink); }
 /* readiness is an honest STATE in the calm palette — never an alarm green/red. A
    blocked draft reads dim ("not yet"); a ready one reads in the balance hue. */
-.analysis__readiness[data-state="blocked"] { color: var(--pk-ink-dim); }
-.analysis__readiness[data-state="ready"] { color: var(--pk-balance); }
-.analysis__questions-label { color: var(--pk-ink-dim); font-size: var(--pk-font-sm); }
+.analysis__readiness[data-state="blocked"] { color: var(--text-muted); }
+.analysis__readiness[data-state="ready"] { color: var(--signal); }
+.analysis__questions-label { color: var(--text-muted); font-size: var(--fs-small); }
 /* each question is now an answerable form block (text + choices + a note), so the
    list drops its bullets and stacks the questions with a calm rhythm. */
-.analysis__questions { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--pk-sm); color: var(--pk-ink); }
-.analysis__question { display: flex; flex-direction: column; gap: var(--pk-xs); }
-.analysis__question-text { color: var(--pk-ink); }
+.analysis__questions { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--sp-3); color: var(--ink); }
+.analysis__question { display: flex; flex-direction: column; gap: var(--sp-1); }
+.analysis__question-text { color: var(--ink); }
 /* the suggested answers: a wrap of quiet pickable chips (radios for pick-one,
    checkboxes for pick-any) — the native input stays, the label gives it a hit area. */
-.analysis__choices { display: flex; flex-wrap: wrap; gap: var(--pk-sm); }
-.analysis__choice { display: inline-flex; align-items: center; gap: var(--pk-xs); padding: var(--pk-xs) var(--pk-sm); background: var(--pk-surface-2); border: 1px solid var(--pk-line); border-radius: var(--pk-radius-sm); font-size: var(--pk-font-sm); cursor: pointer; }
-.analysis__choice:hover { border-color: var(--pk-accent); }
+.analysis__choices { display: flex; flex-wrap: wrap; gap: var(--sp-3); }
+.analysis__choice { display: inline-flex; align-items: center; gap: var(--sp-1); padding: var(--sp-1) var(--sp-3); background: var(--surface-raised); border: 1px solid var(--hairline); border-radius: var(--r-glyph); font-size: var(--fs-small); cursor: pointer; }
+.analysis__choice:hover { border-color: var(--signal); }
 /* the free-text note / different-answer input, and the single update control. */
-.analysis__note { background: var(--pk-surface-2); border: 1px solid var(--pk-line); border-radius: var(--pk-radius-sm); color: var(--pk-ink); padding: var(--pk-xs) var(--pk-sm); font-size: var(--pk-font-sm); }
-.analysis__note:focus { outline: none; border-color: var(--pk-accent); }
-.analysis__update { align-self: flex-start; margin-top: var(--pk-xs); }
-.analysis__unavailable { color: var(--pk-ink-dim); }
+.analysis__note { background: var(--surface-raised); border: 1px solid var(--hairline); border-radius: var(--r-glyph); color: var(--ink); padding: var(--sp-1) var(--sp-3); font-size: var(--fs-small); }
+.analysis__note:focus { outline: none; border-color: var(--signal); }
+.analysis__update { align-self: flex-start; margin-top: var(--sp-1); }
+.analysis__unavailable { color: var(--text-muted); }
 /* the editable Monaco editor — the single draft source (was a plain textarea). */
-.compose__live { display: flex; flex-direction: column; gap: var(--pk-sm); }
-.compose__editor { height: 180px; border: var(--pk-border); border-radius: var(--pk-radius); }
+.compose__live { display: flex; flex-direction: column; gap: var(--sp-3); }
+.compose__editor { height: 180px; border: 1px solid var(--hairline); border-radius: var(--r-btn); }
 /* the flagged spans, by severity — a calm underline, never a red squiggle. */
-.authoring-flag-question { text-decoration: underline dotted var(--pk-accent); }
-.authoring-flag-gap { text-decoration: underline wavy var(--pk-ink-dim); }
-.authoring-flag-note { text-decoration: underline dotted var(--pk-ink-dim); }
+.authoring-flag-question { text-decoration: underline dotted var(--signal); }
+.authoring-flag-gap { text-decoration: underline wavy var(--text-muted); }
+.authoring-flag-note { text-decoration: underline dotted var(--text-muted); }
 /* the live-read indicator: dim and hidden at rest, a calm "analyzing…" while a
    debounced re-read is pending/in-flight — never a spinner. */
-.compose__analyzing { color: var(--pk-ink-dim); font-size: var(--pk-font-xs); opacity: 0; transition: opacity 0.2s; }
+.compose__analyzing { color: var(--text-muted); font-size: var(--fs-micro); opacity: 0; transition: opacity 0.2s; }
 .compose__analyzing[data-state="pending"], .compose__analyzing[data-state="analyzing"] { opacity: 1; }
 /* the readiness reflection beside place — a guide, not an alarm: caution reads
    dim, ready reads in the balance hue. */
-.compose__readiness { font-size: var(--pk-font-sm); }
-.compose__readiness[data-state="caution"] { color: var(--pk-ink-dim); }
-.compose__readiness[data-state="ready"] { color: var(--pk-balance); }
+.compose__readiness { font-size: var(--fs-small); }
+.compose__readiness[data-state="caution"] { color: var(--text-muted); }
+.compose__readiness[data-state="ready"] { color: var(--signal); }
 
 /* ---- author a live order ---- */
-.compose { display: flex; flex-direction: column; gap: var(--pk-sm); margin: var(--pk-sm) 0; }
+.compose { display: flex; flex-direction: column; gap: var(--sp-3); margin: var(--sp-3) 0; }
 .compose__place { align-self: flex-start; }  /* box CSS on .pk-btn */
-.compose__needs-key { color: var(--pk-ink-dim); font-size: var(--pk-font-sm); }
-.compose__needs-key-link { color: var(--pk-accent); text-decoration: none; }
+.compose__needs-key { color: var(--text-muted); font-size: var(--fs-small); }
+.compose__needs-key-link { color: var(--signal); text-decoration: none; }
 /* box CSS (padding + surface + border + radius) now on .pk-card (multi-class);
    this keeps only the row's flex layout. */
 .board-row {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--pk-sm) var(--pk-md);
+  gap: var(--sp-3) var(--sp-5);
 }
-.board-row:hover { background: var(--pk-surface-2); }           /* a calm cue for the future keyboard nav */
+.board-row:hover { background: var(--surface-raised); }           /* a calm cue for the future keyboard nav */
 .board-row__key { font-weight: 700; min-width: 7ch; color: inherit; text-decoration: none; }
-.board-row__key:hover { color: var(--pk-accent); }
-.board-row__stock { font-weight: 600; color: var(--pk-confirmed); }
-.board-row__balance { color: var(--pk-balance); font-variant-numeric: tabular-nums; }
-.board-row__activity { color: var(--pk-ink-dim); font-family: var(--pk-mono); font-size: var(--pk-font-sm); }
-.board-row__misses { color: var(--pk-lost); }
-.board-row__hitrate { color: var(--pk-ink-dim); }
-.board-row__backlog { color: var(--pk-ink-dim); }
+.board-row__key:hover { color: var(--signal); }
+.board-row__stock { font-weight: 600; color: var(--verified); }
+.board-row__balance { color: var(--signal); font-variant-numeric: tabular-nums; }
+.board-row__activity { color: var(--text-muted); font-family: var(--font-mono); font-size: var(--fs-small); }
+.board-row__misses { color: var(--risk); }
+.board-row__hitrate { color: var(--text-muted); }
+.board-row__backlog { color: var(--text-muted); }
 /* open review questions (surviving mutants) for a session — test debt the green
    verdict hides, a quiet accent link into that session's /review; only shown when
    there are any. Never an alarm. */
-.board-row__questions { color: var(--pk-ink-dim); text-decoration: none; border-bottom: 1px dotted var(--pk-accent); }
-.board-row__questions:hover { color: var(--pk-ink); }
+.board-row__questions { color: var(--text-muted); text-decoration: none; border-bottom: 1px dotted var(--signal); }
+.board-row__questions:hover { color: var(--ink); }
 /* a session's integration verdict, surfaced on the board only when it BLOCKS a
    merge — honest color (R45 palette): conflict = muted warn, checks-red = muted
    loss. Never an alarm. */
-.board-row__land { font-size: var(--pk-font-sm); }
-.board-row__land[data-state="land-conflict"] { color: var(--pk-inflight); }
-.board-row__land[data-state="land-checks-red"] { color: var(--pk-lost); }
+.board-row__land { font-size: var(--fs-small); }
+.board-row__land[data-state="land-conflict"] { color: var(--signal); }
+.board-row__land[data-state="land-checks-red"] { color: var(--risk); }
 /* post-open lifecycle across the fleet (§29.2: Landed ≠ Merged) — terminal outcomes only */
-.board-row__lifecycle { font-size: var(--pk-font-sm); }
-.board-row__lifecycle[data-state="merged"] { color: var(--pk-confirmed); }
-.board-row__lifecycle[data-state="bounced"] { color: var(--pk-lost); }
+.board-row__lifecycle { font-size: var(--fs-small); }
+.board-row__lifecycle[data-state="merged"] { color: var(--verified); }
+.board-row__lifecycle[data-state="bounced"] { color: var(--risk); }
 /* fleet-level merge-readiness roll-up: how much of the fleet is blocked from
    landing. A calm dim summary line, surfaced only when ≥1 session is blocked — a
    count, never a gauge or alarm. */
-.board__land-summary { display: block; color: var(--pk-ink-dim); font-size: var(--pk-font-sm); }
+.board__land-summary { display: block; color: var(--text-muted); font-size: var(--fs-small); }
 /* retire a session from the fleet view — a quiet, low-emphasis control (dim until
    hover), never an alarm; only on non-default rows. */
 /* a quiet variant (.pk-btn--quiet); keeps its margin, tighter padding, smaller
    type, and the lost-hue hover as semantic reinforcement. */
-.board-row__retire { margin-left: auto; padding: 0 var(--pk-sm); font-size: var(--pk-font-xs); }
-.board-row__retire:hover { color: var(--pk-lost); border-color: var(--pk-lost); }
+.board-row__retire { margin-left: auto; padding: 0 var(--sp-3); font-size: var(--fs-micro); }
+.board-row__retire:hover { color: var(--risk); border-color: var(--risk); }
 
 /* the producers' bet lifecycle — one sealed cluster, distinct from confirmed stock */
 .board-row__bets, .board-row__dispatches {
   display: inline-flex;
   align-items: baseline;
-  gap: var(--pk-xs) var(--pk-sm);
-  padding: 1px var(--pk-sm);
-  border-left: 2px solid var(--pk-line);
+  gap: var(--sp-1) var(--sp-3);
+  padding: 1px var(--sp-3);
+  border-left: 2px solid var(--hairline);
 }
 /* the uppercase labels are .pk-section-label (multi-class) */
-.board-row__inflight { color: var(--pk-inflight); }
-.board-row__rejected { color: var(--pk-lost); }
-.board-row__dispatch { color: var(--pk-ink-dim); }  /* font-family/font-size now on .pk-chip; KEEP color + the [data-outcome] hue rules */
+.board-row__inflight { color: var(--signal); }
+.board-row__rejected { color: var(--risk); }
+.board-row__dispatch { color: var(--text-muted); }  /* font-family/font-size now on .pk-chip; KEEP color + the [data-outcome] hue rules */
 /* a resolved order's outcome, legible at a glance in the honest palette (extends
    the per-state color of R45 to the dispatch round-trip): caught is a calm
    confirmed, missed a muted loss — never an alarm red/green. A queued/running
    order has no data-outcome, so it stays neutral dim. */
-.board-row__dispatch[data-outcome="caught"] { color: var(--pk-confirmed); }
-.board-row__dispatch[data-outcome="missed"] { color: var(--pk-lost); }
+.board-row__dispatch[data-outcome="caught"] { color: var(--verified); }
+.board-row__dispatch[data-outcome="missed"] { color: var(--risk); }
 /* the oracle's verdict for a resolved order — the WHY behind the outcome, shown as
    calm dim secondary detail (the outcome word already carries the color). */
-.board-row__dispatch-why { color: var(--pk-ink-dim); }
+.board-row__dispatch-why { color: var(--text-muted); }
 /* a filled order's reviewable test-debt — how many open review questions it left;
    a quiet accent count (the dispatch→review tie), never an alarm. */
-.board-row__dispatch-questions { color: var(--pk-ink-dim); }
+.board-row__dispatch-questions { color: var(--text-muted); }
 /* a settled order with no open questions still drills into its base→fix diff — so
    a clean fill is never a dead end. Same quiet accent as the question count. */
-.board-row__dispatch-inspect { color: var(--pk-ink-dim); }
+.board-row__dispatch-inspect { color: var(--text-muted); }
 /* "watch it fill": a calm live row while the runner fills an order — the cycle beats
    accruing as the oracle works. Dim mono, in the beat idiom; vanishes when done. */
-.order-filling { color: var(--pk-ink-dim); font-family: var(--pk-mono); font-size: var(--pk-font-sm); padding: var(--pk-xs) 0; }
+.order-filling { color: var(--text-muted); font-family: var(--font-mono); font-size: var(--fs-small); padding: var(--sp-1) 0; }
 /* the scrolling agent transcript while an order fills: bounded height so a long run
    scrolls in place rather than pushing the card; the calm mono idiom, no alarm. */
 .order-transcript {
-  margin: var(--pk-xs) 0;
+  margin: var(--sp-1) 0;
   max-height: 14em;
   overflow-y: auto;
-  padding: var(--pk-xs) var(--pk-sm);
-  background: var(--pk-surface);
-  border: var(--pk-border);
-  border-radius: var(--pk-radius);
-  font-family: var(--pk-mono);
-  font-size: var(--pk-font-sm);
-  color: var(--pk-ink-dim);
+  padding: var(--sp-1) var(--sp-3);
+  background: var(--surface-panel);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-btn);
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  color: var(--text-muted);
 }
 .order-transcript__line { padding: 1px 0; white-space: pre-wrap; word-break: break-word; }
 
@@ -315,128 +398,128 @@ body {
 /* box CSS (padding + surface + border + radius) now on .pk-card (multi-class);
    these keep only the shared bottom margin between stacked cards. */
 .stock-row, .balance-row, .bandwidth-row, .dispatch-row, .beat-row, .review-card, .land-row, .onboarding {
-  margin-bottom: var(--pk-sm);
+  margin-bottom: var(--sp-3);
 }
-.stock__count { font-weight: 700; color: var(--pk-confirmed); }
-.stock__reinvested { color: var(--pk-confirmed); }
-.stock__reason, .stock__self-flagged, .stock__would-ship { color: var(--pk-ink-dim); font-size: var(--pk-font-sm); }
-.balance-row__amount { margin: 0; color: var(--pk-balance); font-weight: 600; }
-.bandwidth-row__amount { margin: 0; color: var(--pk-accent); font-weight: 600; }
-.dispatch-row__counts { margin: 0; color: var(--pk-ink-dim); font-family: var(--pk-mono); }
-.beat { color: var(--pk-ink-dim); font-family: var(--pk-mono); }
-.review-card__headline { margin: 0 0 var(--pk-xs) 0; font-weight: 600; }
-.review-card__detail { margin: 0; color: var(--pk-ink-dim); }
+.stock__count { font-weight: 700; color: var(--verified); }
+.stock__reinvested { color: var(--verified); }
+.stock__reason, .stock__self-flagged, .stock__would-ship { color: var(--text-muted); font-size: var(--fs-small); }
+.balance-row__amount { margin: 0; color: var(--signal); font-weight: 600; }
+.bandwidth-row__amount { margin: 0; color: var(--signal); font-weight: 600; }
+.dispatch-row__counts { margin: 0; color: var(--text-muted); font-family: var(--font-mono); }
+.beat { color: var(--text-muted); font-family: var(--font-mono); }
+.review-card__headline { margin: 0 0 var(--sp-1) 0; font-weight: 600; }
+.review-card__detail { margin: 0; color: var(--text-muted); }
 /* the gated open-question badge: a calm heads-up that the green verdict hides
    unkilled mutants — dim secondary text with a quiet accent edge, never an alarm.
    The full anchored threads live on the /review surface. */
 .review-questions {
   display: block;
-  padding: var(--pk-xs) var(--pk-md);
-  margin-bottom: var(--pk-sm);
-  border-left: 2px solid var(--pk-accent);
-  color: var(--pk-ink-dim);
-  font-size: var(--pk-font-sm);
+  padding: var(--sp-1) var(--sp-5);
+  margin-bottom: var(--sp-3);
+  border-left: 2px solid var(--signal);
+  color: var(--text-muted);
+  font-size: var(--fs-small);
   text-decoration: none;
 }
-.review-questions:hover { color: var(--pk-ink); }
+.review-questions:hover { color: var(--ink); }
 
 /* ---- the /review surface: the oracle's open "question:" threads ---- */
-.review { display: flex; flex-direction: column; gap: var(--pk-sm); }
-.review__lead { margin: 0 0 var(--pk-sm) 0; color: var(--pk-ink); font-weight: 600; }
-.review__empty { color: var(--pk-ink-dim); padding: var(--pk-sm) var(--pk-md); }
+.review { display: flex; flex-direction: column; gap: var(--sp-3); }
+.review__lead { margin: 0 0 var(--sp-3) 0; color: var(--ink); font-weight: 600; }
+.review__empty { color: var(--text-muted); padding: var(--sp-3) var(--sp-5); }
 .review-thread {
   display: flex;
   flex-direction: column;
-  gap: var(--pk-xs);
-  padding: var(--pk-sm) var(--pk-md);
-  background: var(--pk-surface);
-  border: var(--pk-border);
-  border-left: 2px solid var(--pk-accent);
-  border-radius: var(--pk-radius);
+  gap: var(--sp-1);
+  padding: var(--sp-3) var(--sp-5);
+  background: var(--surface-panel);
+  border: 1px solid var(--hairline);
+  border-left: 2px solid var(--signal);
+  border-radius: var(--r-btn);
 }
-.review-thread__anchor { color: var(--pk-ink-dim); font-family: var(--pk-mono); font-size: var(--pk-font-sm); }
-.review-thread__body { color: var(--pk-ink); }
+.review-thread__anchor { color: var(--text-muted); font-family: var(--font-mono); font-size: var(--fs-small); }
+.review-thread__body { color: var(--ink); }
 /* the Monaco review editor island: a sized mount point for the read-only editor.
    The editor is progressive enhancement over the text threads above; if it never
    mounts (loader blocked, JS off), this empty box just stays collapsed and the
    text threads carry the review. */
 .review-editor-island { display: block; }
-.review-editor { width: 100%; height: 60vh; border: var(--pk-border); border-radius: var(--pk-radius); }
+.review-editor { width: 100%; height: 60vh; border: 1px solid var(--hairline); border-radius: var(--r-btn); }
 /* the per-order diff editor — the edits the work order made, base vs fix side by
    side (a static, pre-funded diff; never a faked live agent). */
 .order-diff-island { display: block; }
-.order-diff-editor { width: 100%; height: 45vh; border: var(--pk-border); border-radius: var(--pk-radius); }
+.order-diff-editor { width: 100%; height: 45vh; border: 1px solid var(--hairline); border-radius: var(--r-btn); }
 /* the changed-file tree — the review surface's left rail: the full fix tree as
    native collapsible <details> groups, expanded by default. Changed leaves take
    the bronze accent, deletions the muted-mauve loss hue (both existing
    honest-state tokens — no new color), the open file a quiet raised background. */
-.file-tree { display: flex; flex-direction: column; gap: 2px; font-family: var(--pk-mono); font-size: var(--pk-font-sm); }
-.file-tree__dir { cursor: pointer; color: var(--pk-ink-dim); padding: 2px 0; }
-.file-tree__children { padding-left: var(--pk-sm); border-left: var(--pk-border); margin-left: var(--pk-xs); }
-.file-tree__file { display: flex; align-items: baseline; gap: var(--pk-xs); padding: 1px var(--pk-xs); color: var(--pk-ink); text-decoration: none; border-radius: var(--pk-radius-sm); }
-.file-tree__file:hover { background: var(--pk-surface-2); }
-.file-tree__file--changed { color: var(--pk-accent); }
-.file-tree__file--deleted { color: var(--pk-lost); text-decoration: line-through; }
-.file-tree__file--selected { background: var(--pk-surface-2); outline: 1px solid var(--pk-accent); }
-.file-tree__counts { margin-left: auto; color: var(--pk-ink-dim); font-size: var(--pk-font-xs); }
+.file-tree { display: flex; flex-direction: column; gap: 2px; font-family: var(--font-mono); font-size: var(--fs-small); }
+.file-tree__dir { cursor: pointer; color: var(--text-muted); padding: 2px 0; }
+.file-tree__children { padding-left: var(--sp-3); border-left: 1px solid var(--hairline); margin-left: var(--sp-1); }
+.file-tree__file { display: flex; align-items: baseline; gap: var(--sp-1); padding: 1px var(--sp-1); color: var(--ink); text-decoration: none; border-radius: var(--r-glyph); }
+.file-tree__file:hover { background: var(--surface-raised); }
+.file-tree__file--changed { color: var(--signal); }
+.file-tree__file--deleted { color: var(--risk); text-decoration: line-through; }
+.file-tree__file--selected { background: var(--surface-raised); outline: 1px solid var(--signal); }
+.file-tree__counts { margin-left: auto; color: var(--text-muted); font-size: var(--fs-micro); }
 .review-editor:empty { height: 0; border: 0; } /* no editor mounted → no empty box */
 /* the answer affordance: write a killing test + submit. Calm, in the surface idiom —
    a monospace input area + a quiet submit; the reward is the question vanishing, so
    nothing here shouts. */
-.review-answer { display: flex; flex-direction: column; gap: var(--pk-xs); margin-top: var(--pk-sm); }
-.review-answer__label { margin: 0; color: var(--pk-ink-dim); font-size: var(--pk-font-sm); }
+.review-answer { display: flex; flex-direction: column; gap: var(--sp-1); margin-top: var(--sp-3); }
+.review-answer__label { margin: 0; color: var(--text-muted); font-size: var(--fs-small); }
 /* the editable Monaco answer pane: write the killing test in a real editor matching
    the read-only source pane above. */
-.review-answer__input { display: flex; flex-direction: column; gap: var(--pk-xs); }
-.review-answer__editor { width: 100%; height: 14em; border: var(--pk-border); border-radius: var(--pk-radius); }
+.review-answer__input { display: flex; flex-direction: column; gap: var(--sp-1); }
+.review-answer__editor { width: 100%; height: 14em; border: 1px solid var(--hairline); border-radius: var(--r-btn); }
 /* reuses .pk-btn for the hairline/box; only reinforces the accent on the border
    and tightens the corner — .pk-btn owns the border width/style. */
 .review-answer__submit {
   align-self: flex-start;
-  color: var(--pk-ink); background: var(--pk-surface);
-  border-color: var(--pk-accent); border-radius: var(--pk-radius-sm);
+  color: var(--ink); background: var(--surface-panel);
+  border-color: var(--signal); border-radius: var(--r-glyph);
   padding: 4px 12px; cursor: pointer;
 }
 /* the in-flight running status — calm dim text, shown by datastar (data-show) only
    while the oracle re-run is in flight. */
-.review-answer__running { color: var(--pk-ink-dim); font-size: var(--pk-font-sm); }
+.review-answer__running { color: var(--text-muted); font-size: var(--fs-small); }
 /* the adjustment entry point: leave an anchored comment and the live harness re-edits
    in place. A calm inline file/line/comment row in the surface idiom. */
-.review-adjust { display: flex; flex-wrap: wrap; gap: var(--pk-sm); align-items: baseline; margin-top: var(--pk-sm); }
-.review-adjust__label { flex-basis: 100%; margin: 0; color: var(--pk-ink-dim); font-size: var(--pk-font-sm); }
+.review-adjust { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: baseline; margin-top: var(--sp-3); }
+.review-adjust__label { flex-basis: 100%; margin: 0; color: var(--text-muted); font-size: var(--fs-small); }
 .review-adjust__file { flex: 1 1 12em; }
 .review-adjust__line { flex: 0 0 5em; }
 .review-adjust__text { flex: 2 1 18em; }
 /* the last adjustment's outcome after the agent settled a revision (DESIGN §28 thin
    slice): a calm "still here" notice, a confirmed-green "moved/addressed", or a dim
    "line edited" — the visible payoff of leaving an adjustment. */
-.review-adjust__status { flex-basis: 100%; font-size: var(--pk-font-sm); }
-.review-adjust__status--same { color: var(--pk-ink-dim); }
-.review-adjust__status--moved { color: var(--pk-confirmed); }
-.review-adjust__status--outdated { color: var(--pk-ink-dim); }
+.review-adjust__status { flex-basis: 100%; font-size: var(--fs-small); }
+.review-adjust__status--same { color: var(--text-muted); }
+.review-adjust__status--moved { color: var(--verified); }
+.review-adjust__status--outdated { color: var(--text-muted); }
 /* approve & open a PR: the land control. The result (PR URL / guard / failure) reads
    in mono so a URL is selectable and a guard message stands apart from the buttons. */
-.land-control { display: flex; flex-wrap: wrap; gap: var(--pk-sm); align-items: center; margin-top: var(--pk-sm); }
-.land-control__override { display: inline-flex; align-items: center; gap: var(--pk-xs); color: var(--pk-ink-dim); font-size: var(--pk-font-sm); }
-.land-control__result { flex-basis: 100%; font-family: var(--pk-mono); font-size: var(--pk-font-sm); color: var(--pk-ink); overflow-wrap: anywhere; white-space: pre-wrap; }
+.land-control { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; margin-top: var(--sp-3); }
+.land-control__override { display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--text-muted); font-size: var(--fs-small); }
+.land-control__result { flex-basis: 100%; font-family: var(--font-mono); font-size: var(--fs-small); color: var(--ink); overflow-wrap: anywhere; white-space: pre-wrap; }
 /* the outcome, in the honest palette: a minted PR reads as a confirmed-green link; a
    guard block is a calm dim notice (deliberate friction, not alarm); a failure takes the
    miss hue. */
-.land-control__result--ok { color: var(--pk-confirmed); }
-.land-control__result--blocked { color: var(--pk-ink-dim); }
-.land-control__result--error { color: var(--pk-lost); }
+.land-control__result--ok { color: var(--verified); }
+.land-control__result--blocked { color: var(--text-muted); }
+.land-control__result--error { color: var(--risk); }
 /* post-open lifecycle (DESIGN §29.2: Landed ≠ Merged): a calm "not yet merged" notice, a
    confirmed-green "Merged", or the miss hue for a closed-unmerged PR. */
-.land-control__lifecycle { flex-basis: 100%; font-size: var(--pk-font-sm); }
-.land-control__lifecycle--landed { color: var(--pk-ink-dim); }
-.land-control__lifecycle--merged { color: var(--pk-confirmed); }
-.land-control__lifecycle--bounced { color: var(--pk-lost); }
+.land-control__lifecycle { flex-basis: 100%; font-size: var(--fs-small); }
+.land-control__lifecycle--landed { color: var(--text-muted); }
+.land-control__lifecycle--merged { color: var(--verified); }
+.land-control__lifecycle--bounced { color: var(--risk); }
 /* a surviving-mutant line in the editor: a calm left-edge accent + a glyph, never
    an alarm — the honest "the tests didn't catch this here" marker. */
-.review-survivor-line { background: color-mix(in srgb, var(--pk-accent) 12%, transparent); }
-.review-survivor-glyph { background: var(--pk-accent); width: 3px !important; margin-left: 2px; }
-.land-row__headline { margin: 0 0 var(--pk-xs) 0; font-weight: 600; }
-.land-row__detail { margin: 0; color: var(--pk-ink-dim); }
+.review-survivor-line { background: color-mix(in srgb, var(--signal) 12%, transparent); }
+.review-survivor-glyph { background: var(--signal); width: 3px !important; margin-left: 2px; }
+.land-row__headline { margin: 0 0 var(--sp-1) 0; font-weight: 600; }
+.land-row__detail { margin: 0; color: var(--text-muted); }
 
 /* ---- per-state color: the verdict + integration the Lead reads, legible at a
    glance in the honest-state palette. Color REINFORCES the state the headline
@@ -444,35 +527,35 @@ body {
    red/green, never a gauge. ---- */
 /* a real catch / a fully-tested ship-ready line — a thing that happened (calm confirmed) */
 .review-card[data-state="catch"] .review-card__headline,
-.review-card[data-state="tested"] .review-card__headline { color: var(--pk-confirmed); }
+.review-card[data-state="tested"] .review-card__headline { color: var(--verified); }
 /* partial progress / oracle still running — pending, not done (working amber) */
 .review-card[data-state="partial-catch"] .review-card__headline,
-.review-card[data-state="in-flight"] .review-card__headline { color: var(--pk-inflight); }
+.review-card[data-state="in-flight"] .review-card__headline { color: var(--signal); }
 /* the oracle ran and said nothing to catch / no mutable signal — neutral, not a loss */
 .review-card[data-state="no-catch"] .review-card__headline,
-.review-card[data-state="no-oracle-signal"] .review-card__headline { color: var(--pk-ink-dim); }
+.review-card[data-state="no-oracle-signal"] .review-card__headline { color: var(--text-muted); }
 /* the anchor was lost (rename / edited) — the oracle couldn't follow (muted lost) */
 .review-card[data-state="lost-via-rename"] .review-card__headline,
-.review-card[data-state="anchor-edited"] .review-card__headline { color: var(--pk-lost); }
+.review-card[data-state="anchor-edited"] .review-card__headline { color: var(--risk); }
 /* integration: clean (calm), conflict (muted warn, NOT alarm), checks-red (muted loss), pending (neutral) */
-.land-row[data-state="land-clean"] .land-row__headline { color: var(--pk-confirmed); }
-.land-row[data-state="land-conflict"] .land-row__headline { color: var(--pk-inflight); }
-.land-row[data-state="land-checks-red"] .land-row__headline { color: var(--pk-lost); }
-.land-row[data-state="land-pending"] .land-row__headline { color: var(--pk-ink-dim); }
+.land-row[data-state="land-clean"] .land-row__headline { color: var(--verified); }
+.land-row[data-state="land-conflict"] .land-row__headline { color: var(--signal); }
+.land-row[data-state="land-checks-red"] .land-row__headline { color: var(--risk); }
+.land-row[data-state="land-pending"] .land-row__headline { color: var(--text-muted); }
 
 /* ---- first-run onboarding affordance: shown only on a truly-fresh session
    (data-state="empty"). A calm guide to the core loop, not an alarm — a quiet
    accent rule, dim supporting text, no animation/gauge (guardrails). ---- */
 .onboarding[data-state="empty"] {
-  border-left: 2px solid var(--pk-accent);
+  border-left: 2px solid var(--signal);
 }
-.onboarding__lead { margin: 0 0 var(--pk-xs) 0; font-weight: 600; color: var(--pk-ink); }
-.onboarding__step { margin: 0 0 var(--pk-xs) 0; color: var(--pk-ink-dim); font-size: var(--pk-font-sm); }
+.onboarding__lead { margin: 0 0 var(--sp-1) 0; font-weight: 600; color: var(--ink); }
+.onboarding__step { margin: 0 0 var(--sp-1) 0; color: var(--text-muted); font-size: var(--fs-small); }
 
 /* ---- the Spend action: the Lead's core economic move, shown only when there is
    balance to spend. A calm, deliberate control in the balance hue — not an alarm,
    not a pulsing call-to-action. ---- */
-.spend-action { margin: 0 0 var(--pk-sm) 0; }  /* box CSS on .pk-btn */
+.spend-action { margin: 0 0 var(--sp-3) 0; }  /* box CSS on .pk-btn */
 
 /* ---- the prep bench: the fundable work on deck, each target a card the Lead can
    FUND or SHARPEN (split / criteria / convention) during dead-air. A calm stacked
@@ -480,45 +563,45 @@ body {
 .bench {
   display: flex;
   flex-direction: column;
-  gap: var(--pk-sm);
-  padding: var(--pk-xs) var(--pk-md);
-  margin-bottom: var(--pk-sm);
-  border-left: 2px solid var(--pk-line);
+  gap: var(--sp-3);
+  padding: var(--sp-1) var(--sp-5);
+  margin-bottom: var(--sp-3);
+  border-left: 2px solid var(--hairline);
 }
 /* .bench__label is a .pk-section-label; each .bench__item is a .pk-card. */
-.bench__item { display: flex; flex-direction: column; gap: var(--pk-xs); }
-.bench__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--pk-sm); }
-.bench__target { font-family: var(--pk-mono); font-size: var(--pk-font-sm); }
+.bench__item { display: flex; flex-direction: column; gap: var(--sp-1); }
+.bench__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); }
+.bench__target { font-family: var(--font-mono); font-size: var(--fs-small); }
 /* the fund affordance spends a catch — balance-hue on hover (the old chip cue). */
-.bench__fund:hover { color: var(--pk-balance); border-color: var(--pk-balance); }
+.bench__fund:hover { color: var(--signal); border-color: var(--signal); }
 /* the sharpen disclosure: a calm dim toggle, not a shouting call-to-action. */
 .bench__sharpen {
   cursor: pointer;
-  color: var(--pk-ink-dim);
-  font-size: var(--pk-font-xs);
+  color: var(--text-faint);
+  font-size: var(--fs-micro);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-.bench__body { display: flex; flex-direction: column; gap: var(--pk-xs); padding-top: var(--pk-xs); }
-.bench__criteria { width: 100%; min-height: 3em; resize: vertical; font-family: var(--pk-mono); }
+.bench__body { display: flex; flex-direction: column; gap: var(--sp-1); padding-top: var(--sp-1); }
+.bench__criteria { width: 100%; min-height: 3em; resize: vertical; font-family: var(--font-mono); }
 /* an attached sharpening, shown as calm dim lines (a decision the Lead made). */
 .bench__anno { display: flex; flex-direction: column; gap: 2px; }
-.bench__anno-item { color: var(--pk-ink-dim); font-size: var(--pk-font-sm); }
+.bench__anno-item { color: var(--text-muted); font-size: var(--fs-small); }
 
 /* the agent-runner control: a calm act-now row (host vs container for live orders),
    sitting with the funding controls it governs. */
-.live-runner { display: flex; align-items: baseline; gap: var(--pk-sm); }
-.live-runner__mode { color: var(--pk-ink-dim); font-size: var(--pk-font-sm); }
+.live-runner { display: flex; align-items: baseline; gap: var(--sp-3); }
+.live-runner__mode { color: var(--text-muted); font-size: var(--fs-small); }
 
 /* the fleet board's live activity beat — what an agent is doing right now, a calm
    dim ticker on its row (shown only while an order fills). */
-.board-row__activity-beat { color: var(--pk-ink-dim); font-size: var(--pk-font-sm); }
+.board-row__activity-beat { color: var(--text-muted); font-size: var(--fs-small); }
 
 /* ---- Flow A: the live card's two sub-landmarks. The split is carried by the
    labelled <section> regions (and the per-row .pk-card elevation), NOT a third
-   background layer — --pk-surface-3 is gated out (§1). A little vertical rhythm
-   between the regions is the only chrome the calm system needs. ---- */
-[role="main"] > section + section { margin-top: var(--pk-md); }
+   background layer — a third surface tier is gated out (§1). A little vertical
+   rhythm between the regions is the only chrome the calm system needs. ---- */
+[role="main"] > section + section { margin-top: var(--sp-5); }
 
 /* ---- Flow B: the unified funding group. Spend (balance hue) and place-order
    (bandwidth/accent hue) co-located under one label + a dim two-currency
@@ -526,15 +609,15 @@ body {
 .fund-work {
   display: flex;
   flex-direction: column;
-  gap: var(--pk-sm);
-  padding: var(--pk-xs) var(--pk-md);
-  margin-bottom: var(--pk-sm);
-  border-left: 2px solid var(--pk-line);
+  gap: var(--sp-3);
+  padding: var(--sp-1) var(--sp-5);
+  margin-bottom: var(--sp-3);
+  border-left: 2px solid var(--hairline);
 }
-.fund-work__explainer { color: var(--pk-ink-dim); font-size: var(--pk-font-sm); margin: 0; }
+.fund-work__explainer { color: var(--text-muted); font-size: var(--fs-small); margin: 0; }
 
 /* ---- Flow C: the drill-return affordances on /review and /settings reuse the
    breadcrumb crumb idiom (.board-nav__crumb), so they inherit its calm hue + focus.
    Only the surrounding paragraph needs spacing. ---- */
-.review__return, .review__up, .settings__return { margin: 0 0 var(--pk-sm) 0; font-size: var(--pk-font-sm); }
+.review__return, .review__up, .settings__return { margin: 0 0 var(--sp-3) 0; font-size: var(--fs-small); }
 `

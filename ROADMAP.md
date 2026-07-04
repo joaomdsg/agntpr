@@ -5,7 +5,7 @@ the spec). One slice per tick unless a slice says otherwise. Statuses:
 queued / in-flight / landed / dropped. Every landed slice carries one
 evidence line.
 
-NEXT: slice 1.
+NEXT: slice 2.
 
 ## Council verdicts
 
@@ -34,11 +34,11 @@ NEXT: slice 1.
   Evidence: 479d04d; gate-flake fix (real-cage test deadlines
   30s→180s, this machine runs a caged cycle in ~28s) landed after,
   full suite green.
-- [ ] **1. Token port** — queued. Replace the `--pk-*` values in
-  internal/app/style.go with the MVP.md brand pack verbatim (new
-  token names, IBM Plex fonts, keyframes, state-grammar colors);
-  map existing classes onto the new tokens so every current surface
-  re-skins without layout changes. Render tests pin token presence.
+- [x] **1. Token port** — landed. Full brand pack in style.go under
+  design-system names (state grammar verbatim, IBM Plex, 3
+  keyframes, marketing tokens excluded); ~300 usages rewired, zero
+  layout/selector changes; tests pin exact hexes + no `--pk-`
+  survivors. Evidence: full gate green; commit below.
 - [ ] **2. Mark + chrome** — queued. PacketMark built in code
   (locked spec incl. small-size rule) + the Titlebar pattern +
   nav rebrand (stacked lockup). Server-render tested.
