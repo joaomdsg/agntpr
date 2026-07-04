@@ -33,7 +33,9 @@ func initGauntletRepo(t *testing.T) string {
 
 func writeGauntletFile(t *testing.T, dir, name, content string) {
 	t.Helper()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644))
+	path := filepath.Join(dir, name)
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
 }
 
 func commitGauntletAll(t *testing.T, dir, msg string) string {

@@ -5,7 +5,7 @@ the spec). One slice per tick unless a slice says otherwise. Statuses:
 queued / in-flight / landed / dropped. Every landed slice carries one
 evidence line.
 
-NEXT: slice 9.
+NEXT: slice 10.
 
 ## Infra
 
@@ -152,11 +152,22 @@ NEXT: slice 9.
   all six gates (previously a stub). Console gate-health summary
   deferred (out of scope this slice). Evidence: full gate green;
   commit below.
-- [ ] **9. Handshake mechanics** — queued. Protected `handshake/**`
-  paths: settle deny-rule (agent turn cannot modify), content-hash
-  check before gates, authored-before-code ordering enforced,
-  strength gradient recorded (examples vs properties). Compose flow
-  asks for/creates the handshake first.
+- [x] **9. Handshake mechanics** — landed. Protected `handshake/**`
+  path-deny in settle (scanStagedPaths, blocks add/modify/delete —
+  distinct from the added-line secret scan, both checked, either
+  blocks); packet.Handshake (WriteHandshake/VerifyHandshake, hash
+  via reanchor.HashLines, self-declared Strength
+  examples/properties — never scored); ledger.Target +
+  HandshakePath/Hash/Strength (wire-safe, omitempty). G2 becomes
+  REAL: RunHandshakeGate runs `go test ./handshake/...` in a
+  throwaway worktree of the fix rev (mirrors G4's pattern exactly);
+  VerifyHandshake mismatch force-fails the gate regardless of the
+  test result (integrity over a stale pass). Compose flow requires
+  AuthorHandshake before PlaceOrder for live (prompt-bearing)
+  orders; legacy pre-funded orders unaffected. DEFERRED (explicit,
+  next slice or later): splitting mutation into a handshake-scoped
+  run (G3) vs an agent-test-scoped run (G5) — both remain exactly
+  as slice 8 left them. Evidence: full gate green; commit below.
 - [ ] **10. Hold/forward** — queued. Forward-by-default; amber
   advisory holds (sampled) vs red blocking holds (strict lane,
   guardrail, handshake-below-lane-floor); needs-you queue driven by

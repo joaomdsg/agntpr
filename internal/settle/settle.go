@@ -33,6 +33,10 @@ type Result struct {
 	Committed bool        // whether a new revision was minted
 	SHA       string      // the new commit's full SHA (empty when nothing was committed)
 	Secrets   []SecretHit // non-empty when the commit was BLOCKED by a detected secret
+	// PathBlocks is non-empty when the commit was BLOCKED because the staged
+	// diff touches a protected path (e.g. handshake/**, MVP.md concept 3) —
+	// additive to Secrets: either alone blocks, both may be non-empty at once.
+	PathBlocks []PathHit
 	// Artifacts lists staged BINARY files in a minted revision — surfaced, never
 	// dropped: they pollute the review diff and can't be line-reviewed or
 	// secret-scanned, so the reviewer is told about them. Empty unless Committed.
@@ -95,8 +99,13 @@ func Settle(ctx context.Context, repoDir, message string) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	if hits := scanStagedDiff(diff, secretRules); len(hits) > 0 {
-		return Result{Committed: false, Secrets: hits}, nil
+	// Both scans always run — a secret hit must never short-circuit past a
+	// path-deny hit (or vice versa), so a turn that trips both surfaces both
+	// findings to the reviewer in one Result.
+	secretHits := scanStagedDiff(diff, secretRules)
+	pathHits := scanStagedPaths(diff, handshakeDenyGlobs)
+	if len(secretHits) > 0 || len(pathHits) > 0 {
+		return Result{Committed: false, Secrets: secretHits, PathBlocks: pathHits}, nil
 	}
 
 	// Surface (don't drop) staged binary files so the reviewer is aware of

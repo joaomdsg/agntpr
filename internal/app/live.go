@@ -219,6 +219,18 @@ type liveEntry struct {
 	// into the editor's rewrite payload so Monaco swaps to it. Ephemeral, OFF the
 	// economy ledger (a diagnostic, like analysis). Guarded by findingsMu.
 	rewrite string
+	// pendingHandshake is the handshake (MVP.md concept 3) AuthorHandshake wrote for
+	// the NEXT live order this session places — PlaceOrder folds its Path/Hash/
+	// Strength into the dispatched Target, then CONSUMES it (clears it back to nil),
+	// so a later order can never silently reuse an earlier one's contract. Ephemeral,
+	// off the economy ledger (set at compose time, never by the agent). Guarded by
+	// findingsMu.
+	pendingHandshake *packet.Handshake
+	// composeMessage is the honest inline refusal PlaceOrder leaves for the Lead when
+	// it refuses to dispatch a live order (e.g. no handshake authored yet) —
+	// cleared on a successful placement. Ephemeral, off the economy ledger; guarded
+	// by findingsMu.
+	composeMessage string
 	// harnessSessionID is this packets-session's resumable claude session id — the one
 	// the warm-up explores under, REMEMBERED so every later analyze + order resumes it
 	// (warm repo context). harnessWarm gates use: requests resume the id ONLY after the
@@ -343,11 +355,39 @@ func (e *liveEntry) confirmIntentFidelity(orderID int, navKey string) {
 	e.gauntletMu.Unlock()
 }
 
-// notMeasuredNoHandshake is G2/G5's shared honest default: no handshake
-// concept exists yet (slice 9), so neither "run the handshake" (G2) nor
-// "mutation vs the agent's own tests" (G5, which needs the same
-// handshake/agent-test split) can be scored as pass/fail today.
+// notMeasuredNoHandshake is G5's honest default: G5 needs the handshake/
+// agent-test split (mutation vs the agent's own tests) that is explicitly
+// deferred past this slice — see gauntlet_handshake.go's doc. G2 (handshake
+// conformance) became a real gate in ROADMAP slice 9 (handshakeConformanceGate
+// below); this sentinel is also G2's OWN answer for an order with no
+// handshake authored at all (p.HandshakePath == "").
 var notMeasuredNoHandshake = packet.Gate{Status: packet.GateNotRun, Detail: "not measured — no handshake yet"}
+
+// handshakeConformanceGate computes G2 (MVP.md concept 5): the honest
+// no-handshake sentinel when p carries none, otherwise packet.RunHandshakeGate
+// overridden to a hard fail when packet.VerifyHandshake finds the LIVE
+// handshake file (under repoDir, independent of any particular fix revision)
+// no longer matches its authored-time hash — integrity wins over a stale pass
+// (MVP.md integrity invariant 2's belt-and-suspenders alongside the settle
+// deny-rule). A VerifyHandshake ERROR (file gone/unreadable, distinct from a
+// confirmed mismatch) is not treated as a mismatch: the fix revision's own
+// test-run result stands, since an infra fact about the live file is not
+// itself a fabricated finding about the revision under gate.
+//
+// Called from BOTH of gauntletFor's branches: the handshake file's identity
+// is independent of FixRev, so a revless live order that already has a
+// handshake authored still gets an honest (uncached) answer here rather than
+// reverting to "no handshake yet".
+func (e *liveEntry) handshakeConformanceGate(ctx context.Context, p packet.Packet) packet.Gate {
+	if p.HandshakePath == "" {
+		return notMeasuredNoHandshake
+	}
+	gate := packet.RunHandshakeGate(ctx, e.cfg.RepoDir, p.FixRev, p.HandshakePath)
+	if ok, err := packet.VerifyHandshake(packet.Handshake{Path: p.HandshakePath, Hash: p.HandshakeHash}); err == nil && !ok {
+		return packet.Gate{Status: packet.GateFailed, Detail: "handshake changed after authoring — content no longer matches its recorded hash"}
+	}
+	return gate
+}
 
 // notMeasuredNoCage is G6's honest default: cage re-derivation exists
 // (internal/cage) but is never wired into a locally-dispatched order's
@@ -383,7 +423,7 @@ func (e *liveEntry) gauntletFor(ctx context.Context, p packet.Packet) packet.Gau
 	if !ok {
 		if p.FixRev == "" {
 			g = packet.Gauntlet{
-				HandshakeConformance: notMeasuredNoHandshake,
+				HandshakeConformance: e.handshakeConformanceGate(ctx, p),
 				TestSensitivity:      notMeasuredNoHandshake,
 				IndependentCheck:     notMeasuredNoCage,
 			}
@@ -391,7 +431,7 @@ func (e *liveEntry) gauntletFor(ctx context.Context, p packet.Packet) packet.Gau
 			return g // no fix rev yet — nothing real to cache
 		}
 		g = packet.Gauntlet{
-			HandshakeConformance: notMeasuredNoHandshake,
+			HandshakeConformance: e.handshakeConformanceGate(ctx, p),
 			HandshakeTightness:   e.handshakeTightnessGate(p.ID),
 			BuildVetLint:         packet.RunBuildVetGate(ctx, e.cfg.RepoDir, p.FixRev),
 			TestSensitivity:      notMeasuredNoHandshake,
@@ -854,6 +894,38 @@ func (e *liveEntry) rewriteSnapshot() string {
 	return e.rewrite
 }
 
+// setPendingHandshake caches (or, given nil, CONSUMES) the handshake
+// AuthorHandshake wrote for this session's next live order.
+func (e *liveEntry) setPendingHandshake(h *packet.Handshake) {
+	e.findingsMu.Lock()
+	e.pendingHandshake = h
+	e.findingsMu.Unlock()
+}
+
+// pendingHandshakeSnapshot returns the currently authored (not yet consumed)
+// handshake for this session, or nil when none has been authored.
+func (e *liveEntry) pendingHandshakeSnapshot() *packet.Handshake {
+	e.findingsMu.Lock()
+	defer e.findingsMu.Unlock()
+	return e.pendingHandshake
+}
+
+// setComposeMessage leaves (or, given "", clears) an honest inline message
+// on the compose card — currently only PlaceOrder's handshake refusal.
+func (e *liveEntry) setComposeMessage(msg string) {
+	e.findingsMu.Lock()
+	e.composeMessage = msg
+	e.findingsMu.Unlock()
+}
+
+// composeMessageSnapshot returns the current compose-card message ("" when
+// none).
+func (e *liveEntry) composeMessageSnapshot() string {
+	e.findingsMu.Lock()
+	defer e.findingsMu.Unlock()
+	return e.composeMessage
+}
+
 // resumeSessionID returns the warm harness session id to --resume + --fork-session
 // from, or "" when this session has no warm harness yet — so a request before the
 // warm-up completes (or on a never-warmed session) runs COLD instead of resuming a
@@ -1138,6 +1210,21 @@ type LiveCard struct {
 	// read by PlaceOrder to fund a prompt-carrying live order (vs drawing a pre-baked
 	// backlog target). Per-tab signal, not authoritative session state.
 	OrderPrompt via.SignalStr `via:"orderprompt"`
+	// HandshakeDraft/HandshakeStrengthPick carry the handshake (MVP.md concept 3) the
+	// Lead composes BEFORE placing a live order — a runnable contract authored
+	// independently of the agent's own code, written under the protected handshake/
+	// directory (internal/settle's deny-rule then refuses any later agent turn that
+	// touches it). The strength is SELF-DECLARED, never scored: AuthorHandshake reads
+	// these verbatim and refuses (writes nothing) on a blank draft or an
+	// unrecognized/blank strength pick — it never guesses or defaults one. Per-tab
+	// signals, not authoritative session state.
+	HandshakeDraft        via.SignalStr `via:"handshakedraft"`
+	HandshakeStrengthPick via.SignalStr `via:"handshakestrengthpick"`
+	// HandshakeAuthored is the broadcast trigger for a successfully authored
+	// handshake: View re-reads the pending handshake from the session entry (not
+	// reactive), so AuthorHandshake writes here to fan out a re-render to every
+	// connected tab, mirroring Analysis/Rewrite's pattern.
+	HandshakeAuthored via.StateTabStr
 	// LandOverride ("1"/"true") lets Approve open a PR despite a guard block (open
 	// threads / red checks) — deliberate, overridable friction (DESIGN §16).
 	LandOverride via.SignalStr `via:"landoverride"`
@@ -1451,8 +1538,15 @@ func (c *LiveCard) FundChosen(ctx *via.Ctx) {
 // composed at runtime instead of baked at boot. The base is the repo's CURRENT
 // HEAD, so the agent works the live tree. An empty prompt, an unconfigured repo, or
 // an over-budget balance is a silent no-op (never a funded order with no task, no
-// tree, or no catch to spend). On success it mirrors Spend: announce the drained
-// balance + risen dispatch over SSE, then run the order in the background.
+// tree, or no catch to spend). ROADMAP slice 9: a live order additionally REQUIRES a
+// handshake authored first (AuthorHandshake) — the contract is authored
+// independently of, and before, the agent's own code (MVP.md concept 3), so a live
+// order with none is refused (funding nothing) and leaves an honest inline message
+// for the Lead, rather than dispatching an agent turn with no contract to gate it. A
+// PRE-FUNDED order (FundChosen, Prompt=="") predates this concept and is untouched.
+// On success the handshake is folded into the Target and CONSUMED (a later order
+// must author its own), and it mirrors Spend: announce the drained balance + risen
+// dispatch over SSE, then run the order in the background.
 func (c *LiveCard) PlaceOrder(ctx *via.Ctx) {
 	cfg, log := readLiveState(c.Key)
 	if log == nil {
@@ -1462,11 +1556,25 @@ func (c *LiveCard) PlaceOrder(ctx *via.Ctx) {
 	if prompt == "" {
 		return // an empty prompt is not an order
 	}
+	e := lookupLiveEntry(c.Key)
+	var hs *packet.Handshake
+	if e != nil {
+		hs = e.pendingHandshakeSnapshot()
+	}
+	if hs == nil {
+		if e != nil {
+			e.setComposeMessage("author a handshake before dispatching")
+		}
+		return // no handshake authored yet — refuse rather than dispatch an ungated live order
+	}
 	head, ok := repoHead(cfg.RepoDir)
 	if !ok {
 		return // no resolvable tree to run the agent against — never dispatch a treeless live order
 	}
-	tgt := ledger.Target{BaseRev: head, Prompt: prompt}
+	tgt := ledger.Target{
+		BaseRev: head, Prompt: prompt,
+		HandshakePath: hs.Path, HandshakeHash: hs.Hash, HandshakeStrength: int(hs.Strength),
+	}
 	// A UI-authored live order is funded by ATTENTION bandwidth, not a catch — the
 	// responsiveness the Lead earned by unblocking work funds the autonomous work
 	// they dispatch (the two meters, both used). An over-budget meter is refused by
@@ -1474,6 +1582,10 @@ func (c *LiveCard) PlaceOrder(ctx *via.Ctx) {
 	if err := log.AppendLiveDispatch("liveorder", tgt, ownTargetOf(cfg)); err != nil {
 		return
 	}
+	// The handshake is CONSUMED by the order it was authored for — a later order
+	// must author its own, never silently reuse this one.
+	e.setPendingHandshake(nil)
+	e.setComposeMessage("")
 	if bw, err := log.Bandwidth(); err == nil {
 		c.BandwidthMeter.Write(ctx, strconv.Itoa(bw)) // announce the drained meter
 	}

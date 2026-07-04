@@ -201,3 +201,41 @@ func TestFold_leavesEveryGauntletGateNotRunSinceFoldNeverRunsGatesItself(t *test
 	require.Len(t, got, 1)
 	assert.Equal(t, packet.Gauntlet{}, got[0].Gauntlet)
 }
+
+// A handshake authored at compose time (ROADMAP slice 9) must reach the app
+// layer's gauntletFor so it can run G2 — Fold's only job here is a plain
+// data carry off the Target, with zero I/O.
+func TestFold_copiesHandshakeFieldsStraightFromTheTarget(t *testing.T) {
+	t.Parallel()
+
+	views := []ledger.DispatchView{{
+		ID: 1,
+		Target: ledger.Target{
+			Prompt:        "do the thing",
+			HandshakePath: "/repo/handshake/spec_test.go",
+			HandshakeHash: "abc123",
+		},
+		Status: "queued",
+	}}
+
+	got := packet.Fold(views, packet.Addr{}, zeroQuestions)
+
+	require.Len(t, got, 1)
+	assert.Equal(t, "/repo/handshake/spec_test.go", got[0].HandshakePath)
+	assert.Equal(t, "abc123", got[0].HandshakeHash)
+}
+
+// An order with no handshake authored (a legacy pre-funded order, or a live
+// order predating this concept) must carry the honest empty value, never a
+// fabricated path.
+func TestFold_leavesHandshakeFieldsEmptyWhenTheTargetHasNone(t *testing.T) {
+	t.Parallel()
+
+	views := []ledger.DispatchView{{ID: 1, Target: ledger.Target{Prompt: "do the thing"}, Status: "queued"}}
+
+	got := packet.Fold(views, packet.Addr{}, zeroQuestions)
+
+	require.Len(t, got, 1)
+	assert.Empty(t, got[0].HandshakePath)
+	assert.Empty(t, got[0].HandshakeHash)
+}

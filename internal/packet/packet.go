@@ -39,6 +39,15 @@ type Packet struct {
 	// render time (ROADMAP slice 8's gauntletFor), the same division of
 	// labor as Lane above.
 	Gauntlet Gauntlet
+	// HandshakePath/HandshakeHash are copied straight from the order's
+	// ledger.Target (set at compose time, ROADMAP slice 9) — zero I/O, a
+	// plain data carry. The app layer's gauntletFor uses them to run G2
+	// (RunHandshakeGate) and re-verify the handshake hasn't drifted
+	// (VerifyHandshake) at render time; empty means no handshake was
+	// authored for this order (a legacy pre-funded order, or a live order
+	// composed before this concept existed).
+	HandshakePath string
+	HandshakeHash string
 }
 
 // Deliverable always reports false: delivered is UNREACHABLE until a real
@@ -119,6 +128,8 @@ func Fold(views []ledger.DispatchView, addr Addr, openQuestions func(orderID int
 			State:         state,
 			Hold:          hold,
 			HoldReason:    reason,
+			HandshakePath: v.Target.HandshakePath,
+			HandshakeHash: v.Target.HandshakeHash,
 		}
 	}
 	return packets

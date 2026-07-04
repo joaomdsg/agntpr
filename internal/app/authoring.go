@@ -11,8 +11,10 @@ import (
 
 	"github.com/go-via/via"
 	"github.com/go-via/via/h"
+	"github.com/go-via/via/on"
 
 	"github.com/joaomdsg/packets/internal/assist"
+	"github.com/joaomdsg/packets/internal/packet"
 )
 
 // draftAnalysis is the cached authoring-assist read of one draft: the exact text
@@ -181,6 +183,56 @@ func (c *LiveCard) UpdateDraft(ctx *via.Ctx) {
 	c.Rewrite.Write(ctx, newDraft)
 }
 
+// parseHandshakeStrength maps the compose card's strength pick to a
+// packet.HandshakeStrength, reporting ok=false for a blank/unrecognized pick
+// — strength is SELF-DECLARED by the Lead (MVP.md concept 3's gradient),
+// never inferred or defaulted, so an unrecognized pick is refused rather
+// than silently coerced to some default rung.
+func parseHandshakeStrength(s string) (packet.HandshakeStrength, bool) {
+	switch s {
+	case "examples":
+		return packet.StrengthExamples, true
+	case "properties":
+		return packet.StrengthProperties, true
+	default:
+		return packet.StrengthNone, false
+	}
+}
+
+// AuthorHandshake writes the handshake (MVP.md concept 3) the Lead composed in the
+// compose card's handshake control to the protected handshake/ directory —
+// internal/settle's deny-rule then refuses any LATER agent turn that touches it,
+// so the contract is authored independently of, and before, the live order's own
+// code. A blank draft or an unrecognized/blank strength pick is a silent no-op —
+// nothing is written, and there is nothing dishonest to fall back to (PlaceOrder
+// simply keeps refusing until one is authored). On success the resulting
+// packet.Handshake (path/hash/self-declared strength) is cached on the session so
+// PlaceOrder can fold it into the next dispatched order's Target. FIREWALL: like
+// AnalyzeDraft, it never touches the ledger — authoring a handshake mints nothing.
+func (c *LiveCard) AuthorHandshake(ctx *via.Ctx) {
+	cfg, log := readLiveState(c.Key)
+	if log == nil {
+		return
+	}
+	e := lookupLiveEntry(c.Key)
+	if e == nil {
+		return
+	}
+	draft := strings.TrimSpace(c.HandshakeDraft.Read(ctx))
+	strength, ok := parseHandshakeStrength(c.HandshakeStrengthPick.Read(ctx))
+	if draft == "" || !ok {
+		return // nothing to author — never a guessed strength or an empty contract
+	}
+	h, err := packet.WriteHandshake(cfg.RepoDir, "spec_test", draft, strength)
+	if err != nil {
+		stdlog.Printf("authoring: write handshake failed: %v", err)
+		return
+	}
+	e.setPendingHandshake(&h)
+	e.setComposeMessage("") // a fresh handshake clears any earlier "author one" refusal
+	c.HandshakeAuthored.Write(ctx, "ok")
+}
+
 // renderAuthoring is the authoring-assist surface: an editable Monaco editor as the
 // single draft source, with the producer's structured read (summary + clarifying
 // questions) beneath it. The producer's flagged spans are decorated INLINE in the
@@ -189,13 +241,54 @@ func (c *LiveCard) UpdateDraft(ctx *via.Ctx) {
 func renderAuthoring(c *LiveCard) h.H {
 	var da *draftAnalysis
 	var rewrite string
+	var handshakeAuthored bool
+	var composeMessage string
 	if e := lookupLiveEntry(c.Key); e != nil {
 		da = e.analysisSnapshot()
 		rewrite = e.rewriteSnapshot()
+		handshakeAuthored = e.pendingHandshakeSnapshot() != nil
+		composeMessage = e.composeMessageSnapshot()
 	}
-	parts := []h.H{h.Class("authoring"), composeSurface(da, rewrite)}
+	parts := []h.H{
+		h.Class("authoring"),
+		renderHandshakeAuthoring(c, handshakeAuthored, composeMessage),
+		composeSurface(da, rewrite),
+	}
 	if p := renderAnalysisPanel(da); p != nil {
 		parts = append(parts, p)
+	}
+	return h.Div(parts...)
+}
+
+// renderHandshakeAuthoring is the handshake compose control (MVP.md concept 3):
+// a plain textarea + a self-declared strength pick, bound directly (data-bind,
+// no CustomEvent bridge — unlike the Monaco draft editor, this is a small plain
+// form) and posted to AuthorHandshake. authored reflects whether the session
+// currently has one cached (PlaceOrder consumes it on a successful placement,
+// so this reverts to "none" after each dispatch). message is PlaceOrder's
+// honest inline refusal ("" when there is none to show).
+func renderHandshakeAuthoring(c *LiveCard, authored bool, message string) h.H {
+	state, statusText := "none", "no handshake authored yet"
+	if authored {
+		state, statusText = "authored", "handshake authored"
+	}
+	parts := []h.H{
+		h.Class("compose__handshake"),
+		h.Attr("aria-label", "author a handshake"),
+		h.P(h.Class("compose__handshake-label"),
+			h.Text("Author a handshake — a runnable contract the agent's turn cannot touch:")),
+		h.Textarea(c.HandshakeDraft.Bind(), h.Class("pk-input compose__handshake-draft"),
+			h.Placeholder("package handshake\n\nfunc TestX(t *testing.T) { ... }")),
+		h.Select(c.HandshakeStrengthPick.Bind(), h.Class("pk-input compose__handshake-strength"),
+			h.Option(h.Attr("value", ""), h.Text("choose a strength")),
+			h.Option(h.Attr("value", "examples"), h.Text("examples")),
+			h.Option(h.Attr("value", "properties"), h.Text("properties")),
+		),
+		h.Button(on.Click(c.AuthorHandshake), h.Class("pk-btn pk-btn--quiet compose__handshake-submit"), h.Text("Author handshake")),
+		h.Span(h.Class("compose__handshake-status"), h.Data("state", state), h.Text(statusText)),
+	}
+	if message != "" {
+		parts = append(parts, h.P(h.Class("compose__handshake-message"), h.Data("state", "blocking"), h.Text(message)))
 	}
 	return h.Div(parts...)
 }

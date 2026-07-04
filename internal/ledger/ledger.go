@@ -99,6 +99,17 @@ type Target struct {
 	// Claude Code harness runs to PRODUCE the fix revision, instead of the
 	// pre-funded BaseRev→FixRev diff. Empty = the legacy pre-funded target.
 	Prompt string `json:"prompt,omitempty"`
+	// HandshakePath/HandshakeHash/HandshakeStrength record the handshake (MVP.md
+	// concept 3) authored BEFORE this order was dispatched — set at compose time,
+	// never by the agent. All zero-safe/omitempty: a legacy pre-funded target (no
+	// Prompt) predates the handshake concept and carries none of these.
+	// HandshakeStrength is a plain int (not packet.HandshakeStrength) because
+	// internal/packet already imports internal/ledger (for ledger.DispatchView) —
+	// importing the other way would cycle. Callers cast to/from
+	// packet.HandshakeStrength at the boundary.
+	HandshakePath     string `json:"handshake_path,omitempty"`
+	HandshakeHash     string `json:"handshake_hash,omitempty"`
+	HandshakeStrength int    `json:"handshake_strength,omitempty"`
 }
 
 // DispatchCounts is the work-order tally split by current status — the watchable
