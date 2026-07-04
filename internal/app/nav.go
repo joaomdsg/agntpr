@@ -32,12 +32,14 @@ func reviewSessionCrumb(key string) h.H {
 
 // navHeader is the shared, stateless nav bar prepended to every page (the fleet
 // board and each session card), turning the disconnected URLs into a navigable
-// app. It carries a "packets" home link and a breadcrumb: a "fleet" link back to
-// /board, plus — on a session card — the RAW session key (honest, never a
-// fabricated label, so the Lead always knows which session they are on). It is
-// pure markup + href-based browser navigation: no JS, no client state, no menus
-// (keyboard nav is a later slice).
-func navHeader(key string) h.H {
+// app. It carries the brand mark + stacked lockup as the home link — sub names
+// the CALLING surface (e.g. "console", "inspect", "settings"), never a renamed
+// route — and a breadcrumb: a "fleet" link back to /board, plus — on a session
+// card — the RAW session key (honest, never a fabricated label, so the Lead
+// always knows which session they are on). It is pure markup + href-based
+// browser navigation: no JS, no client state, no menus (keyboard nav is a
+// later slice).
+func navHeader(key, sub string) h.H {
 	crumb := []h.H{
 		h.Class("board-nav__breadcrumb"),
 		h.A(h.Href("/board"), h.Class("board-nav__crumb"), h.Text("fleet")),
@@ -56,7 +58,10 @@ func navHeader(key string) h.H {
 		// assistive-tech user can jump between chrome and content rather than tabbing
 		// through everything.
 		h.Attr("aria-label", "primary"),
-		h.A(h.Href("/board"), h.Class("board-nav__home"), h.Text("packets")),
+		// 8px cells trigger the mark's small-size rule (nav chrome never carries the
+		// ghost outline) — the stacked lockup is the ONLY wordmark form allowed
+		// beside this breadcrumb (MVP.md brand pack).
+		h.A(h.Href("/board"), h.Class("board-nav__home"), packetLockup(8, sub)),
 		h.Div(crumb...),
 	)
 }

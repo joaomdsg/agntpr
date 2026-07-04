@@ -98,3 +98,73 @@ func TestBoardCard_drillHrefURLEscapesTheKey(t *testing.T) {
 	require.NotContains(t, body, `href="/?key=a&b=c"`,
 		"the raw key must not leak unescaped into the query string")
 }
+
+// ROADMAP slice 2 (the mark + chrome): the nav's home link used to be bare
+// text ("packets") — the brand pack locks the mark + stacked lockup as the
+// in-app chrome instead. A regression back to plain text would silently drop
+// the brand from every page. NOT parallel (shared liveReg/liveFabric).
+func TestBoardCard_navHomeLinkIsTheMarkAndStackedLockupNotBareText(t *testing.T) {
+	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
+	var server *httptest.Server
+	viaApp, log, err := NewServer(LiveConfig{
+		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
+		TestCmd: []string{"true"}, LedgerPath: defLogPath,
+	})
+	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
+	t.Cleanup(func() { _ = log.Close() })
+
+	body := bodyOf(vt.NewClient(t, server, "/board").HTML())
+	require.Contains(t, body, "board-nav__home", "the home link keeps its stable class hook")
+	require.Contains(t, body, `href="/board"`, "the home link still navigates to the fleet board")
+	require.Contains(t, body, "pk-mark", "the home link mounts the brand mark")
+	require.Contains(t, body, "pk-lockup__sub", "the home link mounts the stacked lockup, not the mark alone")
+	require.Contains(t, body, `pk-lockup__sub">console<`, "the fleet board's lockup sublabel names its own surface")
+	require.NotContains(t, body, `class="board-nav__home">packets<`,
+		"the home link must no longer be a bare text-only wordmark")
+}
+
+// The session card ("/") carries the same shared nav header as the board —
+// it must rebrand identically, not regress to the old bare-text link.
+// NOT parallel (shared liveReg/liveFabric).
+func TestLiveCard_navHomeLinkIsTheMarkAndStackedLockup(t *testing.T) {
+	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
+	var server *httptest.Server
+	viaApp, log, err := NewServer(LiveConfig{
+		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
+		TestCmd: []string{"true"}, LedgerPath: defLogPath,
+	})
+	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
+	t.Cleanup(func() { _ = log.Close() })
+
+	body := bodyOf(vt.NewClient(t, server, "/").HTML())
+	require.Contains(t, body, "pk-mark", "the session card's home link mounts the brand mark")
+	require.Contains(t, body, `pk-lockup__sub">console<`, "the session card's lockup sublabel names its own surface")
+	require.NotContains(t, body, `class="board-nav__home">packets<`,
+		"the home link must no longer be a bare text-only wordmark")
+}
+
+// /review and /settings share the same nav header component — each surface's
+// lockup sublabel must name ITS surface (Inspect / Settings), not a copy-pasted
+// or hardcoded one, so the Lead always knows which surface they're on.
+// NOT parallel (shared liveReg/liveFabric).
+func TestReviewAndSettings_navLockupSublabelNamesTheirOwnSurface(t *testing.T) {
+	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
+	var server *httptest.Server
+	viaApp, log, err := NewServer(LiveConfig{
+		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
+		TestCmd: []string{"true"}, LedgerPath: defLogPath,
+	})
+	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
+	t.Cleanup(func() { _ = log.Close() })
+
+	review := bodyOf(vt.NewClient(t, server, "/review").HTML())
+	require.Contains(t, review, "pk-mark", "/review mounts the brand mark")
+	require.Contains(t, review, `pk-lockup__sub">inspect<`, "/review's lockup sublabel is its own surface name")
+
+	settings := bodyOf(vt.NewClient(t, server, "/settings").HTML())
+	require.Contains(t, settings, "pk-mark", "/settings mounts the brand mark")
+	require.Contains(t, settings, `pk-lockup__sub">settings<`, "/settings' lockup sublabel is its own surface name")
+}

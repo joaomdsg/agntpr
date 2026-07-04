@@ -5,7 +5,7 @@ the spec). One slice per tick unless a slice says otherwise. Statuses:
 queued / in-flight / landed / dropped. Every landed slice carries one
 evidence line.
 
-NEXT: slice 2.
+NEXT: slice 3.
 
 ## Council verdicts
 
@@ -39,9 +39,13 @@ NEXT: slice 2.
   keyframes, marketing tokens excluded); ~300 usages rewired, zero
   layout/selector changes; tests pin exact hexes + no `--pk-`
   survivors. Evidence: full gate green; commit below.
-- [ ] **2. Mark + chrome** — queued. PacketMark built in code
-  (locked spec incl. small-size rule) + the Titlebar pattern +
-  nav rebrand (stacked lockup). Server-render tested.
+- [x] **2. Mark + chrome** — landed. packetMark/packetMarkHeld/
+  packetLockup helpers (internal/app/mark.go) per the locked spec —
+  ghost TR at ≥14px cells, solid --delivered-mid below, --mark-cell
+  parameterized CSS; nav home link now mark + stacked lockup with
+  per-surface sub (console/inspect/settings). Full Titlebar pattern
+  deferred to the Inspector shell (slice 4), where it lives.
+  Evidence: full gate green; commit below.
 - [ ] **3. Console shell** — queued. `/` becomes the 3-column
   Console (360|1fr|340): regions in place — needs-you rail,
   forwarded hero, in-flight, recently delivered, watches — fed by

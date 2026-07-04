@@ -263,7 +263,7 @@ func (c *ReviewCard) View(_ *via.CtxR) h.H {
 		navKey = defaultSessionKey
 	}
 	cfg, log := readLiveState(navKey)
-	parts := []h.H{h.Class("review"), h.Data("state", "review"), navHeader(navKey)}
+	parts := []h.H{h.Class("review"), h.Data("state", "review"), navHeader(navKey, "inspect")}
 	// A back-affordance so the review drill-in isn't a dead end: a link to the
 	// originating session card (Flow C). The per-order branch ALSO adds an up-link to
 	// the session review, making per-order↔session nav symmetric.

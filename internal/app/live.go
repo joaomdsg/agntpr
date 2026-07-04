@@ -938,7 +938,7 @@ func (c *LiveCard) View(ctx *via.CtxR) h.H {
 	// (catch-cycle): render a calm landing pointing at the fleet board. A repo-only OR
 	// an anchored session is usable and renders the working card below.
 	if log == nil || (!cfg.hasRepo() && !cfg.hasAnchor()) {
-		return h.Div(navHeader(""),
+		return h.Div(navHeader("", "console"),
 			h.Div(h.Role("main"), h.Attr("aria-label", "no session"),
 				h.Div(h.Class("pk-card onboarding"), h.Data("state", "empty"),
 					h.P(h.Class("onboarding__lead"), h.Text("No session configured.")),
@@ -1115,7 +1115,7 @@ func (c *LiveCard) View(ctx *via.CtxR) h.H {
 	}
 	parts = append(parts, h.Section(state...))
 	// nav landmark first, then the main economy region — distinct sibling landmarks.
-	return h.Div(navHeader(navKey), h.Div(parts...))
+	return h.Div(navHeader(navKey, "console"), h.Div(parts...))
 }
 
 // Spend funds one unit of dispatched work against the balance — the Lead's first

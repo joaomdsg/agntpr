@@ -84,7 +84,7 @@ func (c *SettingsCard) View(_ *via.CtxR) h.H {
 		state, status = "configured", "Anthropic API key configured — live orders can run."
 	}
 	return h.Div(
-		navHeader(defaultSessionKey),
+		navHeader(defaultSessionKey, "settings"),
 		h.Div(
 			h.Class("settings"),
 			h.Role("main"),

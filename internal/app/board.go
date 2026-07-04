@@ -598,7 +598,7 @@ func (c *BoardCard) View(ctx *via.CtxR) h.H {
 		parts = append(parts, h.Div(row...))
 	}
 	// nav landmark first, then the main fleet region — distinct sibling landmarks.
-	return h.Div(navHeader(""), h.Div(parts...))
+	return h.Div(navHeader("", "console"), h.Div(parts...))
 }
 
 // boardLand maps a session's raw integration verdict to the board's (data-state,

@@ -211,6 +211,61 @@ body {
 .board-nav__sep { color: var(--text-muted); }
 .board-nav__key { color: var(--ink); }
 
+/* ---- the packets brand mark + lockup (MVP.md "Brand pack", locked) ----
+   Every dimension derives from the one --mark-cell custom property the Go
+   helper sets inline, via calc() — so packetMark(cell) stays a pure function
+   of one parameter, never a fixed-size CSS class per call site. */
+.pk-mark {
+  display: inline-grid;
+  grid-template-columns: repeat(2, var(--mark-cell));
+  grid-auto-rows: var(--mark-cell);
+  gap: max(1.5px, calc(var(--mark-cell) * 0.27));
+  flex: none;
+}
+.pk-mark__cell {
+  display: inline-block;
+  width: var(--mark-cell);
+  height: var(--mark-cell);
+  border-radius: max(1.5px, calc(var(--mark-cell) * 0.23));
+  box-sizing: border-box;
+}
+.pk-mark__cell--signal { background: var(--signal); }
+.pk-mark__cell--delivered { background: var(--delivered); }
+/* the small-size TR fallback (cell < 14px): the ghost's stroke would go
+   sub-pixel, so it reads as a solid silhouette instead (locked rule). */
+.pk-mark__cell--delivered-mid { background: var(--delivered-mid); }
+/* the ghost "composing" TR cell (cell >= 14px only) — same edge, same addr,
+   that fills solid --delivered once forwarded. */
+.pk-mark__cell--ghost {
+  background: color-mix(in srgb, var(--delivered) 8%, transparent);
+  border: max(2px, calc(var(--mark-cell) * 0.18)) solid var(--delivered);
+  transform: scale(1.035);
+}
+.pk-mark__cell--held { background: var(--risk); animation: pk-held-pulse 2s ease-in-out infinite; }
+
+/* the compact in-chrome lockup: mark + stacked "packets / LABEL" — the only
+   wordmark form allowed beside a breadcrumb (never the full inline wordmark). */
+.pk-lockup { display: inline-flex; align-items: center; gap: calc(var(--mark-cell) * 1.2); }
+.pk-lockup__labels { display: flex; flex-direction: column; gap: 2px; }
+.pk-lockup__word {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: calc(var(--mark-cell) * 1.7);
+  letter-spacing: var(--track-word);
+  color: var(--ink);
+  line-height: 1;
+  text-transform: lowercase;
+}
+.pk-lockup__sub {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: var(--fs-micro);
+  letter-spacing: .16em;
+  color: var(--text-faint);
+  line-height: 1;
+  text-transform: uppercase;
+}
+
 /* ---- the fleet board ---- */
 .board { display: flex; flex-direction: column; gap: var(--sp-3); }
 /* the fleet view's one command: create a session. A calm inline input + button,
