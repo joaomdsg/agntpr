@@ -7,6 +7,7 @@ package app
 import (
 	"context"
 
+	"github.com/joaomdsg/packets/internal/catch"
 	"github.com/joaomdsg/packets/internal/ledger"
 	"github.com/joaomdsg/packets/internal/mutation"
 	"github.com/joaomdsg/packets/internal/pipe"
@@ -33,6 +34,21 @@ type Resolution struct {
 	// "question:" threads. Diagnostic only: they never alter the verdict, Land, or
 	// the ledger record, and never touch the two-scores economy.
 	Findings []mutation.Finding
+	// Outcome is the RAW catch-cycle outcome behind Verdict — Verdict is a
+	// surface-mapped string token (surface.PresentVerdict collapses several
+	// raw outcomes into shared or split tokens: e.g. a fully-constrained
+	// NoCatch reads as the calm-win "Tested", and NoOracleSignal fans out
+	// into four different quiet tokens by Reason). packet.GateFromCatchOutcome
+	// (ROADMAP slice 8's G3) needs the untranslated enum, never the token, so
+	// it is forwarded here as its own field rather than re-derived from the
+	// string.
+	Outcome catch.Outcome
+	// AfterSurvivors and AfterConsidered are the after-revision LineState's
+	// Survivors and Inventory sizes — the same counts already computed for
+	// PresentVerdict above, forwarded so a caller building a packet.Gate from
+	// Outcome never has to re-run the mutation oracle to get them.
+	AfterSurvivors  int
+	AfterConsidered int
 }
 
 // Resolve runs the catch cycle over the two revisions and maps it for the
@@ -62,5 +78,8 @@ func ResolveStreaming(ctx context.Context, repoDir, baseRev, fixRev, tipRev stri
 	record := ledger.NewCatchRecord(res.Outcome, res.Path, res.Line, baseRev, fixRev, res.Before.Inventory, res.After.Inventory, selfFlagged, wouldHaveShipped)
 	// Findings is a pass-through of the fix oracle's non-killed mutants (carried up
 	// by the cycle in slice 1) to the surface for the review-question badge/threads.
-	return Resolution{Verdict: verdict, Land: res.Land, Trace: res.Trace, Record: record, Findings: res.Findings}, nil
+	return Resolution{
+		Verdict: verdict, Land: res.Land, Trace: res.Trace, Record: record, Findings: res.Findings,
+		Outcome: res.Outcome, AfterSurvivors: len(res.After.Survivors), AfterConsidered: len(res.After.Inventory),
+	}, nil
 }

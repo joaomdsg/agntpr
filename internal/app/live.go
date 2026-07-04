@@ -19,6 +19,7 @@ import (
 	"github.com/go-via/via/on"
 
 	"github.com/joaomdsg/packets/internal/bridge"
+	"github.com/joaomdsg/packets/internal/catch"
 	"github.com/joaomdsg/packets/internal/fabric"
 	"github.com/joaomdsg/packets/internal/harness"
 	"github.com/joaomdsg/packets/internal/ingest"
@@ -259,6 +260,162 @@ type liveEntry struct {
 	// call must never also block the cheap off-ledger diagnostic reads above.
 	laneMu    sync.Mutex
 	laneCache map[int]packet.Lane
+	// gauntletMu guards gauntletCache: an order's computed Gauntlet record
+	// (ROADMAP slice 8), mirroring laneMu/laneCache's exec-derived-cache
+	// rationale exactly — G4 (packet.RunBuildVetGate) execs git+go, so this
+	// cache must stay off findingsMu (a render must never hold a lock across
+	// a subprocess call). intentFidelityConfirmed is guarded by the SAME
+	// mutex (a much cheaper map, but keeping one lock for the whole gauntlet
+	// record avoids a second mutex for no real contention benefit).
+	gauntletMu    sync.Mutex
+	gauntletCache map[int]packet.Gauntlet
+	// intentFidelityConfirmed holds G1's human confirmation per order id
+	// (ConfirmIntentFidelity) — a real ACTION, not a computed gate, so it is
+	// NEVER folded into gauntletCache's stored value: gauntletFor and
+	// cachedGauntlet both read this fresh on every call and overlay it onto
+	// IntentFidelity, so a confirmation made AFTER an order's G3/G4 were
+	// already cached is still visible on the very next render without
+	// invalidating that cache entry. Ephemeral, off the economy ledger —
+	// there is no persisted event kind for this yet (a deferral: adding one
+	// is out of scope this slice).
+	intentFidelityConfirmed map[int]packet.Gate
+	// orderCatch holds a FILLED work-order's raw catch-cycle outcome and
+	// after-revision survivor/inventory counts (settleCatch's Resolution),
+	// carried alongside orderFindings — the data G3
+	// (packet.GateFromCatchOutcome) folds into a gate without ever
+	// re-running the mutation oracle. Guarded by findingsMu, written
+	// together with orderFindings in settleCatch.
+	orderCatch map[int]orderCatchOutcome
+}
+
+// orderCatchOutcome is one order's raw catch-cycle result, cached off the
+// economy ledger (like orderFindings) so gauntletFor's G3 can fold it into a
+// packet.Gate without re-running the mutation oracle.
+type orderCatchOutcome struct {
+	outcome    catch.Outcome
+	survivors  int
+	considered int
+}
+
+// setOrderCatchOutcome caches a filled order's raw catch-cycle outcome —
+// called from settleCatch alongside setOrderFindings.
+func (e *liveEntry) setOrderCatchOutcome(orderID int, outcome catch.Outcome, survivors, considered int) {
+	e.findingsMu.Lock()
+	if e.orderCatch == nil {
+		e.orderCatch = map[int]orderCatchOutcome{}
+	}
+	e.orderCatch[orderID] = orderCatchOutcome{outcome: outcome, survivors: survivors, considered: considered}
+	e.findingsMu.Unlock()
+}
+
+// handshakeTightnessGate derives G3 from orderID's cached catch outcome, or
+// the honest NotRun default when no catch cycle has recorded one yet (the
+// order hasn't filled, or filled with a cycle error that settled nothing).
+func (e *liveEntry) handshakeTightnessGate(orderID int) packet.Gate {
+	e.findingsMu.Lock()
+	oc, ok := e.orderCatch[orderID]
+	e.findingsMu.Unlock()
+	if !ok {
+		return packet.Gate{Status: packet.GateNotRun, Detail: "not measured — no catch cycle run yet"}
+	}
+	return packet.GateFromCatchOutcome(oc.outcome, oc.survivors, oc.considered)
+}
+
+// intentFidelityGate reads G1 fresh from intentFidelityConfirmed — see the
+// field doc on why this is never part of the cached Gauntlet value.
+func (e *liveEntry) intentFidelityGate(orderID int) packet.Gate {
+	e.gauntletMu.Lock()
+	defer e.gauntletMu.Unlock()
+	if g, ok := e.intentFidelityConfirmed[orderID]; ok {
+		return g
+	}
+	return packet.Gate{Status: packet.GateNotRun, Detail: "no data — a human residual, not computable"}
+}
+
+// confirmIntentFidelity records that navKey confirmed orderID's intent
+// fidelity — the G1 human residual is a real action, never a computed gate.
+func (e *liveEntry) confirmIntentFidelity(orderID int, navKey string) {
+	e.gauntletMu.Lock()
+	if e.intentFidelityConfirmed == nil {
+		e.intentFidelityConfirmed = map[int]packet.Gate{}
+	}
+	e.intentFidelityConfirmed[orderID] = packet.Gate{Status: packet.GatePassed, Detail: "confirmed by " + navKey}
+	e.gauntletMu.Unlock()
+}
+
+// notMeasuredNoHandshake is G2/G5's shared honest default: no handshake
+// concept exists yet (slice 9), so neither "run the handshake" (G2) nor
+// "mutation vs the agent's own tests" (G5, which needs the same
+// handshake/agent-test split) can be scored as pass/fail today.
+var notMeasuredNoHandshake = packet.Gate{Status: packet.GateNotRun, Detail: "not measured — no handshake yet"}
+
+// notMeasuredNoCage is G6's honest default: cage re-derivation exists
+// (internal/cage) but is never wired into a locally-dispatched order's
+// gauntlet yet — a future slice's job, not this one's.
+var notMeasuredNoCage = packet.Gate{Status: packet.GateNotRun, Detail: "not measured — cage not wired to local dispatch"}
+
+// cachedGauntletEntry reads gauntletCache directly, reporting a miss
+// distinctly from a cached all-NotRun Gauntlet — mirrors cachedLaneEntry.
+func (e *liveEntry) cachedGauntletEntry(orderID int) (packet.Gauntlet, bool) {
+	e.gauntletMu.Lock()
+	defer e.gauntletMu.Unlock()
+	g, ok := e.gauntletCache[orderID]
+	return g, ok
+}
+
+// gauntletFor returns p's gauntlet record (MVP.md concept 5's six gates),
+// computing (and caching) G3/G4 on the first call to observe a cache miss
+// for this order id — mirrors laneFor exactly, including the "no fix
+// revision yet → answer honestly WITHOUT caching" rule (a live prompt order
+// the harness hasn't produced a revision for), so a later render — once the
+// order fills — gets a real computation instead of a permanently-cached
+// miss. G1 is NEVER cached (see intentFidelityConfirmed's doc); G2/G5/G6
+// have no real mechanic this slice and are always their honest NotRun
+// default.
+//
+// This execs `git worktree`/`go build`/`go vet` (packet.RunBuildVetGate) and
+// may be called ONLY from a render path (View), scoped to the packet(s)
+// actually shown in detail — the Inspector's order-scoped branch. The 100ms
+// via.Stream poll (OnConnect) must NEVER call this; it reads cachedGauntlet
+// instead, a pure map lookup.
+func (e *liveEntry) gauntletFor(ctx context.Context, p packet.Packet) packet.Gauntlet {
+	g, ok := e.cachedGauntletEntry(p.ID)
+	if !ok {
+		if p.FixRev == "" {
+			g = packet.Gauntlet{
+				HandshakeConformance: notMeasuredNoHandshake,
+				TestSensitivity:      notMeasuredNoHandshake,
+				IndependentCheck:     notMeasuredNoCage,
+			}
+			g.IntentFidelity = e.intentFidelityGate(p.ID)
+			return g // no fix rev yet — nothing real to cache
+		}
+		g = packet.Gauntlet{
+			HandshakeConformance: notMeasuredNoHandshake,
+			HandshakeTightness:   e.handshakeTightnessGate(p.ID),
+			BuildVetLint:         packet.RunBuildVetGate(ctx, e.cfg.RepoDir, p.FixRev),
+			TestSensitivity:      notMeasuredNoHandshake,
+			IndependentCheck:     notMeasuredNoCage,
+		}
+		e.gauntletMu.Lock()
+		if e.gauntletCache == nil {
+			e.gauntletCache = map[int]packet.Gauntlet{}
+		}
+		e.gauntletCache[p.ID] = g
+		e.gauntletMu.Unlock()
+	}
+	g.IntentFidelity = e.intentFidelityGate(p.ID)
+	return g
+}
+
+// cachedGauntlet returns orderID's ALREADY-cached gauntlet (the honest
+// all-NotRun zero value on a cache miss), overlaid with G1's fresh
+// confirmation state — a pure map read, NEVER a compute. Anything reachable
+// from the 100ms Stream poll must use this, never gauntletFor.
+func (e *liveEntry) cachedGauntlet(orderID int) packet.Gauntlet {
+	g, _ := e.cachedGauntletEntry(orderID)
+	g.IntentFidelity = e.intentFidelityGate(orderID)
+	return g
 }
 
 // resolvedAddr returns this session's repo identity (owner/name), computed
@@ -1562,6 +1719,7 @@ func settleCatch(e *liveEntry, orderID int, res Resolution, err error) {
 	}
 	_ = e.log.AppendWorkOrderVerdict(orderID, res.Verdict)
 	e.setOrderFindings(orderID, res.Findings)
+	e.setOrderCatchOutcome(orderID, res.Outcome, res.AfterSurvivors, res.AfterConsidered)
 }
 
 // lastMintedSHA returns the SHA of the last turn that minted a revision — the

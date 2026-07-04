@@ -5,7 +5,7 @@ the spec). One slice per tick unless a slice says otherwise. Statuses:
 queued / in-flight / landed / dropped. Every landed slice carries one
 evidence line.
 
-NEXT: slice 8.
+NEXT: slice 9.
 
 ## Infra
 
@@ -133,13 +133,25 @@ NEXT: slice 8.
   matching "catch" before the second call ever saw "land-clean");
   merged into one `AwaitFrame` call with both needles, immune to
   chunk boundaries. Evidence: full gate green (`./scripts/test-fast.sh`).
-- [ ] **8. Gauntlet record** — queued. One explicit per-packet
-  pipeline record of the six gates; map existing machinery (G2
-  handshake run, G3 mutation-vs-spec, G4 build/vet, G5
-  mutation-vs-agent-tests, G6 cage re-derivation + go vet/static
-  method diversity; G1 = human intent-fidelity affordance in
-  Inspector). Lane decides which gates run. New event kinds; gates
-  surfaced on the Inspector timeline + Console.
+- [x] **8. Gauntlet record** — landed. internal/packet/Gauntlet: six
+  named gates (intent fidelity, handshake conformance, handshake
+  tightness, build·vet·lint, test sensitivity, independent check),
+  GateStatus not-run/passed/failed/held, Forwardable() (only a hard
+  Failed blocks). REAL data wired for two: G3 (handshake tightness)
+  reconstructed from the order's existing catch.Outcome — never
+  re-runs mutation; G4 (build·vet·lint) is a genuinely NEW exec
+  seam, RunBuildVetGate — a throwaway git worktree of the fix rev,
+  `go build`+`go vet`, always cleaned up. G1 (intent fidelity) is an
+  honest human residual: a real ConfirmIntentFidelity action in the
+  Inspector, no computed proxy. G2/G5 (undifferentiated
+  handshake-vs-agent tests) and G6 (cage never wired to local
+  dispatch) stay explicit "not measured" — deferred to slices 9 and
+  a future cage-wiring slice, never faked. Cache/compute boundary
+  mirrors slice 7's lanes exactly (compute+cache on render, poll
+  reads cache only, proven by test). Inspector timeline now lists
+  all six gates (previously a stub). Console gate-health summary
+  deferred (out of scope this slice). Evidence: full gate green;
+  commit below.
 - [ ] **9. Handshake mechanics** — queued. Protected `handshake/**`
   paths: settle deny-rule (agent turn cannot modify), content-hash
   check before gates, authored-before-code ordering enforced,

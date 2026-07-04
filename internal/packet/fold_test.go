@@ -185,3 +185,19 @@ func TestFold_leavesLaneUnmeasuredSinceFoldNeverShellsOutToMeasureIt(t *testing.
 	require.Len(t, got, 1)
 	assert.Equal(t, packet.LaneUnmeasured, got[0].Lane)
 }
+
+// Fold never runs a catch cycle or execs go build/vet, so it must never
+// populate any of the six gauntlet gates itself — that happens at the app
+// layer, per order, at render time (ROADMAP slice 8's gauntletFor), the same
+// division of labor as Lane above. A Fold that fabricated a gate result
+// would violate MVP.md's "no fabricated metrics" invariant.
+func TestFold_leavesEveryGauntletGateNotRunSinceFoldNeverRunsGatesItself(t *testing.T) {
+	t.Parallel()
+
+	views := []ledger.DispatchView{{ID: 1, Status: "done", Caught: true}}
+
+	got := packet.Fold(views, packet.Addr{}, zeroQuestions)
+
+	require.Len(t, got, 1)
+	assert.Equal(t, packet.Gauntlet{}, got[0].Gauntlet)
+}

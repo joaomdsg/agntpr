@@ -945,9 +945,8 @@ body {
 .inspector__timeline {
   margin-top: var(--sp-5);
   padding: var(--sp-4);
-  border: 1px dashed var(--border-dashed);
+  border: 1px solid var(--hairline);
   border-radius: var(--r-card-sm);
-  text-align: center;
 }
 .inspector__timeline-kicker {
   font-family: var(--font-mono);
@@ -958,6 +957,50 @@ body {
   color: var(--text-faint);
   margin-bottom: var(--sp-1);
 }
+/* ROADMAP slice 8: the gauntlet's six-gate record — one row per gate, a
+   neutral name label, a status pill (color-mix idiom, same shape as the
+   annotation card's chips), and an honest detail note. Status colors are
+   the SAME state-grammar colors used everywhere else (--verified/--held/
+   --risk/--text-faint) — never invented. */
+.gauntlet__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.gauntlet-gate {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+}
+.gauntlet-gate__name { color: var(--text-muted); min-width: 11em; }
+.gauntlet-gate__pill {
+  font-size: var(--fs-micro);
+  letter-spacing: var(--track-chip);
+  text-transform: lowercase;
+  padding: 1px var(--sp-3);
+  border-radius: var(--r-pill);
+  border: 1px solid var(--hairline);
+  color: var(--text-faint);
+}
+.gauntlet-gate__pill[data-status="passed"] {
+  color: var(--verified);
+  border-color: color-mix(in srgb, var(--verified) 40%, var(--hairline));
+  background: color-mix(in srgb, var(--verified) 14%, transparent);
+}
+.gauntlet-gate__pill[data-status="failed"] {
+  color: var(--risk);
+  border-color: color-mix(in srgb, var(--risk) 40%, var(--hairline));
+  background: color-mix(in srgb, var(--risk) 14%, transparent);
+}
+.gauntlet-gate__pill[data-status="held"] {
+  color: var(--held);
+  border-color: color-mix(in srgb, var(--held) 40%, var(--hairline));
+  background: color-mix(in srgb, var(--held) 14%, transparent);
+}
+.gauntlet-gate__detail { color: var(--text-faint); font-size: var(--fs-tiny); }
+.gauntlet-gate__confirm { margin-left: var(--sp-2); }
 /* the annotation card (MVP.md AnnotationCard spec): authorship is the 3px
    left border — --agent, since every open thread on the rail is oracle-
    authored. Overrides .review-thread's own thinner signal-hue accent

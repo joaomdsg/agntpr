@@ -9,6 +9,26 @@ import (
 	"github.com/joaomdsg/packets/internal/review"
 )
 
+// gauntletGateRow names one of the six gates alongside its Gate value, in
+// G1..G6 order (MVP.md concept 5) — the fixed row order renderInspectorTimeline
+// renders the gauntlet in.
+type gauntletGateRow struct {
+	name string
+	gate packet.Gate
+}
+
+// gauntletGateRows returns g's six gates as named rows, in G1..G6 order.
+func gauntletGateRows(g packet.Gauntlet) []gauntletGateRow {
+	return []gauntletGateRow{
+		{"intent fidelity", g.IntentFidelity},
+		{"handshake conformance", g.HandshakeConformance},
+		{"handshake tightness", g.HandshakeTightness},
+		{"build · vet · lint", g.BuildVetLint},
+		{"test sensitivity", g.TestSensitivity},
+		{"independent check", g.IndependentCheck},
+	}
+}
+
 // shortRev truncates rev to the short-SHA convention (7 characters); a rev at
 // or under that length renders as-is — never padded or fabricated.
 func shortRev(rev string) string {
@@ -70,15 +90,48 @@ func renderInspectorEmptyTree() h.H {
 		h.Text("pick a packet to scope the file tree"))
 }
 
-// renderInspectorTimeline is the Inspector's full-width footer: an honest
-// dashed empty. The replayable packet-life timeline (MVP.md concept 2, 10)
-// is folded from the packet aggregate that lands in slice 5 — never faked
-// here.
-func renderInspectorTimeline() h.H {
-	return h.Div(h.Class("inspector__timeline"),
-		h.Div(h.Class("inspector__timeline-kicker"), h.Text("timeline")),
-		h.Div(h.Text("no replayable timeline yet")),
+// renderInspectorTimeline is the Inspector's full-width footer: the six
+// gauntlet gates (MVP.md concept 5), one row each, in G1..G6 order. Every
+// row renders even when its status is GateNotRun — a real, honest absence,
+// never hidden (the replayable packet-life timeline itself is a later
+// slice; this footer is the gauntlet record MVP.md reserved it for).
+// orderID>0 additionally renders the ConfirmIntentFidelity affordance
+// inline on the IntentFidelity row while that gate is still NotRun (the G1
+// human residual — a real action, never a computed gate); orderID<=0 (the
+// session-scoped review, which has no single packet to gauntlet) omits it,
+// since there is no order to confirm against.
+func renderInspectorTimeline(navKey string, orderID int, g packet.Gauntlet) h.H {
+	var rows []h.H
+	for _, row := range gauntletGateRows(g) {
+		canConfirm := orderID > 0 && row.name == "intent fidelity" && row.gate.Status == packet.GateNotRun
+		rows = append(rows, renderGauntletGateRow(orderID, row, canConfirm))
+	}
+	return h.Div(h.Class("inspector__timeline gauntlet"),
+		h.Div(h.Class("inspector__timeline-kicker"), h.Text("gauntlet")),
+		h.Div(append([]h.H{h.Class("gauntlet__list")}, rows...)...),
 	)
+}
+
+// renderGauntletGateRow renders one gate as `<name> · <status> · <detail>`
+// in mono voice: a name label, a neutral status pill carrying
+// data-status=<lowercase status> (the CSS hook for the status→color idiom —
+// verified/held/risk/text-faint, never invented colors), and the Detail note
+// when non-empty. canConfirm adds the inline confirm affordance.
+func renderGauntletGateRow(orderID int, row gauntletGateRow, canConfirm bool) h.H {
+	parts := []h.H{
+		h.Class("gauntlet-gate"),
+		h.Span(h.Class("gauntlet-gate__name"), h.Text(row.name)),
+		h.Span(h.Class("gauntlet-gate__pill"), h.Data("status", row.gate.Status.String()), h.Text(row.gate.Status.String())),
+	}
+	if row.gate.Detail != "" {
+		parts = append(parts, h.Span(h.Class("gauntlet-gate__detail"), h.Text(row.gate.Detail)))
+	}
+	if canConfirm {
+		expr := "$confirmwo=" + strconv.Itoa(orderID) + ";@post('/_action/ConfirmIntentFidelity')"
+		parts = append(parts, h.Button(h.Type("button"), h.Class("pk-btn gauntlet-gate__confirm"),
+			h.Data("on:click", expr), h.Text("confirm")))
+	}
+	return h.Div(parts...)
 }
 
 // annotationRailHeader renders the rail's kicker in the house voice

@@ -67,6 +67,9 @@ type ReviewCard struct {
 	AdjFile via.SignalStr `via:"adjfile"`
 	AdjLine via.SignalStr `via:"adjline"`
 	AdjText via.SignalStr `via:"adjtext"`
+	// ConfirmWO carries the order id ConfirmIntentFidelity confirms (G1's
+	// human residual) — set inline by the confirm button's datastar expr.
+	ConfirmWO via.SignalStr `via:"confirmwo"`
 }
 
 // orderOpenThreads converts a filled work-order's cached findings into review
@@ -287,12 +290,14 @@ func (c *ReviewCard) View(_ *via.CtxR) h.H {
 		tgt, hasTarget := orderTarget(log, woID)
 		pktName := ""
 		lane := packet.LaneUnmeasured
+		gauntlet := packet.Gauntlet{}
 		if pkt, ok := packetForOrder(navKey, woID); ok {
 			pktName = pkt.Name
 			// Computed (and cached) HERE, on this render, scoped to the one
 			// packet being shown in detail — never on the 100ms Stream poll.
 			if e := lookupLiveEntry(navKey); e != nil {
 				lane = e.laneFor(context.Background(), pkt)
+				gauntlet = e.gauntletFor(context.Background(), pkt)
 			}
 		}
 		parts = append(parts, renderInspectorTitlebar("wo#"+strconv.Itoa(woID), tgt.BaseRev, tgt.FixRev, sessionAddr(navKey), pktName, lane))
@@ -336,7 +341,7 @@ func (c *ReviewCard) View(_ *via.CtxR) h.H {
 		rail = append(rail, renderAdjustmentForm(c))
 
 		parts = append(parts, renderInspectorGrid(left, h.Div(main...), rail))
-		parts = append(parts, renderInspectorTimeline())
+		parts = append(parts, renderInspectorTimeline(navKey, woID, gauntlet))
 		return h.Div(parts...)
 	}
 
@@ -380,7 +385,11 @@ func (c *ReviewCard) View(_ *via.CtxR) h.H {
 	rail = append(rail, renderAdjustmentForm(c))
 
 	parts = append(parts, renderInspectorGrid(renderInspectorEmptyTree(), h.Div(main...), rail))
-	parts = append(parts, renderInspectorTimeline())
+	// The session-scoped review has no single packet to gauntlet — the honest
+	// zero-value Gauntlet (every gate NotRun), same pattern as the lane chip
+	// just above staying LaneUnmeasured. orderID 0 also omits the confirm
+	// affordance: there is no order id to confirm against here.
+	parts = append(parts, renderInspectorTimeline(navKey, 0, packet.Gauntlet{}))
 	return h.Div(parts...)
 }
 

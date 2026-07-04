@@ -31,6 +31,14 @@ type Packet struct {
 	// folded Packet starts at the honest zero value, LaneUnmeasured, until
 	// the app layer measures and attaches one (ROADMAP slice 7's laneFor).
 	Lane Lane
+	// Gauntlet is the packet's six-gate pipeline record (MVP.md concept 5).
+	// Fold NEVER populates it — G3/G4 need a catch outcome and a build/vet
+	// exec respectively, neither of which Fold has access to — so every
+	// folded Packet starts at the honest zero value (all six gates
+	// GateNotRun) until the app layer computes and attaches one per order at
+	// render time (ROADMAP slice 8's gauntletFor), the same division of
+	// labor as Lane above.
+	Gauntlet Gauntlet
 }
 
 // Deliverable always reports false: delivered is UNREACHABLE until a real

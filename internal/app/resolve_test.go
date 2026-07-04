@@ -109,6 +109,8 @@ func TestResolve_mintsNothingWhenTheFixEditsTheAnchoredLine(t *testing.T) {
 	assert.NotEqual(t, string(catch.Catch), res.Verdict, "and never claims a catch over the wire")
 	assert.Equal(t, surface.AnchorEdited, res.Verdict,
 		"the card must say the anchored line was EDITED, never the false 'no mutable operator'")
+	assert.Equal(t, catch.NoOracleSignal, res.Outcome,
+		"the raw outcome behind every quiet surface token is NoOracleSignal — G3 must never read this as a pass")
 
 	l := scratchLog(t)
 	got, err := l.Records()
@@ -132,6 +134,62 @@ func TestResolve_rendersLostViaRenameVerdictForARenamedAnchor(t *testing.T) {
 		"a lost-via-rename anchor must reach the card as its own honest verdict, NEVER the false 'no mutable operator'")
 	assert.NotEqual(t, string(catch.NoOracleSignal), res.Verdict, "the renamed cause must not collapse into operator-free silence")
 	assert.Nil(t, res.Record, "a lost anchor mints nothing to persist")
+	assert.Equal(t, catch.NoOracleSignal, res.Outcome, "the raw outcome is still NoOracleSignal even though the surface token names the rename cause")
+}
+
+func TestResolve_surfacesTheRawCatchOutcomeAndAfterCountsForTheGauntlet(t *testing.T) {
+	t.Parallel()
+	dir := initRepo(t)
+	write(t, dir, "go.mod", "module adultapp\n\ngo 1.23\n")
+	write(t, dir, "adult.go", adultGo)
+	write(t, dir, "adult_test.go", weakTest)
+	base := commitAll(t, dir, "base")
+	write(t, dir, "adult_test.go", strongTest)
+	fix := commitAll(t, dir, "strengthen the test")
+
+	res, err := app.Resolve(context.Background(), dir, base, fix, fix, anchor(), goTestCmd, false, false)
+	require.NoError(t, err)
+	assert.Equal(t, catch.Catch, res.Outcome,
+		"packet.GateFromCatchOutcome needs the RAW outcome, not just its string Verdict token")
+	assert.Equal(t, 0, res.AfterSurvivors, "a catch means the after-revision survivor set is empty")
+	assert.Equal(t, 1, res.AfterConsidered, "the after-revision inventory size is the gate's denominator — matches res.Record.MutantsConsidered above")
+}
+
+func TestResolve_surfacesNonZeroAfterSurvivorsWhenAGapRemains(t *testing.T) {
+	t.Parallel()
+	dir := initRepo(t)
+	write(t, dir, "go.mod", "module adultapp\n\ngo 1.23\n")
+	write(t, dir, "adult.go", adultGo)
+	write(t, dir, "adult_test.go", weakTest)
+	base := commitAll(t, dir, "base")
+	// A no-op "fix": unrelated churn, so base != fix while the anchored line's
+	// test coverage is UNCHANGED — the weak test still leaves a real survivor.
+	write(t, dir, "NOTES.md", "noop\n")
+	fix := commitAll(t, dir, "unrelated churn")
+
+	res, err := app.Resolve(context.Background(), dir, base, fix, fix, anchor(), goTestCmd, false, false)
+	require.NoError(t, err)
+	assert.Equal(t, catch.NoCatch, res.Outcome)
+	assert.Equal(t, 1, res.AfterSurvivors,
+		"the weak test still leaves the >= vs > mutant alive — a real, non-zero survivor count a hardcoded stub would never produce")
+}
+
+func TestResolve_surfacesNoCatchOutcomeEvenWhenTheSurfaceTokenReadsAsTested(t *testing.T) {
+	t.Parallel()
+	dir := initRepo(t)
+	write(t, dir, "go.mod", "module adultapp\n\ngo 1.23\n")
+	write(t, dir, "adult.go", adultPadded)
+	write(t, dir, "adult_test.go", strongTest)
+	base := commitAll(t, dir, "base: already strong")
+	write(t, dir, "adult.go", strings.Replace(adultPadded, "var Marker = 1", "var Marker = 2", 1))
+	fix := commitAll(t, dir, "behavior-neutral churn far below the anchor")
+
+	res, err := app.Resolve(context.Background(), dir, base, fix, fix, anchor(), goTestCmd, false, false)
+	require.NoError(t, err)
+	assert.Equal(t, surface.Tested, res.Verdict)
+	assert.Equal(t, catch.NoCatch, res.Outcome,
+		"the surface token (Tested) is a calm-win RENDERING of a raw NoCatch — the gate must see the raw outcome, not the renamed token")
+	assert.Equal(t, 0, res.AfterSurvivors)
 }
 
 func TestResolve_propagatesACycleError(t *testing.T) {

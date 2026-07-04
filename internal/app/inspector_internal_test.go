@@ -248,10 +248,11 @@ func TestReviewCard_annotationRailRendersACardWithChipsAndRetainsTheAnchor(t *te
 	require.Contains(t, body, "annotations · 1", "the rail kicker counts the open threads (label · N voice)")
 }
 
-// The timeline footer is an honest dashed empty — the packet aggregate that
-// would feed a real replayable timeline lands in slice 5; never faked here.
-// NOT parallel.
-func TestReviewCard_timelineFooterIsAnHonestDashedEmpty(t *testing.T) {
+// The timeline footer is ROADMAP slice 8's gauntlet record: the six gates,
+// every one honestly NotRun for a session-scoped review with no single
+// packet to gauntlet — never faked. Supersedes slice 4's dashed-empty stub,
+// which this slice's footer content replaces. NOT parallel.
+func TestReviewCard_timelineFooterRendersTheHonestlyUnmeasuredGauntlet(t *testing.T) {
 	resetConsumersForTest()
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
@@ -264,9 +265,11 @@ func TestReviewCard_timelineFooterIsAnHonestDashedEmpty(t *testing.T) {
 	t.Cleanup(func() { _ = log.Close() })
 
 	body := bodyOf(vt.NewClient(t, server, "/review").HTML())
-	require.Contains(t, body, `class="inspector__timeline"`, "the timeline footer region renders")
-	require.Contains(t, body, "timeline", "the timeline kicker names itself")
-	require.Contains(t, body, "no replayable timeline yet", "an honest absence, never a faked event")
+	require.Contains(t, body, `class="inspector__timeline gauntlet"`, "the timeline footer region renders")
+	require.Contains(t, body, "gauntlet", "the gauntlet kicker names itself")
+	for _, name := range gauntletGateNames {
+		require.Contains(t, body, name, "every gate row renders, an honest absence never hidden")
+	}
 }
 
 // The session (non-drilled-in) review has no single base→fix diff to scope a
