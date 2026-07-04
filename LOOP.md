@@ -64,31 +64,40 @@ fabricated), and any marketing surface. Do not build them.
 
 ## Roles — hard model discipline
 
-- **Coordinator** (the main loop, this session): orients, decides,
-  sequences, reviews diffs, runs the gate, updates state docs, commits,
-  schedules the next tick. The coordinator NEVER writes production code
-  itself and NEVER explores file-by-file itself.
-- **Builders — Sonnet only.** Every agent that writes code runs with
-  `model: sonnet` (plan-executor for a pinned plan; general-purpose
-  when the slice needs judgment). No other model builds. Ever.
-- **Explorers — Haiku only.** Every read-only recon agent runs with
-  `model: haiku` (the Explore agent). No other model explores.
+- **Coordinator (the main loop, this session) BUILDS.** As of
+  2026-07-04 (user directive), the coordinator writes production
+  code itself for every slice — no separate Sonnet builder subagent
+  tier. The coordinator still orients, decides, sequences, runs the
+  gate, updates state docs, commits, and schedules the next tick,
+  but now ALSO implements each slice directly via the `tdd-rygba`
+  skill (Read/Edit/Write/Bash), following the same test-first
+  discipline a dispatched builder would have. The coordinator still
+  NEVER explores file-by-file itself — grounding stays delegated.
+- **Explorers — Haiku only.** Every read-only recon agent (grounding
+  a slice, mapping symbols, checking for prior art) runs with
+  `model: haiku` (the Explore agent). No other model explores. Use
+  Haiku liberally for quick/simple lookups too, not just broad
+  sweeps — keep the coordinator's own context for building.
 - **Councils** (design forks): 3–6 short persona agents on `sonnet`,
-  debated to convergence. The coordinator writes the converged verdict
-  into ROADMAP.md and acts on it. Never wait on the user for a design
-  fork; only a truly irreversible/destructive action pauses the loop.
+  debated to convergence. The coordinator writes the converged
+  verdict into ROADMAP.md and acts on it. Never wait on the user for
+  a design fork; only a truly irreversible/destructive action pauses
+  the loop.
 - **Fable — extremely rare, last resort only.** `model: fable` (the
-  top-tier model) may be dispatched ONLY when a Sonnet builder has
-  genuinely failed to make progress on the SAME slice after a real
-  retry with a sharper prompt (not just hit its session/rate limit —
-  that's a retry, not an escalation) — i.e. the complexity has grown
-  out of control: a design deadlock a council round didn't resolve,
-  a defect whose root cause two Sonnet attempts couldn't isolate, or
-  a cross-cutting refactor Sonnet keeps getting subtly wrong. Default
-  to Sonnet retries and narrower/re-scoped prompts first; Fable is
-  the exception, not a tier to reach for out of convenience — the
-  user was explicit that it is expensive and must stay rare. Log why
-  in ROADMAP.md whenever it's used.
+  top-tier model) may be dispatched ONLY when the coordinator itself
+  has genuinely failed to make progress on the SAME slice after a
+  real retry with a narrower/sharper approach (not just a session
+  limit interruption — resuming after that is normal, not an
+  escalation) — i.e. the complexity has grown out of control: a
+  design deadlock a council round didn't resolve, a defect whose
+  root cause repeated attempts couldn't isolate, or a cross-cutting
+  refactor that keeps coming out subtly wrong. Fable is the
+  exception, not a tier to reach for out of convenience — the user
+  was explicit that it is expensive and must stay rare. Log why in
+  ROADMAP.md whenever it's used.
+- Any slice/agent already dispatched to a Sonnet builder before this
+  directive lands should still be let to finish and reviewed
+  normally — this rule governs slices from here forward.
 
 ## State files (the loop's memory)
 
@@ -141,17 +150,16 @@ same tick.
 3. **Fork check**: if the slice hides a real design decision, council
    it to convergence first (sonnet personas, grounded in the actual
    code + `design/readme.md`), record the verdict in ROADMAP.md.
-4. **Build**: dispatch one Sonnet builder (or parallel builders in
-   separate worktrees ONLY if slices touch disjoint files) with a
-   self-contained prompt: the slice spec, the grounding pack, the
-   brand pack from MVP.md, and the build rules below. Builders follow
-   strict test-first: failing test → confirm the failure message →
-   implement → green → refactor with the suite green. No production
-   code before its failing test.
-5. **Review**: the coordinator reads the full diff. Reject and
-   re-dispatch (with the objection) anything that violates the design
-   non-negotiables, CONVENTIONS.md, or the firewall rules. Then run
-   the gate.
+4. **Build**: the coordinator implements the slice directly (via the
+   `tdd-rygba` skill), following the build rules below. Strict
+   test-first: failing test → confirm the failure message → implement
+   → green → refactor with the suite green. No production code before
+   its failing test. If genuinely stuck after a real retry (not a
+   session-limit interruption), escalate to Fable per the Roles
+   section — extremely rare.
+5. **Review**: before landing, re-read the full diff against the
+   design non-negotiables, CONVENTIONS.md, and the firewall rules;
+   fix anything that violates them. Then run the gate.
 6. **Land**: update ROADMAP.md (slice → landed, evidence line) and any
    drifted doc; commit with a plain message (`Slice N: <what>`), no
    attribution/Co-Authored-By trailers; push to the loop branch
@@ -180,7 +188,7 @@ this split as two concurrent jobs (`test-fast` / `test-cage` in
 step (`gh run list -L 1`). A cage-image pull flake is re-run, not
 debugged.
 
-## Build rules (put verbatim in every builder prompt)
+## Build rules (binding on the coordinator for every slice)
 
 - CONVENTIONS.md is binding: test names as behavioral claims,
   test-first, outside-in through the public API, real > stub > mock,
