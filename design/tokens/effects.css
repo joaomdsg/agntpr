@@ -1,0 +1,23 @@
+/* Packets — effects: glows, washes, tints, motion. */
+:root {
+  /* glows — live things glow */
+  --glow-signal: 0 0 8px var(--signal);
+  --glow-risk: 0 0 10px rgba(240,102,107,.55);
+  --glow-btn: 0 6px 18px rgba(76,196,212,.24);      /* accent buttons */
+  --glow-cta: 0 10px 30px rgba(76,196,212,.22);     /* marketing CTAs */
+
+  /* shadows — only frames get depth */
+  --shadow-frame: 0 30px 70px rgba(0,0,0,.45);
+  --shadow-tooltip: 0 12px 30px rgba(0,0,0,.5);
+
+  /* washes */
+  --wash-signal: radial-gradient(90% 70% at 82% -12%, rgba(76,196,212,.08), transparent 55%);
+
+  /* tint recipe: chips & fills are color-mix(in srgb, <state> N%, var(--surface-card))
+     N = 13–16% fill · 20–22% strong fill · 40–45% border */
+}
+
+/* motion */
+@keyframes pk-pulse { 0%,100% { opacity:1 } 50% { opacity:.35 } }
+@keyframes pk-held-pulse { 0%,100% { box-shadow:0 0 6px rgba(240,102,107,.35) } 50% { box-shadow:0 0 16px rgba(240,102,107,.75) } }
+@keyframes pk-flow { 0% { transform:translateX(-140%) } 100% { transform:translateX(240%) } }

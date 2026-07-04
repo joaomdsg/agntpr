@@ -1,0 +1,158 @@
+# Round 62 — MONACO REVIEW UI thread opens (maintainer steer): nail the user flows — 2026-06-10
+
+Trigger: the maintainer steered explicitly — "steer to Monaco integration. I can't
+wait to see the review UI working. make sure the council nails the user flows." A
+genuine, NON-GATED steer (only the #6 live boundary is hard-gated). This opens the
+Monaco review-editor thread that R59/R60 had flagged as "client-side / untestable /
+no WithPlugins".
+
+Panelists present: the full six (UX, Game, Systems, TDD, CI/CD, Refactoring),
+re-summoned from README §1, each grounded in the via framework + the R56 review model.
+
+## New evidence — reachability OVERTURNS the R59/R60 assumption
+
+A grounded scout of go-via/via@v0.5.0 found that R59's "no WithPlugins / untestable"
+claim was WRONG:
+- via HAS a `Plugin` interface + `via.WithPlugins` (a working echarts CDN-plugin
+  precedent: plugins/echarts/plugin.go AppendToHead(h.Script(h.Src(cdn)))).
+- `h.DataIgnoreMorph()` (h/datastar.go) makes a DOM subtree SURVIVE SSE re-renders —
+  Datastar's morph skips `[data-ignore-morph]`. So a Monaco editor div is never
+  clobbered by a live re-render. This was the blocker; it's solved.
+- Testability boundary (the discipline the council adopts): a vt SERVER-render test
+  CAN assert the island container + data-ignore-morph + the DATA PAYLOAD the server
+  feeds the editor (a `<script type="application/json">` of anchored threads). It
+  CANNOT assert Monaco rendering/typing — that's the client island, deliberately
+  NOT unit-tested (asserting it through vt would be test-theater).
+
+## Per panelist — and the convergence (UNANIMOUS on shape + sequencing)
+
+- UX: entry = card "N open questions" badge → /review; Monaco shows the fix file
+  READ-ONLY with threads anchored inline (glyph-margin + zone widgets) at File:Line,
+  keyboard thread→thread nav; the thread VANISHING next cycle is the calm reward.
+  Read-only first. Slice 1 = the island scaffold + JSON payload (testable now).
+- Game: the review session is a "clear the board" beat; the honest reward is the
+  thread vanishing (NO count-badge inflation, NO confetti); empty review = a
+  walk-away win, not a nag. Read-only is the honest loop (the kill happens in the
+  REAL suite). Defer editable.
+- Systems: read-only keeps the two-scores firewall TRIVIAL (answering a question
+  mints NOTHING; questions stay diagnostic, off-ledger). Editable-in-browser
+  reintroduces a write→re-run path with a real degenerate-strategy surface (trivial
+  tests "killing" mutants), cage compute cost, and a diagnostic-vs-minted firewall to
+  design — a DEEP thread needing a maintainer steer. Read-only first.
+- TDD: the testable SERVER CONTRACT for slice 1 = the structured thread DATA PAYLOAD
+  fed into the island (a load-bearing RED: strip the payload → the editor has no
+  data → test fails). Monaco's rendering is the client island we do NOT fake-test.
+  Read-only gives the cleanest first RED. Explicit test-theater boundary: never
+  assert a Monaco class/decoration/keystroke through vt.
+- CI/CD: a CDN script on the SERVED page is the Lead's browser, NOT the cage (the
+  #6 egress kill was the cage at --network=none — a separate boundary, no conflict).
+  Still, lean VENDOR (embed.FS + a /static handler, pinned version) for
+  reproducibility/offline — but that decision belongs to slice 2 (when Monaco
+  actually loads). Slice 1 (payload only) needs no script load → no CI impact (vt
+  asserts a string, never fetches).
+- Refactoring: EXTEND /review's ReviewCard + the sessionOpenThreads projection — do
+  NOT fork the data model. One projection feeds BOTH the server text and the JSON
+  payload (no drift). Incremental order: slice 1 = payload + island scaffold; slice
+  2 = load Monaco + read-only decorations; slice 3 = editable (later). Inline the
+  island in View now; extract a MonacoPlugin only if a 2nd surface needs it.
+
+## Decisions
+
+- **READ-ONLY first; editable-in-browser is a DEEP fork DEFERRED to an explicit
+  maintainer steer** (cage compute cost + degenerate-strategy gating + the
+  diagnostic-vs-minted economy firewall must be designed first — Systems + TDD +
+  CI/CD all flagged it). The loop will NOT build editable autonomously.
+- **One projection, no fork** — the JSON payload and the server text both come from
+  sessionOpenThreads (Refactoring).
+- **Test the server data contract; never fake-test the client editor** (TDD).
+- Slice ORDER: (1) payload + island scaffold [THIS ROUND]; (2) load Monaco read-only
+  + anchored decorations [CDN-vs-vendor decided then, lean vendor]; (3) editable
+  [gated on maintainer].
+
+## SLICE 1 (built this round)
+
+ReviewCard.View, when a session has open questions, now emits a `review-editor`
+island container (`id="review-editor"`, `data-ignore-morph` so Monaco's future DOM
+survives SSE) carrying a `<script type="application/json" id="review-threads-data">`
+payload of the threads `[{file,line,tag,body}]`, projected from the SAME
+sessionOpenThreads the server text uses. Omitted entirely when there are no
+questions (nothing to scaffold over an empty set; the calm empty state stands).
+encoding/json HTML-escapes <,>,& so an oracle message can't break out of the script.
+Tests (review_island_internal_test.go): payload present + VALID JSON + correct
+thread count/field values when questions exist; island + payload omitted when none.
+Pure server contract — zero client-JS this slice, so zero test-theater. Blue clean,
+full -race gate green.
+
+## SLICE 2a (built): serve the reviewed file SOURCE into the payload
+
+Reachability checked first (R49 lesson): the reviewed file's source at the fix rev
+is available via `git show FixRev:path` — exported as `reanchor.FileAt` (reusing the
+package's quotepath-correct git, not a re-implementation). Since `git show` is real
+subprocess I/O AND the hermetic /review tests seed findings with a fake rev ("f")
+that no real repo resolves, the read is an INJECTABLE seam: `var reviewFileReader =
+reanchor.FileAt`, stubbed in tests.
+
+ReviewCard.View now reads cfg (readLiveState) and the island payload evolved from a
+flat thread array to `reviewIsland{Files map[string]string, Threads
+[]reviewThreadPayload}` — `reviewIslandData` reads each DISTINCT referenced file ONCE
+at cfg.FixRev; a file whose source can't be read (lost anchor / deleted / transient
+git error) is OMITTED from Files (never an empty-string lie) while the threads still
+ride alongside. So the client editor (slice 2b) gets the real source to render with
+the questions anchored to its lines, degrading gracefully when source is missing.
+encoding/json HTML-escapes <,>,& so arbitrary file source can't break out of the
+<script>. Tests (review_island_internal_test.go): threads shape (hermetic, real
+reader errors on the fake rev → files empty, not asserted); file source served via
+stubbed reader; unreadable file omitted-not-empty. Audit clean (no injection — argv
+git, no shell; dedup reads once, never re-attempts a failure). PERF caveats noted
+(prototype-scale, accepted): N serial `git show` subprocesses per /review GET (no
+memoization); no file-SIZE cap (a huge referenced file embeds full source in the
+HTML). Revisit if findings ever reference large/generated files.
+
+NEXT (slice 2b): the Monaco client island — load the editor (CDN-vs-vendor decided
+then, lean vendor) read-only, read #review-threads-data, render the file source with
+the questions anchored as inline decorations. The editor RENDER is the client island
+(not vt-unit-tested per the R62 testability boundary); flag for maintainer browser-
+verify since the loop can't confirm client rendering headlessly.
+
+## SLICE 2b (built): the Monaco read-only editor render
+
+The visible editor. reviewEditorIsland now emits, inside the data-ignore-morph
+island (scoped to /review, NOT AppendToHead, so Monaco loads only here): the pinned
+Monaco AMD loader (`cdn.jsdelivr.net/npm/monaco-editor@0.52.2`, CDN-first; vendoring
+behind a /static handler is a later hardening slice) + a defensive bootstrap that
+reads #review-threads-data, mounts a READ-ONLY editor (theme vs-dark, glyphMargin,
+no minimap) over the first reviewed file with source, and decorates each surviving-
+mutant line (whole-line accent + glyph + a "question: <body>" hover). style.go got
+.review-editor (60vh, collapses when :empty) + calm .review-survivor-line/glyph.
+
+PROGRESSIVE ENHANCEMENT (the safety): the bootstrap guards every step (require
+defined? container + payload present? JSON.parse in try/catch? a file with source?)
+and the server-rendered text threads remain ABOVE the editor — so a blocked loader,
+parse error, or missing source leaves the text threads carrying the review, never a
+broken page. Read-only per the R62 convergence (editable answering stays the
+maintainer-gated fork).
+
+Server test (review_island_internal_test.go TestReviewCard_shipsTheMonacoEditor
+WiringOverThePayload): the loader CDN URL + the editor mount call + the payload-read
+are emitted, and the text-thread fallback remains. Per the R62 testability boundary
+the editor's actual RENDER is the client island — NOT vt-unit-tested.
+
+VERIFICATION (done): the maintainer unblocked browser nav on :3000, so the live
+render was confirmed END-TO-END. Built a temp repo with a real surviving mutant (an
+unrelated-file fix keeps the anchored line SAME; the under-constrained `>=` on
+main.go:6 survives the fix oracle), ran the real packets server on :3000, loaded /
+(connect cycle populates the findings cache) then /review: Monaco mounts read-only
+showing main.go's source, line 6 carries the whole-line accent + glyph-margin marker,
+and the "question:" body anchors it — with the text-thread fallback above. One real
+defect the verification caught (a green bar would have hidden it): the editor used
+Monaco's default LIGHT theme, clashing with the dark --pk-* control-room palette.
+Fixed by theme:'vs-dark' (commit 29af0ea) — re-verified the whole surface is now a
+cohesive dark control room. This is exactly why the render needed real eyes, not just
+the server-contract test.
+
+## New clashes opened / resolved
+
+- The R59 "Monaco untestable / no WithPlugins" claim is RESOLVED as a misread — via
+  hosts client-JS islands and the server data contract is testable. The editable-vs-
+  read-only question is settled (read-only first; editable gated on maintainer).
+</content>

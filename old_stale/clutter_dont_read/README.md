@@ -1,0 +1,591 @@
+# The packets Design Council
+
+> A living record of the expert panel that shaped `VISION.md` and
+> `DESIGN.md` — who they are, what they argued, and **where they still
+> disagree**. Most clashes are settled not by argument but by **evidence
+> from a built, tested slice**. Come back after each slice and fill in the
+> verdicts.
+
+Layout of this directory:
+
+- This `README.md` — how to use the council, the panelist seeds (§1), the
+  contribution ledger (§2), the bold-swings scoreboard (§4), the
+  reconvene template (§5), the validating slices (§6), and the round
+  index.
+- [`clashes.md`](clashes.md) — §3, the open clashes (the heart). Resume
+  these after builds.
+- `round-NN.md` — one file per round (see the index below).
+
+## How to use this document
+
+1. **Before building** — read the open clashes ([`clashes.md`](clashes.md)).
+   Each names the experiment that would settle it; let that shape what the
+   slice measures.
+2. **After building/testing a slice** — find the clashes it touched, fill
+   in the `Verdict (post-build)` field with what happened, and mark the
+   clash `RESOLVED` / `STILL OPEN` / `NEW QUESTION`.
+3. **To re-summon a panelist** — the persona seeds (§1) are written so a
+   future session can re-instantiate the same voice via the Agent tool.
+   Original agent IDs are session-scoped and dead; use the seeds.
+4. **To run a new round** — use the round template (§5) and add a
+   `round-NN.md`.
+
+## Round index
+
+- [Round 3](round-03.md) — first build evidence (mutation oracle slice)
+- [Round 4](round-04.md) — latency + the question-thread artifact
+- [Round 5](round-05.md) — de-risking the right thesis: economy primitive
+  vs rendered surface
+- [Round 6](round-06.md) — the next gate: economy-primitive-first vs
+  surface/integration-first
+- [Round 7](round-07.md) — CONVERGED: ordering & mint-scope closed around #1
+- [Round 8](round-08.md) — from clashes to a committed BUILD SEQUENCE
+- [Round 9](round-09.md) — the #1 wave shipped: green economy unit → first
+  real mint
+- [Round 10](round-10.md) — the #2 wave shipped: first real mint + the
+  rendered card
+- [Round 11](round-11.md) — the thesis catches the project lying: confident
+  falsehood on rename
+- [Round 12](round-12.md) — integrate-on-tip makes the catch's base sound
+- [Round 13](round-13.md) — the felt loop: typed + streamed trace (6/6)
+- [Round 14](round-14.md) — the economy is logged but never shown: render
+  the first stock
+- [Round 15](round-15.md) — cost as a counted invariant before a measured
+  ceiling
+- [Round 16](round-16.md) — make the lane scarce before you price it: the
+  bounded queue
+- [Round 17](round-17.md) — the economy's missing half: the sink (pricing)
+- [Round 18](round-18.md) — the unlock for ≥2 cards: per-session registry
+- [Round 19](round-19.md) — the second session: isolation is a test
+- [Round 20](round-20.md) — spend funds a logged work-order (queued, not run)
+- [Round 21](round-21.md) — execute the order: the first second producer,
+  identity-gated
+- [Round 22](round-22.md) — fuel: a work-source backlog so the loop
+  compounds
+- [Round 23](round-23.md) — legible compounding: split stock by provenance
+- [Round 24](round-24.md) — the fleet-read board: ordered by activity, never
+  faked leverage
+- [Round 25](round-25.md) — the faucet refills: from-catch candidate supply
+- [Round 26](round-26.md) — the thesis is PROVEN: golden-replay demo +
+  hit-rate
+- [Round 27](round-27.md) — the spine is real but parallel: weighing the
+  NATS-first pivot
+- [Round 28](round-28.md) — the fork resolves: one authoritative log
+  (JetStream)
+- [Round 29](round-29.md) — #4 NATS→SSE browser bridge shipped: the economy
+  streams to the browser off the stream
+- [Round 30](round-30.md) — #5 cross-session board aggregator shipped: the
+  fleet streams off the one stream (GET /fleet)
+- [Round 31](round-31.md) — #6 opens: cross-process producer boundary —
+  converged on sequencing, one clash open (cross-boundary trust model)
+- [Round 32](round-32.md) — #6 trust model resolved (claim-submission,
+  host-side mint); council CONVERGED on #6's design → [`06-plan.md`](06-plan.md)
+- [Round 33](round-33.md) — #6c sandbox design on plain Linux containers,
+  CONVERGED 5/5 (Security lens added)
+- [Round 34](round-34.md) — #6c verification-flow mechanics: SHA-pinned
+  transport, read-only dep cache, host-derived verdict; egress proxy dropped
+- [Round 35](round-35.md) — #6c slice C3b: the producer claim lifecycle
+  (in-flight / verified-lost) surfaces on the board + live fleet stream, not
+  the host card; lie-green fixed; opened Clash J (the gray-bets visual)
+- [Round 36](round-36.md) — #6c slice C4: the gray bets-vs-confirmed visual —
+  settling Clash J (stylesheet vs CSS-free semantic distinction)
+- [Round 37](round-37.md) — sequencing the next #6 slice: CONVERGED 4/4 on
+  permanent-vs-transient verify failure first (reject an unverifiable claim
+  instead of lingering), then SHA transport, then governor hardening
+- [Round 38](round-38.md) — slice A (SHA transport) threat model: CONVERGED on
+  bundle-over-authenticated-channel + per-producer ref namespacing; host-pull
+  rejected on SSRF/egress (Clash K resolved)
+- [Round 39](round-39.md) — scoping slice B (governor hardening): verify-path is
+  sufficient; build GC-by-resolved now (economy-safe); DEFER flood-defenses
+  (rate-limit/quota) until producer AUTH exists on the live HTTP surface
+- [Round 40](round-40.md) — direction after #6c feature-complete: the live
+  boundary is maintainer-gated; next NON-GATED slice = the non-ASCII re-anchor
+  correctness fix; the Board is the next major thread (its own round)
+- [Round 41](round-41.md) — scoping the Board: the loop reaches the edge of
+  autonomous-safe work — high-value Board increments need maintainer product/UX
+  taste (or hit the refused fabricated-leverage trap); remaining work is gated or
+  taste-dependent → surface the direction fork to the maintainer
+- [Round 42](round-42.md) — maintainer re-delegated direction to the council:
+  build the per-session RECENT-DISPATCHES legibility surface (honest caught/missed
+  per work-order; no fabricated rank/treasury, CSS-free, non-gated)
+- [Round 43](round-43.md) — UX/UI VISUAL-DESIGN direction opens (maintainer-
+  authorized): CSS now in scope; converged on a calm control-room visual language
+  + flows/nav (deferred) + guardrails; first slice = base stylesheet on existing
+  hooks via AppendToHead, no markup change
+- [Round 44](round-44.md) — first nav / drill-and-return flow: a shared nav
+  header (packets home + fleet breadcrumb) + clickable board rows → /?key=<key>
+  → back; honest raw keys, no menus/JS/keyboard yet (keyboard nav = R45+)
+- [Round 45](round-45.md) — per-state visual polish: color the verdict + land
+  states in the calm honest palette (pure CSS on existing data-state hooks,
+  selector-coverage tested); keyboard nav deferred to R46
+- [Round 46](round-46.md) — first-run onboarding affordance: a fresh session
+  (stock.Count==0) renders a calm guide to the core loop instead of a dead screen
+  of zeros; chosen OVER keyboard nav because the latter is browser-side behavior
+  our server-render tests can't verify ("prove it for real"). Server-rendered +
+  fully vt-testable; keyboard nav deferred to R47+
+- [Round 47](round-47.md) — the Spend control: render a balance-gated trigger
+  bound to the (already-tested) Spend action, closing the core loop from the UI
+  (catch → balance → spend → work-order → reinvest). Shown iff balance>0; retracts
+  live over SSE when the last catch is spent. Fully vt-testable (markup + fire +
+  drain). keyboard nav deferred to R48+
+- [Round 48](round-48.md) — per-order dispatch round-trip on the live card:
+  surface this session's RecentDispatches (WO#id path:line caught/missed) below the
+  counts, so the Lead watches the order they funded resolve on the SAME surface
+  they spent on (reuses the board's renderDispatches; rides SSE; omitted when no
+  orders). keyboard nav + "nothing-to-fund" affordance deferred to R49+
+- [Round 49](round-49.md) — preview what the Spend funds: the Spend control names
+  the actual next target ("Spend a catch → fund alpha.go:8") via a pure helper, so
+  the Lead makes an informed choice (honest — same nextUnconsumedTarget the action
+  funds). REJECTED the "nothing-to-fund" affordance as near-unreachable (supply
+  refills from own catches). Lesson: verify a slice's target state is reachable
+  before building. keyboard nav deferred to R50+
+- [Round 50](round-50.md) — color the dispatch round-trip outcome: caught→confirmed
+  hue, missed→loss hue (a data-outcome hook on renderDispatches, shared card+board),
+  extending R45's per-state honest color to the round-trip; queued/running stays
+  neutral. Closes the card/board VISUAL+FLOW thread opened at R43 — the survey found
+  remaining work is marginal polish OR a bigger thread (menus, order diagnostics,
+  fleet actions) needing a maintainer steer; loop will surface that, not manufacture
+  marginal slices.
+- [Round 51](round-51.md) — ORDER-DIAGNOSTICS thread (slice 1): persist the
+  oracle's per-order verdict as a ledger fact (kind "woverdict"), projected into
+  DispatchView.Verdict — so a missed order can show WHY, not just "done, not caught".
+  Maintainer gave the council creative latitude; a 3-voice council chose this over a
+  reinvest-rhythm loop (marginal) and a session-menu (reachability-blocked: boot-time
+  consumer snapshot). Diagnostic only (two-scores: no balance/catch). R52 renders it.
+- [Round 52](round-52.md) — ORDER-DIAGNOSTICS thread (slice 2): RENDER the per-order
+  verdict on card + board (shared renderDispatches appends a dim board-row__dispatch-why
+  span on a resolved order: "done missed no-catch"), so a miss is diagnosable
+  (no-catch vs lost-via-rename vs no-oracle-signal), not undifferentiated. Calm dim
+  secondary detail; omitted when none persisted. The diagnostics loop now reads
+  end-to-end: spend → dispatch → resolve → SEE WHY.
+- [Round 53](round-53.md) — SESSION-MANAGEMENT thread (slice 1): create a session
+  from the fleet board (a NewKey signal input + a CreateSession on.Click action →
+  AddSession at runtime, inheriting the default cfg), so the board is a command
+  surface, not a static list. The new session is reachable + works the full card
+  flow with no boot edit, no claim consumer (documented V1 limit: no producer claims
+  for runtime sessions). Invalid/duplicate keys are honest no-ops. Reachability +
+  the via cmpID/tab routing verified before building.
+- [Round 54](round-54.md) — SESSION-MANAGEMENT thread (slice 2): spawn a claim
+  consumer PER SESSION, including runtime-created ones (a claimConsumerSpawner +
+  registerSession hook), closing R53's V1 gap — producer claims for a runtime session
+  now verify + mint. Adversarial audit caught two real defects a green bar hid: a
+  closure-capture race (fixed via locals-under-lock) and cross-test global
+  contamination (fixed via a test reset). Full -race gate (incl. -count) green.
+- [Round 55](round-55.md) — SESSION-MANAGEMENT thread (slice 3, V1 complete):
+  retire a session from the fleet (a per-row retire control via on.SetSignal binding
+  the row's key → RetireSession → liveReg.Delete), the honest completion of create.
+  Default never retirable; in-use retire degrades gracefully to default (no
+  nil-deref); benign documented consumer-goroutine leak. Council DEFERRED the bigger
+  prep-bench thread as under-specified — surfaced as needing a maintainer product
+  decision, not a council guess.
+- [Round 56](round-56.md) — REVIEW-THREAD SURFACE thread, RATIFIED by the FULL
+  six-member council (re-summoned from §1 seeds; corrects an under-convening). Surface
+  the oracle's surviving mutants as "question:" threads (the TDD Expert's bold swing).
+  Settled clashes: findings come from the FIX revision (not base); questions render
+  GATED on a server-rendered /review surface (not the dense card, not Monaco).
+  Guards: diagnostic-only/non-gating (CI-CD), off the two-scores economy (Systems),
+  suppress on a lost anchor (Refactoring). Slice 1 (commit 7fb1ec9): plumb the fix
+  oracle's findings out of the cycle into CycleResult.Findings (nil on lost anchor).
+  Slice 2 (commit 79a2151): map them into Resolution + a gated, calm "N open
+  questions" count badge on the card (the humble summary; full threads → /review).
+  Slice 3 (commit 7b471ff): the /review surface — full anchored "question:" threads
+  from a per-session in-memory findings cache (off the economy; the mastery loop =
+  answer → mutant dies → thread vanishes next cycle); the badge links to it. The
+  thread is now FEATURE-USABLE. Slice 4 (commit 776ddeb): settled a 3-3
+  complete-vs-continue council split → a per-session open-question count on the fleet
+  board (gated, links to /review), so test debt is visible across the fleet. Thread
+  FEATURE-COMPLETE for V1 (findings → card badge → /review → board count). Deferred
+  optional: delta-only surfacing, reviewer intent tags, ledger persistence.
+- [Round 57](round-57.md) — the PREP BENCH thread, full six-member council (maintainer
+  delegated scoping to the council). Converged (3 votes: Game Designer + Systems +
+  TDD) on turning dispatch from a blind auto-FIFO pick into a curated CHOICE: surface
+  the fundable backlog as a "bench" and let the Lead choose what the next Spend funds
+  (kills dead-air; a real management-sim decision; on supply.go's existing plumbing;
+  server-testable). Keyboard nav deferred (browser-only = test-theater per TDD);
+  Land/merge fleet surface queued as the next thread. Slices: (1) render the bench
+  (commit d857cbf), (2) choose-to-fund (commit cdc0130). FEATURE-COMPLETE — the Lead
+  sees the fundable work + chooses what each Spend funds (reorder declared marginal).
+- [Round 58](round-58.md) — the LAND/MERGE FLEET SURFACE thread (council-queued in
+  R57, CI/CD's pick: "Landed ≠ Merged"). Slice 1 (commit 2e6de9b): cache the per-
+  session integration verdict on the liveEntry (like the R56 findings cache) and
+  surface BLOCKED verdicts (conflict / checks-red) on the fleet board — gated, honest
+  color — so a Lead sees which sessions can't land. Off the economy, server-testable.
+  Thread judged complete at slice 1 (positive mergeable indicator = marginal).
+- [Round 59](round-59.md) — next-direction council: the six lenses DIVERGED (six
+  different moderate ideas; no 3+ convergence), and three flagged the deep value
+  (Trust Ledger / Focus / Delegation; Monaco; refactor-as-task-type) needs a
+  maintainer steer or accepts a testability tradeoff. Verdict: the high-value
+  reachable + server-testable space is BUILT OUT (R43–R58); the next move is a
+  maintainer product/scope decision — surfaced with a menu rather than manufacture
+  marginal polish (skeptic gate).
+- [Round 60](round-60.md) — next-direction: the loop relaunch = "keep going /
+  council picks", so the council picked the STRONGEST MODERATE reachable+testable
+  option from R59's menu. 5 of 6 lenses converged on the fleet merge-readiness
+  SUMMARY (Game Designer dissented to an accessibility pass, ranked it #2 →
+  deferred). Slice: a calm board__land-summary span "N of M sessions blocked from
+  landing", surfaced only when ≥1 blocked (silent when all-clear), a pure projection
+  of the R58 per-session land verdicts, off the economy. Server-render-testable
+  (3 vt tests incl. an honest-count ratio guard). Flagged moderate.
+- [Round 61](round-61.md) — accessibility landmark pass (R60's queued moderate
+  candidate; UX north star is "keyboard-native, accessible"). Container-level only
+  (dodges TDD's attr-spray-theater flag + Refactoring's per-span-churn flag): the
+  shared nav becomes a named landmark (aria-label="primary"); the LiveCard economy
+  is wrapped in role="main" + aria-live="polite" + aria-label (the live region
+  announces SSE catch/balance/dispatch changes); the board is role="main" +
+  aria-label but NOT aria-live (a static GET — marking it live would be a
+  data-honesty lie, guarded by a NotContains test). nav is a sibling of main, not
+  nested. Blue-confirmed non-breaking restructure. Flagged moderate — the reachable+
+  testable moderate space is now thin; next tick weighs holding for a maintainer
+  steer vs. another peripheral slice (skeptic gate).
+- [Round 62](round-62.md) — the MONACO REVIEW UI thread opens (maintainer steer:
+  "steer to Monaco, I can't wait to see the review UI working, nail the user flows").
+  A grounded scout OVERTURNED R59's "no WithPlugins / untestable" claim: via HAS a
+  Plugin interface + WithPlugins (echarts precedent) and h.DataIgnoreMorph() makes a
+  Monaco subtree survive SSE re-renders — so Monaco is reachable, with the server
+  data contract testable and only the in-editor rendering client-only. Full six
+  converged UNANIMOUSLY: READ-ONLY review first (the honest mastery beat — answer →
+  mutant dies → thread vanishes; the kill happens in the real suite); editable-in-
+  browser is a DEEP fork DEFERRED to an explicit maintainer steer (cage cost +
+  degenerate-strategy + the diagnostic-vs-minted firewall must be designed first).
+  Extend /review's one projection (no fork); test the server payload, never fake-test
+  the client editor. Slice 1 (built): /review emits a data-ignore-morph editor island
+  + a JSON thread payload {file,line,tag,body} from sessionOpenThreads. Slice 2 = load
+  Monaco read-only + decorations (CDN-vs-vendor decided then, lean vendor); slice 3 =
+  editable (gated).
+- [Round 63](round-63.md) — Monaco review UI built out: read-only editor island with
+  decorations on the session findings (slice 2), CDN loader.
+- [Round 64](round-64.md) — editable-in-browser answer flow (the gated slice 3): edit
+  in Monaco → ⌘/Ctrl+Enter dispatches a `viaanswer` CustomEvent → AnswerQuestion
+  re-runs on an overlay; the maplibre data-on/CustomEvent bridge (not data-bind).
+- [Round 65](round-65.md) — dispatch→edits→review thread (maintainer steer "fill a
+  work order, see the edits, tie in the review flow"): per-order findings capture +
+  "N open questions" drill (slice 1), per-order /review?wo= (slice 2), the base→fix
+  Monaco DIFF as "the edits" — honestly static, no fake live agent (slice 3),
+  answer-in-place on the order (slice 2b), and "WATCH IT FILL" — live cycle beats on
+  the card as the order fills (slice 4). Thread fully complete.
+- [Round 66](round-66.md) — make the loop CLI-reachable: a `-backlog` flag seeds
+  `LiveConfig.DispatchBacklog` on the primary session (it was test-only, so Spend
+  no-op'd via the shipped binary). Pure `parseBacklogSpec` unit-tested; LineHash
+  computed vs base so the supply dedup against the primary target holds.
+- [Round 67](round-67.md) — the LIVE-HARNESS thread OPENS (the P0→P2 product gap:
+  no real Claude Code harness is ever spawned; work orders "fill" via a pre-funded
+  base→fix diff). Full six converged 6/6 on the stateful turn-reducer as slice 1:
+  a new `internal/harness.Supervisor` reads a harness stream-json stream from an
+  `io.Reader`, accumulates `translate` UI events per turn, and settles a revision
+  via `orchestrator.SettleTurn` at each `turn.ended` (threading new SHA→next base).
+  Testable with a scripted fixture (no API key). Economy firewall: the harness mints
+  NOTHING (host-settle is the only minter). Real subprocess + containerization are
+  later slices.
+- [Round 68](round-68.md) — live-harness slices 1+2 built (the turn-reducer
+  `harness.Supervisor`; the real `claude` process adapter `harness.RunProcess` +
+  unit-tested `ClaudeArgs`, audit-fixed a deadlock on the error path). Slice 3
+  scouted a real FORK: the work-order model carries a pre-funded base→fix diff
+  target, not a task prompt, so a live fill needs a model change — DEFERRED to its
+  own council round, not guessed. Shipped the load-bearing bus brick instead:
+  `orchestrator.PublishActivity`/`DecodeActivity` publish a live turn's activity on
+  the SCRATCH/activity subject (non-authoritative — firewall-verified: no economy
+  projection reads scratch; refuses an empty batch). Makes a live run watchable
+  without touching the economy.
+- [Round 69](round-69.md) — the work-order LIVE-EXECUTION model fork (deferred from
+  R68) RESOLVES, full six. Converged: an optional `Target.Prompt` (empty = legacy
+  pre-funded fill, set = live), a dispatch branch in `drainQueuedOrders` reusing the
+  fill machinery, and a `runHarness` injection seam so the live path is CI-tested
+  with a scripted supervisor (no API key). Firewall: only settle-minted revisions
+  enter the economy; activity rides the scratch bus; the cost-gate is a deferrable
+  RunProcess timeout. Systems-vs-Refactoring clash (resolveCycle reuse conflates
+  catch-vs-agent-ended + no dedup/anchor for a free-form task) → split the slice:
+  4a settles live revisions first (no oracle), 4b designs the live-order anchor model
+  + catch, 4c surfaces a single-line "latest activity" indicator, 5+ containerizes.
+- [Round 70](round-70.md) — slice 4a SHIPPED (`Target.Prompt` + `runHarness` seam +
+  `runLiveOrder`, firewall-tested: a live run produces a revision, mints nothing).
+  4b design council (3 lenses): Systems caught that deriving the catch anchor from the
+  AGENT's own diff is the confirmed-catch FARMING exploit (V§13.5) — the agent would
+  name its own denominator. BINDING: a live order's catch anchor must be PRE-SPECIFIED
+  (reuse `Target.Path/Line` — "fix the known weak spot at X"), never agent-derived.
+  This simplifies 4b: reuse `anchorFromTarget` + extract a shared `settleCatch` tail
+  from runOneOrder; runLiveOrder runs resolveCycle on (base, liveHEAD, liveHEAD,
+  anchor) and mints via the seam. Cost-gate = a RunProcess ctx timeout.
+
+- [Round 71](round-71.md) — slice 4c (surface the live agent's activity on the card).
+  3-lens council (UX/Systems/TDD) converged on a per-session BUFFER POLL (mirror the
+  fill-beat mechanism) over the scratch bus: a distinct "latest activity" row,
+  latest-beat-only, absent on dead-air; firewall-safe; server-testable. The bus
+  (`PublishActivity`, R68) is YAGNI for one card — reserved for a future /fleet
+  cross-session activity ticker (preserves R18 isolation). Surfaced a build wrinkle:
+  `Supervisor.Run`/`RunProcess` return turns only at completion, so LIVE streaming
+  needs a callback seam through the supervisor (slice 4c-i) before the buffer/card
+  render (4c-ii).
+
+- [Round 72](round-72.md) — next direction: make the live pipe CLI-invocable. 3-lens
+  council (CI/CD/Systems/TDD) settled the gating boundary: a HOST-SUBPROCESS `claude`
+  run on the user's OWN trusted repo is autonomous-safe (NOT the gated #6 network
+  boundary); the isolated agent CONTAINER is the gated round (maintainer sign-off).
+  Shipped slice A: a `-live` CLI flag (pure `parseLiveSpec`, prompt-as-trailing-free-
+  text via a whitespace-tolerant regexp, prompt-must-be-last fail-closed) seeding a
+  prompt-bearing live order on the primary session — mirrors `-backlog`. The
+  live-harness pipe (R67–R72) is now CLI-invocable end-to-end. Firewall (Systems): the
+  trusted Lead specifying the anchor is safe (R70's farming rule is against the agent).
+
+- [Round 73](round-73.md) — next thread: the TRUST LEDGER (VISION's "groundbreaking"
+  trust-economy, per the RISKS meta-finding — now reachable since the pipe P0→P2 is
+  built+proven). 4-lens council found an autonomous-safe FIRST slice: a READ-ONLY
+  per-lane "scouting report" — a first-pass catch-rate computed PURELY from the
+  already-logged CatchRecords + dispatch outcomes (counts-only, retrospective). Outward
+  framing ("this lane ships clean 3/4", never Lead self-grading). DEFERRED (un-grounded
+  / taste-gated): the model catch-WEIGHT, risk-tier partitioning, trust half-life,
+  earned concurrency, force-deep, Delegation Tiers. Slice 1 = the pure projection
+  (per-session caught÷done); slice 2 = the calm /board render (below the queue).
+
+- [Round 74](round-74.md) — thread boundary: HOLD on new trust-ledger features +
+  a consolidation sweep. 3-lens council (skeptic gate) declined the candidates:
+  per-path lanes (grounded but MARGINAL — too few orders/path per session),
+  session-arc Standup/close-out (high felt-value but TASTE-GATED, new IA/policy),
+  and the deep mechanics (un-grounded/gated). Instead ran an adversarial review of
+  R67–R73 — code CLEAN (no real bugs/leaks/RISKS re-introduction); applied one
+  behavior-preserving DRY (`Projection.caughtWorkOrders()` shared by RecentDispatches
+  + ScoutingReport). The autonomous-safe high-value feature space is built out; the
+  deep economy + agent container are gated.
+
+- [Round 75](round-75.md) — the AGENT CONTAINER thread OPENS (maintainer lifted the
+  gate: "move the goal post to the container orchestration"). Full council: the agent
+  box is a TRUST/ISOLATION boundary (trusted harness, EGRESS + WRITABLE repo), a
+  SEPARATE hardened profile from the verification cage's CONTAINMENT (--network=none,
+  read-only). The RunProcess→RunContainer seam leaves Supervisor + runLiveOrder
+  UNCHANGED; the firewall is unchanged (host re-derives verdicts). Slice 5a-i shipped:
+  pure `harness.ContainerArgs` — the hardened-but-egress-allowed `docker run` argv
+  (cap-drop/seccomp/non-root/read-only/pids+mem + writable repo bind + by-name secrets,
+  NO --network=none, NO docker.sock), tests pinning each security property.
+
+- [Round 101](round-101.md) — the DESIGN-LANGUAGE POLISH thread OPENS
+  (maintainer steer: "world-class designer; make the language sleek,
+  industry-leading, cohesive, reusable; improve the flows; converge
+  autonomously"). Audit of the real ~R100 tree found a half-system (color +
+  spacing only; radius/border/focus/type/components hand-rolled per surface,
+  ~1/3 of style.go duplicated) + a real WCAG 2.4.7 invisible-focus gap + an
+  accreted single-scroll live card and dead-end drill-ins. Web Designer and
+  UX/UI Specialist lenses FUSED on `.pk-section-label` (the extracted heading =
+  the sub-landmark) → one shared spec ([`design-language.md`](design-language.md)),
+  two sequenced PRs: PR1 the `--pk-*` token + component layer (focus fixed once
+  on the components, honest-state hues untouched), PR2 the flows (sectioned
+  card, unified funding pair, drill-return). Settled: drop `--pk-surface-3` (no
+  consumer; gate on flows-PR A), `:focus-visible` outline over a box-shadow
+  ring (a11y owner held, no reflow), focus fix rides this thread (free, on the
+  shared components).
+
+- [Round 102](round-102.md) — DESIGN-LANGUAGE POLISH CLOSE-OUT
+  (complete-for-V1). Both PRs shipped + green: PR1 (scale tokens
+  `--pk-radius`/`-sm`, `--pk-border`, `--pk-font-sm`/`-xs` + a shared
+  `:focus-visible` ring; `.pk-btn`/`--quiet`/`.pk-input`/`.pk-chip`/
+  `.pk-section-label`/`.pk-card` reused via multi-class; honest-state hues
+  byte-for-byte) + the 2 reuse-gap closures (CSS DRY on
+  `.review-answer__submit`; crumbs wrapped in `nav`); PR2 flows A (sectioned
+  live card, `role="main"` + aria-live kept, act-now omitted on fresh session),
+  B (`renderFundWork` labelled pair + dim two-currency explainer, no meter),
+  C (drill-return + symmetric crumbs, QueryEscape'd keys). Test-first; new
+  `card_sections`/`fund_work`/`drill_return` internal tests + extended
+  `style`/`board_inflight` guardrails, `-race -count=1` green. Canon
+  reconciliation (VISION/DESIGN/RISKS/clashes): no violation, no regression, no
+  clash reopened; 4 defensible notes (Flow A's act-now-first ordering is a
+  semantic grouping not a score per V§13.1; Flow B verified meter-free; Clash J
+  not reopened — R101 IS the "real stylesheet driver" J anticipated, hues
+  untouched; the verdict surface is presentation-only). Clash J confirmed
+  STILL RESOLVED.
+
+Session-scoped agent IDs from rounds 1–2 (dead, provenance only): UX
+`a985fda4…`, Game design `af9d2f4c…`, Systems `a494dd62…`, TDD `afcf847e…`,
+CI/CD `a5b74ebb…`, Refactoring `a172b669…`.
+
+## 1. The panelists (persona cards)
+
+Each card: their lens, north star, what they reliably push for, signature
+bold swing, and a **re-summon seed** (the essence of the prompt that
+produces this voice).
+
+### 🎨 The UX Designer
+
+- **Lens:** product UI/UX; Linear / Vercel / Raycast sensibility.
+- **North star:** _calm, power-user-first, keyboard-native._ A meter you
+  can't act on right now is noise.
+- **Reliably pushes for:** fewer surfaces, information gated to the moment
+  it's actionable, motion that reports a real state change.
+- **Bold swings:** Time-travel review (bidirectional Ledger scrubber); the
+  Disagreement Replay (calibration you _feel_, not read).
+- **Re-summon seed:** _"World-class product designer. Constraint: pure-Go
+  Via framework over SSE, no SPA, Monaco only as a plugin island. Calm
+  control-room aesthetic, keyboard-native. Allergic to gauges that induce
+  guilt or can't be acted on. Render mechanics without building a cockpit
+  of meters."_
+
+### 🎮 The Game Designer
+
+- **Lens:** management/tycoon games; Factorio / Frostpunk / Two Point
+  Hospital / Slay the Spire.
+- **North star:** _the work already is a game; make it feel like one
+  without lying._ Honest hooks, not dark patterns. Queue-zero is a win
+  you're allowed to walk away from.
+- **Reliably pushes for:** killing dead-air, an ethical "just one more,"
+  framing that flatters competence, a real mastery curve, beats that
+  punctuate.
+- **Bold swings:** The Trust Ledger (calibrated delegation is the game);
+  Delegation Tiers (Ascension — opt-in shrinking safety net).
+- **Re-summon seed:** _"World-class tycoon/management game designer.
+  packets is an HONEST game (mechanics must map to real dynamics, no fake
+  XP/confetti, no engagement dark patterns). Obsessed with moment-to-moment
+  feel, pacing across 30s/30m/session loops, and whether a mechanic
+  flatters or grades the player."_
+
+### ⚙️ The Systems / Economy Designer
+
+- **Lens:** game systems & economies; Factorio logistics / RimWorld
+  incident economy / Into the Breach perfect-information.
+- **North star:** _one scarce resource, one conversion, one loop that
+  punishes the obvious cheat._ Meters aren't an economy until they trade.
+  The system defines the units; the user only spends.
+- **Reliably pushes for:** collapsing meters into roles, red-teaming for
+  degenerate strategies, tying every reward to a logged downstream fact.
+- **Bold swings:** The Focus meter (attention as the central spent
+  resource); the Shadow Review (spend tokens to audit untested trust).
+- **Re-summon seed:** _"World-class game systems/economy designer. Hostile
+  to 'meter soup' — insists on stocks vs rates vs scores. Always asks:
+  what's the degenerate strategy, and what logged fact redeems each point?
+  Every exploit is an attempt to control the denominator."_
+
+### 🧪 The Pragmatic TDD Expert
+
+- **Lens:** test-driven development, Kent-Beck-pragmatic (not dogma).
+- **North star:** _tests must constrain behavior, not just exist and
+  pass._ Ceremony decoupled from constraint is theater.
+- **Reliably pushes for:** an independent oracle (mutation testing),
+  test-list-as-contract at the plan gate, reviewing tests before code,
+  distinguishing "RED for the right reason" from a birth-cry.
+- **Bold swing:** Mutation-driven adversarial review (surviving mutants
+  become `question:` threads — "green is a lie here").
+- **Re-summon seed:** _"World-class pragmatic TDD practitioner. Core
+  question: does this mechanic produce well-tested code or
+  confidently-green test-theater? Knows RED→GREEN proves sequence not
+  constraint, and that mutation score is the only non-gameable signal.
+  Knows when a test earns its keep and when it's ceremony."_
+
+### 🚀 The CI/CD & Delivery Expert
+
+- **Lens:** continuous delivery, DORA, trunk-based dev, merge queues,
+  progressive delivery, flaky-test management.
+- **North star:** _"Landed" ≠ done; only "Merged" through real CI is._
+  Don't reinvent integration — feed a merge queue.
+- **Reliably pushes for:** an explicit integration point, two-tier checks
+  (container-advisory vs real-pipeline), flaky quarantine before scoring,
+  honest DORA metrics, controlling superlinear integration cost.
+- **Bold swing:** Speculative integration preview (background-rebase onto
+  tip + CI before you approve).
+- **Re-summon seed:** _"World-class CI/CD & delivery expert. Sees the seam
+  where the design hands N changesets to downstream CI and walks away.
+  Worries about stale-base collisions across the fleet, scoring humans on
+  noisy/flaky downstream truth, and O(N²) merge-queue cost."_
+
+### 🔧 The Refactoring Expert
+
+- **Lens:** large-scale refactoring; Fowler / Feathers "Working
+  Effectively with Legacy Code."
+- **North star:** _behavior-preserving change keeps codebases alive — and
+  it's the safest thing to skim when tests are trustworthy._
+- **Reliably pushes for:** refactor as a first-class task-type with a proof
+  (tests unchanged & green), reviewing the invariant not the hunks,
+  transformation-anchored threads, cross-session collision safety.
+- **Bold swing:** Characterization Gate + mechanical-equivalence replay
+  (review the proof of invariance, time-travel to where it broke).
+- **Re-summon seed:** _"World-class refactoring expert (Feathers/Fowler).
+  Tests whether the diff-first/anchored/fan-out model supports healthy
+  refactoring or punishes it as churn. Knows a 40-file rename breaks
+  line-anchoring and that a clean refactor with green unchanged tests is
+  the safest possible skim."_
+
+## 2. Contribution ledger
+
+Where each panelist's ideas landed in the docs (Round 1 / Round 2).
+
+- **UX** — R1: leverage-not-cost, brief rail (V §12.2/§12.9). R2:
+  time-separated economy, outward Trust render, time-travel
+  disambiguation, Disagreement Replay (V §13.1/§13.2/§13.10).
+- **Game design** — R1: Prep Bench, session arc, earned concurrency
+  (V §12.1/§12.6/§12.7). R2: outward Trust Ledger, Delegation Tiers,
+  seeded+pre-flight Bench (V §13.2/§13.3/§13.4).
+- **Systems** — R1: leverage formula, net-quality scoring, Focus, exploit
+  framing (V §12.3/§12.5). R2: unified economy, exploit patches, CI-truth
+  loop, Shadow Review (V §13.1/§13.5/§13.10; D §29.3).
+- **TDD** — joined R2: mutation oracle, test-list contract, confirmed-catch
+  redefinition (V §13.6; D §29.4).
+- **CI/CD** — joined R2: merge queue, two-tier checks, "Merged not Landed",
+  flaky quarantine, DORA (V §13.8; D §29.1/§29.2/§29.5/§29.9).
+- **Refactoring** — joined R2: refactor task-type, Invariant View, fleet
+  collision guard (V §13.7/§13.9; D §29.6/§29.7).
+
+## 4. The bold swings scoreboard
+
+The signature bets and their status.
+
+- **Mutation-driven adversarial review** (TDD, high conviction) —
+  **VALIDATED.** Confirmed-catch minted end-to-end through the §17 pipe
+  (`pipe.RunCatchCycle`, #3): two real settles → worktree mutation×2 →
+  reanchor → CatchAcross → real Catch; edited-anchor → NoOracleSignal. Now
+  rendered as a distinct live state (`surface.ReviewCard`, #4) and watchable
+  over HTTP/SSE (R10 #10). Pricing pending integrate-on-tip (#12).
+- **Trust Ledger (calibrated delegation)** (Game, spine) — _TBD_,
+  framing-risk (Clash H).
+- **Merge-queue-as-integrator** (CI/CD, low-risk) — **R12 #12 SHIPPED.**
+  `pipe.integrateOnTip` rebases the fix onto a real tip + runs checks on the
+  integrated tree → typed Land {clean|conflict|checks-red}, one serialized
+  lane. Clash C resolved-in-code. Remaining: the single-lane queue over K
+  branches + the #15 K-concurrent benchmark before pricing.
+- **Focus as central resource** (Systems, adopted) — _TBD_, render-risk
+  (Clash A).
+- **Speculative integration preview** (CI/CD) — _TBD_, high value, infra
+  cost.
+- **Characterization Gate + replay** (Refactor, scoped to refactors) —
+  roadmap #2: adversarial refactor trace as RED baselines (rename_40 /
+  neutral_move / extract_module). **R11 #11: Clash G surface-honesty half
+  RESOLVED-IN-CODE** — a renamed/edited anchor renders a true terminal
+  (`surface.LostViaRename`/`AnchorEdited`) instead of the false "no mutable
+  operator" (residual: rename-cliff coarsening → #11.5).
+- **Time-travel review** (UX) — _TBD_, distinctive, value-unproven (Clash I).
+- **Delegation Tiers (Ascension)** (Game) — _TBD_, late-game depth,
+  premature.
+- **Shadow Review (anti-survivorship)** (Systems) — _TBD_, elegant,
+  token-cost unclear.
+- **Disagreement Replay (coaching)** (UX) — _TBD_, cheap, depends on
+  dwell-tracking.
+
+## 5. Reconvene template (for future rounds)
+
+Copy this block into a new `round-NN.md` and fill it in.
+
+```markdown
+# Round N — <focus> — <date>
+
+Trigger: <what prompted it — e.g. "after building the mutation-thread slice">
+Panelists present: <which personas, + any new lens added>
+New evidence on the table: <build/test results that inform the debate>
+
+Per panelist:
+
+- <persona>: <their take this round, 1-3 lines>
+
+Clashes touched: <A–I + any new>
+Verdicts updated: <which clashes moved, and to what>
+New clashes opened: <…>
+Decisions: <what changed in VISION/DESIGN as a result>
+```
+
+## 6. The validating slices these clashes are waiting on
+
+From the build plan — the slices most likely to produce verdicts:
+
+1. **Pipe + one review round-trip** (DESIGN §17 + a single comment →
+   revision cycle) → informs Clash B framing baseline.
+2. **Mutation-as-`question:`-thread** (D §29.4) → informs Clash B, F.
+   **BUILT & TESTED** (`internal/mutation`) — logic layer only.
+3. **Two-agent Board with queue-to-zero loop** (VISION §11) → informs Clash
+   A, D, E, H — the "does it feel like a shop" thesis.
+4. **A real refactor through the Invariant View** → informs Clash G.
+
+When any is built and tested, return to [`clashes.md`](clashes.md), fill
+the verdicts, and log a round.

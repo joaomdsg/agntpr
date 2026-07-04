@@ -1,0 +1,24 @@
+<!-- @dsCard group="Components" viewport="700x220" name="Annotation cards" subtitle="The you↔agent conversation, pinned to code" -->
+<!doctype html><html><head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="../../_ds_bundle.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head><body style="margin:0;padding:16px 18px;background:var(--surface-panel)">
+<div id="root"></div>
+<script type="text/babel">
+const NS = window.Packets || (() => { for (const k of Object.getOwnPropertyNames(window)) { try { const v = window[k]; if (v && typeof v === 'object' && v.AnnotationCard) return v; } catch (e) {} } return {}; })();
+const { AnnotationCard } = NS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+    <AnnotationCard author="agent" sev="self-flag" where="L25" scope="line · limiter.go" actions="reply · resolve · promote to handshake term →">
+      Unsure about this boundary — inclusive (&gt;=) or exclusive (&gt;)? The handshake only gives examples.
+    </AnnotationCard>
+    <AnnotationCard author="you" sev="blocking" where="L13–32" scope="group · limiter.go">
+      This whole Allow() path needs a property test for the reset window, not just the 7th-request example.
+    </AnnotationCard>
+  </div>
+);
+</script></body></html>

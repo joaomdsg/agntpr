@@ -1,0 +1,26 @@
+<!-- @dsCard group="Components" viewport="700x130" name="Timeline" subtitle="The packet's whole life, replayable" -->
+<!doctype html><html><head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="../../_ds_bundle.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head><body style="margin:0;padding:14px 16px;background:var(--surface-panel)">
+<div id="root"></div>
+<script type="text/babel">
+const NS = window.Packets || (() => { for (const k of Object.getOwnPropertyNames(window)) { try { const v = window[k]; if (v && typeof v === 'object' && v.Timeline) return v; } catch (e) {} } return {}; })();
+const { Timeline } = NS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <Timeline events={[
+    { t: '09:02', type: 'plan', label: 'plan approved', rev: 'rev0.5' },
+    { t: '09:14', type: 'edit', label: 'implement limiter', rev: 'rev1' },
+    { t: '09:15', type: 'test', label: 'tests written', rev: 'rev1' },
+    { t: '09:21', type: 'mutation', label: '1 mutant survived', rev: 'rev1' },
+    { t: '09:30', type: 'comment', label: 'you: reset property', rev: 'rev1' },
+    { t: '09:42', type: 'edit', label: 'revise · rev2', rev: 'rev2' },
+    { t: '09:50', type: 'flag', label: 'agent self-flag', rev: 'rev2' },
+    { t: 'now', type: 'held', label: 'held for review' },
+  ]} />
+);
+</script></body></html>

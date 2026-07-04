@@ -1,0 +1,41 @@
+<!-- @dsCard group="Console" viewport="1440x900" name="Packets Console + Inspector" subtitle="The product app — click a held packet to open the Inspector" -->
+<!-- @startingPoint section="Product app" subtitle="Console (stream, queue, lanes) + Inspector (rich diff, annotations, timeline)" viewport="1440x900" -->
+<!doctype html><html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Packets — Console</title>
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="../../_ds_bundle.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>html,body,#root{height:100%}</style>
+</head><body style="margin:0;background:var(--ground)">
+<div id="root"></div>
+<script type="text/babel">
+const NS = window.Packets || (() => { for (const k of Object.getOwnPropertyNames(window)) { try { const v = window[k]; if (v && typeof v === 'object' && v.ConsoleScreen && v.InspectorScreen) return v; } catch (e) {} } return {}; })();
+const { ConsoleScreen, InspectorScreen } = NS;
+
+function App() {
+  const [screen, setScreen] = React.useState('console');
+  return (
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', background: 'var(--surface-deep)', borderBottom: '1px solid var(--hairline)', fontFamily: 'var(--font-mono)' }}>
+        {['console', 'inspector'].map((s) => (
+          <span key={s} onClick={() => setScreen(s)}
+            style={{ display: 'inline-flex', alignItems: 'center', height: 22, padding: '0 12px', borderRadius: 7, fontSize: 10, fontWeight: 700, cursor: 'pointer',
+              background: screen === s ? 'color-mix(in srgb, var(--signal) 16%, var(--surface-card))' : 'transparent',
+              color: screen === s ? 'var(--signal)' : 'var(--text-faint)' }}>{s}</span>
+        ))}
+        <span style={{ marginLeft: 'auto', fontSize: 9, color: 'var(--text-ghost)' }}>ui kit · click a held packet to open the inspector</span>
+      </div>
+      <div style={{ flex: 1, minHeight: 0 }}>
+        {screen === 'console'
+          ? <ConsoleScreen onOpenPacket={() => setScreen('inspector')} />
+          : <InspectorScreen onBack={() => setScreen('console')} />}
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script></body></html>

@@ -1,0 +1,42 @@
+/* Packets — color tokens. Extracted verbatim from Console + Inspector + locked brand spec. */
+:root {
+  /* grounds & surfaces (darkest → lightest) */
+  --ground: #0a0d13;            /* page background, everywhere */
+  --surface-deep: #080a0f;      /* status footers, diff statusbar */
+  --surface-panel: #0f131b;     /* side panels, titlebars, section headers */
+  --surface-card: #141924;      /* cards, app chrome, diff paper */
+  --surface-raised: #1b212e;    /* annotation cards, hover surfaces, chips-on-card */
+
+  /* borders */
+  --hairline: #1b212e;          /* the default border, dividers */
+  --border-faint: rgba(255,255,255,.08); /* card borders on panel surfaces */
+  --border-mid: #2a3242;        /* tooltips, secondary buttons */
+  --border-dashed: #3a4150;     /* dashed empty-state borders */
+
+  /* text ramp (brightest → dimmest) */
+  --ink: #e8ebf1;               /* primary text, packet names */
+  --text-body: #c3cad6;         /* prose, annotation bodies */
+  --text-muted: #98a1b2;        /* secondary, addrs, legends */
+  --text-faint: #616b7c;        /* meta, kickers, timestamps */
+  --text-ghost: #4e5666;        /* tertiary meta, axis labels */
+  --text-disabled: #3a4150;     /* disabled pager arrows, line numbers */
+  --heading-cream: #F6EBCD;     /* marketing display headings ONLY — never in-app */
+
+  /* the state grammar — these ARE the product */
+  --signal: #4cc4d4;            /* in flight · you · the accent. cyan */
+  --on-signal: #08222a;         /* text on signal-filled surfaces */
+  --delivered: #2a7683;         /* landed, settled. dark cyan */
+  --delivered-mid: #357f8a;     /* small-size ghost fallback (< ~14px cell) */
+  --verified: #46c08a;          /* clauses green, forwarded */
+  --held: #e6b23e;              /* held for you, sampled — attention, advisory */
+  --risk: #f0666b;              /* blocking: strict holds, guardrails, irreversible, dropped */
+  --risk-deep: #d1585c;         /* irreversible lane */
+  --risk-muted: #cf9a97;        /* red-tinted meta text */
+  --agent: #a78bfa;             /* agent authorship, self-flags. purple */
+
+  /* semantic aliases */
+  --you: var(--signal);
+  --accent: var(--signal);
+  --add: var(--verified);       /* diff + */
+  --del: var(--risk);           /* diff − */
+}

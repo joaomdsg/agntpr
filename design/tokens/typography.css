@@ -1,0 +1,29 @@
+/* Packets — typography tokens. Mono is the machine's voice; Sans is prose. */
+:root {
+  --font-ui: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* dense operational scale (mono UI text) */
+  --fs-micro: 9px;        /* kickers, chip labels, timeline labels */
+  --fs-tiny: 9.5px;       /* meta lines, card explanations */
+  --fs-small: 10px;       /* legends, links, secondary chips */
+  --fs-label: 10.5px;     /* card titles in lists */
+  --fs-body-mono: 11px;   /* packet names, annotation bodies (11–11.5) */
+  --fs-body: 12.5px;      /* sans prose in-app */
+  --fs-emph: 13px;        /* titlebar packet name */
+
+  /* display (marketing surfaces) */
+  --fs-hero-stat: 36px;   /* console hero numeral, mono 600, -0.02em */
+  --fs-h2: 38px;          /* section headings, sans 700, -0.02em */
+  --fs-h1: 64px;          /* landing hero, sans 700, -0.028em, line-height 1.02 */
+
+  /* tracking */
+  --track-kicker: .2em;   /* uppercase section kickers */
+  --track-label: .1em;    /* uppercase panel labels */
+  --track-chip: .05em;    /* uppercase chip text */
+  --track-word: .04em;    /* the wordmark */
+
+  --lh-ui: 1.45;
+  --lh-prose: 1.7;
+  --lh-dense: 1.55;
+}
