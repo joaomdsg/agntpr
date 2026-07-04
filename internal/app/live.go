@@ -1469,8 +1469,31 @@ func (c *LiveCard) View(ctx *via.CtxR) h.H {
 	// a hero stat + in-flight strip), and a settled+watches rail — every count
 	// folded from the SAME packet slice, never a second source of truth.
 	packets := sessionPackets(c.Key, 0)
+	reconcileHolds(c.Key, packets)
 	return h.Div(navHeader(navKey, "console"),
 		renderConsole(navKey, packets, sessionAddr(c.Key), h.Div(parts...)))
+}
+
+// reconcileHolds attaches each packet's ALREADY-cached Lane/Gauntlet (pure
+// map reads — cachedLane/cachedGauntlet, never the exec'ing laneFor/
+// gauntletFor) and reconciles its hold via packet.ReconcileHold (ROADMAP
+// slice 10), in place. This is the ONE call site that hands a packets slice
+// into renderConsole, which is the only render path reading p.Hold/
+// p.HoldReason (the needs-you and settled rails) — so this is also the only
+// place that needs to run it. It must stay safe on the 100ms via.Stream poll
+// (View is re-invoked on every tick): both cache reads are pure lookups, so
+// this adds no exec to the poll path, only cheap in-memory composition. An
+// unknown session (e == nil) leaves packets exactly as Fold set them.
+func reconcileHolds(key string, packets []packet.Packet) {
+	e := lookupLiveEntry(key)
+	if e == nil {
+		return
+	}
+	for i, p := range packets {
+		p.Lane = e.cachedLane(p.ID)
+		p.Gauntlet = e.cachedGauntlet(p.ID)
+		packets[i] = packet.ReconcileHold(p)
+	}
 }
 
 // Spend funds one unit of dispatched work against the balance — the Lead's first

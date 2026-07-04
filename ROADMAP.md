@@ -5,7 +5,7 @@ the spec). One slice per tick unless a slice says otherwise. Statuses:
 queued / in-flight / landed / dropped. Every landed slice carries one
 evidence line.
 
-NEXT: slice 10.
+NEXT: slice 11.
 
 ## Infra
 
@@ -168,10 +168,23 @@ NEXT: slice 10.
   next slice or later): splitting mutation into a handshake-scoped
   run (G3) vs an agent-test-scoped run (G5) — both remain exactly
   as slice 8 left them. Evidence: full gate green; commit below.
-- [ ] **10. Hold/forward** — queued. Forward-by-default; amber
-  advisory holds (sampled) vs red blocking holds (strict lane,
-  guardrail, handshake-below-lane-floor); needs-you queue driven by
-  real holds with one-clause why-held strings; pk-held-pulse.
+- [x] **10. Hold/forward** — landed. internal/packet/hold.go:
+  LaneFloor (lane→minimum required HandshakeStrength) +
+  ReconcileHold — a pure, escalate-only composition (called by the
+  app after Lane+Gauntlet are cache-attached, never inside Fold):
+  a handshake below its lane's floor forces HoldBlocking with the
+  exact design-voice phrase "handshake below lane floor"; a hard
+  gate failure forces HoldBlocking naming that gate's own Detail
+  (reused, never reinvented); otherwise Fold's lifecycle-hold
+  baseline is untouched. Fixed a real gap along the way:
+  `Target.HandshakeStrength` was never copied onto `Packet` — now
+  is. Wired into Console's needs-you/settled rails via cache-only
+  reads (poll-never-computes invariant intact). DEFERRED (explicit,
+  matches MVP.md's own sequencing): advisory-hold SAMPLING/
+  calibration draws are slice 11; "guardrail" is not modeled as a
+  separate concept from gate-failure — gate-failure IS the
+  guardrail trip for MVP purposes. Evidence: full gate green;
+  commit below.
 - [ ] **11. Attention economics** — queued. Interrupt budget
   (n/week counted down by real interrupts, rendered as the Console
   KPI), calibration draws (random sample of auto-forwarded packets

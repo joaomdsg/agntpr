@@ -238,4 +238,42 @@ func TestFold_leavesHandshakeFieldsEmptyWhenTheTargetHasNone(t *testing.T) {
 	require.Len(t, got, 1)
 	assert.Empty(t, got[0].HandshakePath)
 	assert.Empty(t, got[0].HandshakeHash)
+	assert.Equal(t, packet.StrengthNone, got[0].HandshakeStrength, "no handshake authored means no strength declared, not a fabricated one")
+}
+
+// ledger.Target.HandshakeStrength is a plain int (to avoid an import cycle —
+// see ledger.go's comment on the field), so Fold must explicitly convert it
+// to packet.HandshakeStrength. Without this copy, a strict-lane packet with a
+// properties-strength handshake authored would render as StrengthNone —
+// indistinguishable from no handshake at all, defeating ReconcileHold's
+// lane-floor check (hold.go). Every declared strength is exercised (not just
+// the top one) so a swapped-constant or off-by-one conversion bug can't hide
+// behind a single passing case.
+func TestFold_copiesHandshakeStrengthFromTheTargetsPlainInt(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		want packet.HandshakeStrength
+	}{
+		{"examples", packet.StrengthExamples},
+		{"properties", packet.StrengthProperties},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			views := []ledger.DispatchView{{
+				ID:     1,
+				Target: ledger.Target{Prompt: "do the thing", HandshakeStrength: int(tt.want)},
+				Status: "queued",
+			}}
+
+			got := packet.Fold(views, packet.Addr{}, zeroQuestions)
+
+			require.Len(t, got, 1)
+			assert.Equal(t, tt.want, got[0].HandshakeStrength)
+		})
+	}
 }

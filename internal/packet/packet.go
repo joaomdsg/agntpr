@@ -48,6 +48,13 @@ type Packet struct {
 	// composed before this concept existed).
 	HandshakePath string
 	HandshakeHash string
+	// HandshakeStrength is copied from the order's ledger.Target.HandshakeStrength
+	// (a plain int there, to avoid an internal/packet<->internal/ledger import
+	// cycle — see ledger.go's comment on that field) via an explicit conversion
+	// in Fold. The zero value, StrengthNone, is honest for a legacy pre-funded
+	// order or a live order composed before the handshake concept existed —
+	// the same "no handshake" case HandshakePath/HandshakeHash already carry.
+	HandshakeStrength HandshakeStrength
 }
 
 // Deliverable always reports false: delivered is UNREACHABLE until a real
@@ -116,20 +123,21 @@ func Fold(views []ledger.DispatchView, addr Addr, openQuestions func(orderID int
 		questions := openQuestions(v.ID)
 		state, hold, reason := lifecycleFor(v.Status, v.Caught, questions)
 		packets[i] = Packet{
-			ID:            v.ID,
-			Name:          slugName(v.Target.Prompt, v.ID),
-			Addr:          addr,
-			Intent:        v.Target.Prompt,
-			BaseRev:       v.Target.BaseRev,
-			FixRev:        v.Target.FixRev,
-			Caught:        v.Caught,
-			Verdict:       v.Verdict,
-			OpenQuestions: questions,
-			State:         state,
-			Hold:          hold,
-			HoldReason:    reason,
-			HandshakePath: v.Target.HandshakePath,
-			HandshakeHash: v.Target.HandshakeHash,
+			ID:                v.ID,
+			Name:              slugName(v.Target.Prompt, v.ID),
+			Addr:              addr,
+			Intent:            v.Target.Prompt,
+			BaseRev:           v.Target.BaseRev,
+			FixRev:            v.Target.FixRev,
+			Caught:            v.Caught,
+			Verdict:           v.Verdict,
+			OpenQuestions:     questions,
+			State:             state,
+			Hold:              hold,
+			HoldReason:        reason,
+			HandshakePath:     v.Target.HandshakePath,
+			HandshakeHash:     v.Target.HandshakeHash,
+			HandshakeStrength: HandshakeStrength(v.Target.HandshakeStrength),
 		}
 	}
 	return packets
