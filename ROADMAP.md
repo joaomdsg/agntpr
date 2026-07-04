@@ -5,7 +5,7 @@ the spec). One slice per tick unless a slice says otherwise. Statuses:
 queued / in-flight / landed / dropped. Every landed slice carries one
 evidence line.
 
-NEXT: slice 7.
+NEXT: slice 8.
 
 ## Infra
 
@@ -109,11 +109,30 @@ NEXT: slice 7.
   ledger projection per tick; addr cached per session (sync.Once).
   Fund/bench/land controls untouched (slice 11). Evidence: full
   gate green; commit below.
-- [ ] **7. Lanes from blast radius** — queued. Pure host-side
-  function: `go list` import-graph reverse-dependency weight of a
-  packet's changed packages → lane (best-effort/standard/strict/
-  irreversible). Lane chip on Console/Inspector + lane health grid,
-  all computed, never self-reported.
+- [x] **7. Lanes from blast radius** — landed. internal/packet: pure
+  core (`Lane`, `ImportGraph`, `BlastRadius`, `LaneFor` — ≤10%
+  best-effort, ≤40% standard, else strict, irreversible unreachable);
+  exec seam `LoadImportGraph`/`ChangedPackages`/`Measure`
+  (lane_measure.go) over real `go list -json` + `internal/diff`,
+  erroring to `LaneUnmeasured` — never guessed. `Packet.Lane` field
+  added (zero value; Fold stays pure, never computes it).
+  internal/app: per-session `liveEntry.laneCache` (`laneFor` computes
+  + caches on render, skips caching a rev-less packet; `cachedLane` is
+  a pure map read for the poll). Inspector titlebar's order-scoped
+  branch computes the lane chip on render (`lane <name>`, neutral
+  pill, never a state color); Console's lane-health grid reads ONLY
+  the cache (4 honest-zero buckets: best-effort/standard/strict/
+  unmeasured). Proven by test that the 100ms OnConnect poll never
+  populates the lane cache for an order never opened in the Inspector.
+  Found + fixed along the way: a pre-existing latent fragility in
+  `TestLiveServer_streamsAVerdictFromInFlightToCaughtAndLogsIt`
+  (two sequential `vt.AwaitFrame` calls assumed "catch" and
+  "land-clean" always land in different SSE read chunks — any Console
+  content growth, including this slice's grid, could shift both into
+  the SAME chunk, and the first call would consume-and-discard it on
+  matching "catch" before the second call ever saw "land-clean");
+  merged into one `AwaitFrame` call with both needles, immune to
+  chunk boundaries. Evidence: full gate green (`./scripts/test-fast.sh`).
 - [ ] **8. Gauntlet record** — queued. One explicit per-packet
   pipeline record of the six gates; map existing machinery (G2
   handshake run, G3 mutation-vs-spec, G4 build/vet, G5

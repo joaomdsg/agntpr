@@ -22,11 +22,14 @@ func shortRev(rev string) string {
 // name (wo#<id> or the raw session key — honest, never a display alias), the
 // packet's own Name beside it when the scope folds to one (packetName ""
 // omits it), a base→fix rev chip in short SHAs (omitted entirely when either
-// rev is unknown — the Inspector never fabricates a revision), and the repo
-// addr (packet.ParseAddr — owner/name, or the honest local/<dir> fallback).
-// navHeader already carries the brand mark + lockup, so this strip adds no
-// second mark (MVP.md Titlebar pattern).
-func renderInspectorTitlebar(scope, baseRev, fixRev string, addr packet.Addr, packetName string) h.H {
+// rev is unknown — the Inspector never fabricates a revision), a neutral lane
+// chip (ROADMAP slice 7 — lane is QoS, never a state color; LaneUnmeasured
+// when the scope folds to no single packet or nothing has been measured yet,
+// rendered honestly rather than omitted), and the repo addr (packet.ParseAddr
+// — owner/name, or the honest local/<dir> fallback). navHeader already
+// carries the brand mark + lockup, so this strip adds no second mark (MVP.md
+// Titlebar pattern).
+func renderInspectorTitlebar(scope, baseRev, fixRev string, addr packet.Addr, packetName string, lane packet.Lane) h.H {
 	parts := []h.H{
 		h.Class("inspector__titlebar"),
 		h.Span(h.Class("inspector__name"), h.Text(scope)),
@@ -38,6 +41,7 @@ func renderInspectorTitlebar(scope, baseRev, fixRev string, addr packet.Addr, pa
 		parts = append(parts, h.Span(h.Class("inspector__rev"),
 			h.Text(shortRev(baseRev)+"→"+shortRev(fixRev))))
 	}
+	parts = append(parts, h.Span(h.Class("inspector__lane"), h.Text("lane "+lane.String())))
 	if addr.Name != "" {
 		parts = append(parts, h.Span(h.Class("inspector__addr"), h.Text(addr.String())))
 	}

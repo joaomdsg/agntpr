@@ -39,12 +39,15 @@ func TestLiveServer_streamsAVerdictFromInFlightToCaughtAndLogsIt(t *testing.T) {
 
 	frames, cancel := tc.SSE()
 	defer cancel()
-	vt.AwaitFrame(t, frames, 20*time.Second, `data-state="catch"`)
-	// The integration row streams in the same resolved render; asserted as its
-	// own await because vt frames are fixed-size read chunks — the grown console
-	// card can split one render across chunks (a harness artifact, not an SSE
-	// event boundary).
-	vt.AwaitFrame(t, frames, 20*time.Second, `data-state="land-clean"`)
+	// The integration row streams in the SAME resolved render as the catch
+	// verdict — both needles in ONE AwaitFrame call, since it accumulates
+	// chunks until every needle matches. Two SEPARATE calls are unsafe here:
+	// vt frames are fixed-size read chunks, not SSE event boundaries, so
+	// growing the console card can shift BOTH needles into the same chunk —
+	// the first call would match on "catch" and return, discarding the rest
+	// of that already-consumed chunk (and "land-clean" along with it) before
+	// the second call ever sees it.
+	vt.AwaitFrame(t, frames, 20*time.Second, `data-state="catch"`, `data-state="land-clean"`)
 
 	records, err := log.Records()
 	require.NoError(t, err)

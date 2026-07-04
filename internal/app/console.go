@@ -41,6 +41,7 @@ func renderConsole(navKey string, packets []packet.Packet, addr packet.Addr, cen
 	if strip := renderInFlightStrip(packets); strip != nil {
 		mainParts = append(mainParts, strip)
 	}
+	mainParts = append(mainParts, renderLaneHealthGrid(navKey, packets))
 	mainParts = append(mainParts, center)
 
 	return h.Div(
@@ -177,6 +178,51 @@ func renderInFlightStrip(packets []packet.Packet) h.H {
 		))
 	}
 	return h.Div(append([]h.H{h.Class("console__inflight")}, rows...)...)
+}
+
+// laneHealthBuckets is the fixed, honest display order of the lane-health
+// grid's cards — every bucket always renders, even at zero, so an empty
+// bucket is never mistaken for a missing mechanic (MVP.md invariant 6).
+var laneHealthBuckets = []packet.Lane{
+	packet.LaneBestEffort, packet.LaneStandard, packet.LaneStrict, packet.LaneUnmeasured,
+}
+
+// renderLaneHealthGrid is the center column's "lane health" section (ROADMAP
+// slice 7): one kicker+count card per lane bucket, tallied ONLY from lanes
+// ALREADY in the session's lane cache (liveEntry.cachedLane — a pure map
+// read). An order never opened in the Inspector has no cached lane yet and
+// counts as unmeasured; this NEVER computes a lane itself, since it renders
+// on every "/" poll tick and the exec-based Measure must stay off that path.
+func renderLaneHealthGrid(navKey string, packets []packet.Packet) h.H {
+	e := lookupLiveEntry(navKey)
+	counts := make(map[packet.Lane]int, len(laneHealthBuckets))
+	for _, p := range packets {
+		lane := packet.LaneUnmeasured
+		if e != nil {
+			lane = e.cachedLane(p.ID)
+		}
+		counts[lane]++
+	}
+
+	cards := make([]h.H, 0, len(laneHealthBuckets))
+	for _, lane := range laneHealthBuckets {
+		cards = append(cards, renderLaneHealthCard(lane, counts[lane]))
+	}
+
+	return h.Div(h.Class("console__lane-health"),
+		h.Div(h.Class("console__panel-header"), h.Text("lane health")),
+		h.Div(append([]h.H{h.Class("console__lane-grid")}, cards...)...),
+	)
+}
+
+// renderLaneHealthCard renders one bucket: a lowercase mono kicker naming the
+// lane and a tabular-numeral count. data-lane carries the lane name so a
+// specific bucket's count is addressable without relying on card order.
+func renderLaneHealthCard(lane packet.Lane, n int) h.H {
+	return h.Div(h.Class("console__lane-card"),
+		h.Span(h.Class("console__lane-kicker"), h.Text(lane.String())),
+		h.Span(h.Class("console__lane-count"), h.Data("lane", lane.String()), h.Text(strconv.Itoa(n))),
+	)
 }
 
 // firstWords returns the first n whitespace-separated words of s — a

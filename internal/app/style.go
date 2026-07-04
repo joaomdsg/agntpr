@@ -823,6 +823,45 @@ body {
 .console__inflight-name { font-family: var(--font-mono); font-size: var(--fs-tiny); color: var(--ink); }
 .console__inflight-intent { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--text-muted); }
 
+/* ---- ROADMAP slice 7: lane health — 4 kicker+count cards, tallied ONLY
+   from the session's lane cache. Neutral hairline cards, no state colors
+   (lane is QoS, not a lifecycle state), no shadows. ---- */
+.console__lane-health {
+  margin-top: var(--sp-6);
+  padding-top: var(--sp-5);
+  border-top: 1px solid var(--hairline);
+}
+.console__lane-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-3);
+  margin-top: var(--sp-3);
+}
+.console__lane-card {
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface-card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card-sm);
+  text-align: center;
+}
+.console__lane-kicker {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: var(--track-label);
+  text-transform: lowercase;
+  color: var(--text-faint);
+}
+.console__lane-count {
+  display: block;
+  margin-top: var(--sp-1);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-emph);
+  font-weight: 600;
+  color: var(--ink);
+}
+
 /* ---- ROADMAP slice 4: the Inspector shell — identity strip | changed-files
    tree | Monaco island + answer form | annotation rail | timeline footer, per
    design/ui_kits/console/InspectorScreen.jsx. FINAL design-system class names
@@ -841,6 +880,20 @@ body {
 .inspector__name { color: var(--ink); font-weight: 600; font-size: var(--fs-body-mono); }
 .inspector__packet-name { color: var(--text-muted); font-size: var(--fs-tiny); }
 .inspector__rev { color: var(--text-muted); font-size: var(--fs-tiny); }
+/* ROADMAP slice 7: a NEUTRAL pill — lane is a QoS class, never a lifecycle
+   state, so it never borrows the state-grammar colors (--held/--risk/etc).
+   Same flat-raised idiom as the annotation card's neutral chips. */
+.inspector__lane {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: var(--track-chip);
+  text-transform: lowercase;
+  padding: 1px var(--sp-3);
+  border-radius: var(--r-pill);
+  border: 1px solid var(--hairline);
+  background: var(--surface-raised);
+  color: var(--text-faint);
+}
 .inspector__addr { margin-left: auto; color: var(--text-faint); font-size: var(--fs-tiny); }
 .inspector {
   display: grid;

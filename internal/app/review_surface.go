@@ -286,10 +286,16 @@ func (c *ReviewCard) View(_ *via.CtxR) h.H {
 		// rev chip and the tree/diff regions all degrade to their honest empties.
 		tgt, hasTarget := orderTarget(log, woID)
 		pktName := ""
+		lane := packet.LaneUnmeasured
 		if pkt, ok := packetForOrder(navKey, woID); ok {
 			pktName = pkt.Name
+			// Computed (and cached) HERE, on this render, scoped to the one
+			// packet being shown in detail — never on the 100ms Stream poll.
+			if e := lookupLiveEntry(navKey); e != nil {
+				lane = e.laneFor(context.Background(), pkt)
+			}
 		}
-		parts = append(parts, renderInspectorTitlebar("wo#"+strconv.Itoa(woID), tgt.BaseRev, tgt.FixRev, sessionAddr(navKey), pktName))
+		parts = append(parts, renderInspectorTitlebar("wo#"+strconv.Itoa(woID), tgt.BaseRev, tgt.FixRev, sessionAddr(navKey), pktName, lane))
 
 		left := renderInspectorEmptyTree()
 		var main []h.H
@@ -335,7 +341,10 @@ func (c *ReviewCard) View(_ *via.CtxR) h.H {
 	}
 
 	threads := sessionOpenThreads(navKey)
-	parts = append(parts, renderInspectorTitlebar(navKey, cfg.BaseRev, cfg.FixRev, sessionAddr(navKey), ""))
+	// The session-scoped review has no single packet to measure — a lane is
+	// meaningless without one, so this stays the honest LaneUnmeasured rather
+	// than computing anything.
+	parts = append(parts, renderInspectorTitlebar(navKey, cfg.BaseRev, cfg.FixRev, sessionAddr(navKey), "", packet.LaneUnmeasured))
 
 	var main []h.H
 	if len(threads) > 0 {

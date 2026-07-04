@@ -25,6 +25,12 @@ type Packet struct {
 	Caught        bool
 	Verdict       string
 	OpenQuestions int
+	// Lane is the packet's measured QoS class. Fold NEVER computes it — Fold
+	// is a pure data->data projection over ledger views, while a lane needs a
+	// `go list` exec against the repo (Measure, lane_measure.go) — so every
+	// folded Packet starts at the honest zero value, LaneUnmeasured, until
+	// the app layer measures and attaches one (ROADMAP slice 7's laneFor).
+	Lane Lane
 }
 
 // Deliverable always reports false: delivered is UNREACHABLE until a real

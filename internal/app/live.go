@@ -250,6 +250,15 @@ type liveEntry struct {
 	// the value is immutable once set.
 	addrOnce sync.Once
 	addr     packet.Addr
+	// laneMu guards laneCache: an order's measured Lane, computed via
+	// packet.Measure (an exec seam — `go list` + git) at most once per order
+	// id. A fixRev change mints a new order id (ROADMAP slice 5's identity
+	// model), so there is no staleness to invalidate for MVP. Separate from
+	// findingsMu since it guards an unrelated, exec-derived cache with a much
+	// higher per-entry cost — a lock a render might hold across a subprocess
+	// call must never also block the cheap off-ledger diagnostic reads above.
+	laneMu    sync.Mutex
+	laneCache map[int]packet.Lane
 }
 
 // resolvedAddr returns this session's repo identity (owner/name), computed
@@ -257,6 +266,62 @@ type liveEntry struct {
 func (e *liveEntry) resolvedAddr() packet.Addr {
 	e.addrOnce.Do(func() { e.addr = packet.ParseAddr(e.cfg.RepoDir) })
 	return e.addr
+}
+
+// cachedLaneEntry reads laneCache directly, reporting a miss distinctly from
+// a cached LaneUnmeasured — the distinction laneFor needs to decide whether
+// to compute.
+func (e *liveEntry) cachedLaneEntry(orderID int) (packet.Lane, bool) {
+	e.laneMu.Lock()
+	defer e.laneMu.Unlock()
+	lane, ok := e.laneCache[orderID]
+	return lane, ok
+}
+
+// laneFor returns p's measured Lane, computing (and caching) it on the first
+// call to observe a cache miss for this order id. A packet with no fix rev
+// yet (still queued — e.g. a live prompt order the harness hasn't produced a
+// revision for) returns LaneUnmeasured WITHOUT computing or caching, so a
+// later render — once the revs exist — gets a real measurement instead of a
+// permanently-cached miss. Every OTHER outcome, including a Measure error, IS
+// cached (as LaneUnmeasured on error) so a doomed measurement is not
+// re-shelled-out on every render.
+//
+// Concurrent misses for the SAME order (e.g. two tabs opening one Inspector
+// at once) are not deduplicated — each runs its own packet.Measure and the
+// last write wins the cache slot. Both computed the same real answer, so the
+// cache ends up correct either way; the cost is redundant subprocess work,
+// never a correctness bug. Not worth a singleflight for the Inspector's
+// one-human-at-a-time access pattern.
+//
+// This execs `go list`/git (packet.Measure) and may be called ONLY from a
+// render path (View), scoped to the packet(s) actually shown in detail — the
+// Inspector's order-scoped branch. The 100ms via.Stream poll (OnConnect) must
+// NEVER call this; it reads cachedLane instead, a pure map lookup.
+func (e *liveEntry) laneFor(ctx context.Context, p packet.Packet) packet.Lane {
+	if lane, ok := e.cachedLaneEntry(p.ID); ok {
+		return lane
+	}
+	if p.BaseRev == "" || p.FixRev == "" {
+		return packet.LaneUnmeasured
+	}
+	lane, _ := packet.Measure(ctx, e.cfg.RepoDir, p.BaseRev, p.FixRev)
+	e.laneMu.Lock()
+	if e.laneCache == nil {
+		e.laneCache = map[int]packet.Lane{}
+	}
+	e.laneCache[p.ID] = lane
+	e.laneMu.Unlock()
+	return lane
+}
+
+// cachedLane returns orderID's ALREADY-cached lane, LaneUnmeasured on a cache
+// miss — a pure map read, NEVER a compute. The Console's lane-health grid
+// (and anything reachable from the 100ms Stream poll) must use this, never
+// laneFor.
+func (e *liveEntry) cachedLane(orderID int) packet.Lane {
+	lane, _ := e.cachedLaneEntry(orderID)
+	return lane
 }
 
 // maxActivityLog bounds the in-flight transcript so a long agent run can't grow the

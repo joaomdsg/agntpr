@@ -169,3 +169,19 @@ func TestFold_returnsNoPacketsForNoViews(t *testing.T) {
 
 	assert.Empty(t, got)
 }
+
+// Fold is a pure data->data projection over ledger views — it never shells
+// out to `go list`/git, so a folded Packet's Lane must stay Unmeasured until
+// something ELSE (the app's laneFor, ROADMAP slice 7) computes and attaches
+// it. A Fold that guessed a lane would violate MVP.md's "never self-reported,
+// never vibes" invariant.
+func TestFold_leavesLaneUnmeasuredSinceFoldNeverShellsOutToMeasureIt(t *testing.T) {
+	t.Parallel()
+
+	views := []ledger.DispatchView{{ID: 1, Status: "done", Caught: true}}
+
+	got := packet.Fold(views, packet.Addr{}, zeroQuestions)
+
+	require.Len(t, got, 1)
+	assert.Equal(t, packet.LaneUnmeasured, got[0].Lane)
+}
