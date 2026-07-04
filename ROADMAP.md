@@ -5,7 +5,7 @@ the spec). One slice per tick unless a slice says otherwise. Statuses:
 queued / in-flight / landed / dropped. Every landed slice carries one
 evidence line.
 
-NEXT: slice 3.
+NEXT: slice 4.
 
 ## Council verdicts
 
@@ -46,12 +46,16 @@ NEXT: slice 3.
   per-surface sub (console/inspect/settings). Full Titlebar pattern
   deferred to the Inspector shell (slice 4), where it lives.
   Evidence: full gate green; commit below.
-- [ ] **3. Console shell** — queued. `/` becomes the 3-column
-  Console (360|1fr|340): regions in place — needs-you rail,
-  forwarded hero, in-flight, recently delivered, watches — fed by
-  the data that exists today under the NEW vocabulary; dashed
-  honest empty states where the mechanic doesn't exist yet (no lane
-  health, no watches numbers). Old `/` card content retired.
+- [x] **3. Console shell** — landed. `/` is the 3-column Console
+  (360|1fr|340, internal/app/console.go): needs-you rail (open
+  threads, capped, victory empty state), hero `packets verified`
+  (Done count — forwarded/delivered deliberately NOT claimed yet),
+  settled rail, honest dashed empties for calibration + watches;
+  center column preserves the tested act-now/state sections; open-
+  thread count folded into the existing SSE poll signature.
+  Follow-up noted: settled-row "missed" renders amber (--held) —
+  revisit the color semantics when hold states become real (slice
+  10). Evidence: full gate green; commit below.
 - [ ] **4. Inspector shell** — queued. `/inspect/<packet>` becomes
   the 3-column Inspector (252|1fr|312): changed-files tree, Monaco
   rich diff, annotation rail (today's question threads reframed),

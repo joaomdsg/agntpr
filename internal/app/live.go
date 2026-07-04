@@ -1114,8 +1114,11 @@ func (c *LiveCard) View(ctx *via.CtxR) h.H {
 		state = append(state, surface.RenderLand(pipe.LandState(c.Land.Read(ctx))))
 	}
 	parts = append(parts, h.Section(state...))
-	// nav landmark first, then the main economy region — distinct sibling landmarks.
-	return h.Div(navHeader(navKey, "console"), h.Div(parts...))
+	// nav landmark first, then the Console grid (ROADMAP slice 3): a needs-you
+	// rail of this session's open review threads, the untouched economy region
+	// as the center column (behind a hero stat), and a settled+watches rail.
+	return h.Div(navHeader(navKey, "console"),
+		renderConsole(navKey, sessionOpenThreads(navKey), dispatch.Done, dispatches, h.Div(parts...)))
 }
 
 // Spend funds one unit of dispatched work against the balance — the Lead's first
@@ -1542,7 +1545,14 @@ func (c *LiveCard) OnConnect(ctx *via.Ctx) error {
 		// so an unchanged tally writes nothing (no spurious frames).
 		if log != nil {
 			if cnt, err := log.DispatchStatusCounts(); err == nil {
-				if sig := cnt.Queued*1_000_000 + cnt.Running*1_000 + cnt.Done; sig != lastDispatch {
+				// The needs-you rail's open-thread count (ROADMAP slice 3) has no cell of
+				// its own — findings can change off the connect-cycle path (a dispatched
+				// order's own findings, a /review answer resolving one) with nothing else
+				// to notice while this session's "/" stream is open. Folding it into the
+				// SAME cheap signature the dispatch tally already uses re-renders the rail
+				// live without standing up a whole new SSE channel/cell.
+				threads := len(sessionOpenThreads(c.Key))
+				if sig := threads*1_000_000_000 + cnt.Queued*1_000_000 + cnt.Running*1_000 + cnt.Done; sig != lastDispatch {
 					lastDispatch = sig
 					c.Dispatch.Write(ctx, strconv.Itoa(sig))
 				}

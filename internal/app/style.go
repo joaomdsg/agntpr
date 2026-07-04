@@ -675,4 +675,119 @@ body {
    breadcrumb crumb idiom (.board-nav__crumb), so they inherit its calm hue + focus.
    Only the surrounding paragraph needs spacing. ---- */
 .review__return, .review__up, .settings__return { margin: 0 0 var(--sp-3) 0; font-size: var(--fs-small); }
+
+/* ---- ROADMAP slice 3: the Console shell — needs-you rail | preserved center
+   column | settled+watches rail, per design/ui_kits/console/ConsoleScreen.jsx.
+   FINAL design-system class names (console, console__*); the pre-existing
+   .pk-*/section classes nested inside .console__main are untouched. Every
+   region is bounded by a 1px --hairline; cards never drop-shadow. ---- */
+.console {
+  display: grid;
+  grid-template-columns: 360px 1fr 340px;
+  align-items: start;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  overflow: hidden;
+}
+.console__rail {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-panel);
+  min-width: 0;
+}
+.console__rail--needs-you { border-right: 1px solid var(--hairline); }
+.console__rail--settled { border-left: 1px solid var(--hairline); }
+.console__panel-header {
+  padding: var(--sp-4) var(--sp-6);
+  background: var(--surface-card);
+  border-bottom: 1px solid var(--hairline);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: var(--track-kicker);
+  text-transform: lowercase;
+  color: var(--ink);
+}
+.console__rail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: var(--sp-5);
+}
+.console__card {
+  display: block;
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface-card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card-sm);
+  text-decoration: none;
+  color: inherit;
+}
+.console__card--dashed {
+  background: transparent;
+  border: 1px dashed var(--border-dashed);
+  text-align: center;
+  color: var(--text-faint);
+}
+.console__thread-title {
+  font-family: var(--font-mono);
+  font-size: var(--fs-tiny);
+  color: var(--ink);
+}
+.console__thread-loc {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  color: var(--text-faint);
+  margin-top: var(--sp-1);
+}
+.console__thread-arrow {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  color: var(--signal);
+  margin-top: var(--sp-1);
+}
+.console__more {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  color: var(--text-faint);
+  text-align: center;
+}
+.console__empty-kicker {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: var(--track-label);
+  text-transform: lowercase;
+}
+.console__main {
+  padding: 30px 32px 32px;
+  min-width: 0;
+}
+.console__hero {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-6);
+  margin-bottom: var(--sp-7);
+}
+.console__hero-stat {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-hero-stat);
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1;
+}
+.console__hero-label { color: var(--text-muted); font-size: var(--fs-body); }
+.console__cell {
+  display: inline-block;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-glyph);
+}
+.console__cell[data-state="verified"] { background: var(--verified); }
+.console__cell[data-state="held"] { background: var(--held); }
+.console__settled-row { display: flex; align-items: center; gap: var(--sp-3); }
+.console__settled-id { font-family: var(--font-mono); font-size: var(--fs-tiny); color: var(--ink); }
+.console__settled-outcome { margin-left: auto; font-family: var(--font-mono); font-size: var(--fs-tiny); color: var(--text-muted); }
 `
