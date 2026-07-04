@@ -358,7 +358,7 @@ func TestCageVerifier_verifiesAGenuineCatchInsideTheRealCage(t *testing.T) {
 	requireCageImage(t, "packets-cage:dev")
 	host, base, fix := catchRepo(t)
 
-	rec, err := cage.CageVerifier(sandbox.DockerRunner{}, host, "packets-cage:dev", 30*time.Second)(catchClaim(base, fix))
+	rec, err := cage.CageVerifier(sandbox.DockerRunner{}, host, "packets-cage:dev", 180*time.Second)(catchClaim(base, fix))
 	require.NoError(t, err)
 	require.NotNil(t, rec, "a strengthened boundary test is a confirmed catch the cage must derive")
 	assert.Equal(t, catch.Catch, rec.Outcome)
@@ -379,7 +379,7 @@ func TestCageVerifier_mintsNothingForANoCatchInsideTheRealCage(t *testing.T) {
 	write(t, dir, "extra.go", "package capm\n") // churn below the anchor; test not strengthened
 	fix := commitAll(t, dir, "churn")
 
-	rec, err := cage.CageVerifier(sandbox.DockerRunner{}, dir, "packets-cage:dev", 30*time.Second)(catchClaim(base, fix))
+	rec, err := cage.CageVerifier(sandbox.DockerRunner{}, dir, "packets-cage:dev", 180*time.Second)(catchClaim(base, fix))
 	require.NoError(t, err)
 	assert.Nil(t, rec, "no strengthening across the revs → no catch → nothing minted")
 }

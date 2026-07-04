@@ -44,7 +44,7 @@ func TestEquivalence_cagedCatchProjectionMatchesInProcess(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, inproc, "the in-process oracle must see this catch — else the corpus is wrong, not the cage")
 
-	caged, err := cage.CageVerifier(sandbox.DockerRunner{}, host, "packets-cage:dev", 30*time.Second)(claim)
+	caged, err := cage.CageVerifier(sandbox.DockerRunner{}, host, "packets-cage:dev", 180*time.Second)(claim)
 	require.NoError(t, err)
 
 	assert.Equal(t, inproc, caged, "the sandboxed catch record must be byte-identical to the in-process one")
@@ -61,7 +61,7 @@ func TestEquivalence_cagedNoCatchMatchesInProcess(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, inproc, "the in-process oracle must see no catch here — else the corpus is wrong")
 
-	caged, err := cage.CageVerifier(sandbox.DockerRunner{}, host, "packets-cage:dev", 30*time.Second)(claim)
+	caged, err := cage.CageVerifier(sandbox.DockerRunner{}, host, "packets-cage:dev", 180*time.Second)(claim)
 	require.NoError(t, err)
 
 	assert.Equal(t, inproc, caged, "both paths must agree there is nothing to mint")

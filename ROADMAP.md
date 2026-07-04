@@ -31,7 +31,9 @@ NEXT: slice 1.
 - [x] **0. Bootstrap** — landed. Reorg committed (old docs →
   old_stale/, design/ added); LOOP.md + MVP.md + ROADMAP.md;
   `internal/refactor` deleted; gate baseline green.
-  Evidence: this commit.
+  Evidence: 479d04d; gate-flake fix (real-cage test deadlines
+  30s→180s, this machine runs a caged cycle in ~28s) landed after,
+  full suite green.
 - [ ] **1. Token port** — queued. Replace the `--pk-*` values in
   internal/app/style.go with the MVP.md brand pack verbatim (new
   token names, IBM Plex fonts, keyframes, state-grammar colors);
