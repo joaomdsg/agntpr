@@ -65,7 +65,7 @@ func TestGoldenReplay_realLoopShowsAWinTwoCompoundsAndAnHonestMissAndReplaysCons
 	tc := vt.NewClient(t, server, "/")
 	frames, cancel := tc.SSE()
 	defer cancel()
-	vt.AwaitFrame(t, frames, 60*time.Second, `data-balance="1"`) // the connect WIN minted a catch
+	vt.AwaitFrame(t, frames, 60*time.Second, "/_action/Spend") // the connect WIN minted a catch — the spend affordance appears
 
 	win := goldenRow(t)
 	require.Equal(t, 1, win.Confirmed, "the connect cycle caught the anchor line — a real WIN")

@@ -148,10 +148,11 @@ func TestReviewCard_identityStripOmitsRevChipWhenARevIsUnknown(t *testing.T) {
 		"an unresolved per-order review omits the rev chip rather than showing zero-value revs")
 }
 
-// The identity strip's repo cell is the honest repo FOLDER name
-// (filepath.Base(cfg.RepoDir)) — the owner/repo addr form is a later slice
-// (5); this must never fabricate an address. NOT parallel.
-func TestReviewCard_identityStripShowsTheRepoFolderName(t *testing.T) {
+// ROADMAP slice 6: the identity strip's repo cell is the honest packet addr
+// (packet.ParseAddr(cfg.RepoDir).String()), not a raw folder name — a
+// remote-less repo falls back to "local/<dir>", never a fabricated owner.
+// NOT parallel.
+func TestReviewCard_identityStripShowsTheAddr(t *testing.T) {
 	resetConsumersForTest()
 	repoDir := filepath.Join(t.TempDir(), "acme-widgets")
 	require.NoError(t, os.MkdirAll(repoDir, 0o755))
@@ -166,7 +167,54 @@ func TestReviewCard_identityStripShowsTheRepoFolderName(t *testing.T) {
 	t.Cleanup(func() { _ = log.Close() })
 
 	body := bodyOf(vt.NewClient(t, server, "/review").HTML())
-	require.Contains(t, body, "acme-widgets", "the repo folder name renders honestly")
+	require.Contains(t, body, "local/acme-widgets", "a remote-less repo renders the honest local/<dir> addr")
+}
+
+// ROADMAP slice 6: an order-scoped review that folds to a packet shows the
+// packet's own Name beside wo#<id> — the identity the packet model gives the
+// order, not just its raw numeric id. NOT parallel (shared liveReg + the
+// resolveCycle seam).
+func TestReviewCard_identityStripShowsThePacketNameWhenOrderScoped(t *testing.T) {
+	resetConsumersForTest()
+	restore := resolveCycle
+	t.Cleanup(func() { resolveCycle = restore })
+	resolveCycle = func(_ context.Context, _, _, _, _ string, _ reanchor.Anchor, _ []string, _, _ bool, _ chan<- pipe.TraceEvent) (Resolution, error) {
+		return Resolution{
+			Verdict: string(catch.Catch),
+			Record:  &ledger.CatchRecord{Outcome: catch.Catch, Path: "alpha.go", Line: 7, ReasonTag: "catch"},
+		}, nil
+	}
+	restoreReader := reviewFileReader
+	t.Cleanup(func() { reviewFileReader = restoreReader })
+	reviewFileReader = func(_ context.Context, _, _, _ string) (string, error) { return "package main\n", nil }
+
+	repoDir := t.TempDir()
+	gitInitNoRemote(t, repoDir)
+
+	ctx := context.Background()
+	f, err := fabric.Start(ctx, t.TempDir())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = f.Close() })
+	log := ledger.Bind(f, "insppkt", "i")
+	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 1, ReasonTag: "catch"}))
+	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
+	require.NoError(t, log.AppendDispatch("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
+	registerSession("insppkt", LiveConfig{RepoDir: repoDir, BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
+	drainQueuedOrders("insppkt")
+
+	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
+	var server *httptest.Server
+	viaApp, defLog, err := NewServer(LiveConfig{
+		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
+		TestCmd: []string{"true"}, LedgerPath: defLogPath,
+	})
+	require.NoError(t, err)
+	server = httptest.NewServer(viaApp)
+	t.Cleanup(func() { _ = defLog.Close() })
+
+	body := bodyOf(vt.NewClient(t, server, "/review?key=insppkt&wo=1").HTML())
+	require.Contains(t, body, "local/"+filepath.Base(repoDir), "the identity strip's addr slot uses the real repo identity")
+	require.Contains(t, body, "wo-1", "the order's own packet name renders beside wo#<id> once it folds to a packet")
 }
 
 // The annotation rail renders each open thread as an annotation card: an

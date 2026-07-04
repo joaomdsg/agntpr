@@ -24,6 +24,7 @@ import (
 	"github.com/joaomdsg/packets/internal/ingest"
 	"github.com/joaomdsg/packets/internal/ledger"
 	"github.com/joaomdsg/packets/internal/mutation"
+	"github.com/joaomdsg/packets/internal/packet"
 	"github.com/joaomdsg/packets/internal/pipe"
 	"github.com/joaomdsg/packets/internal/reanchor"
 	"github.com/joaomdsg/packets/internal/review"
@@ -243,6 +244,19 @@ type liveEntry struct {
 	// move. Capped at maxActivityLog (oldest dropped) so a long run can't grow it
 	// without bound. Bracketed to the fill lifecycle like activityBeat; guarded by fillMu.
 	activityLog []string
+	// addrOnce/addr cache this session's repo identity (packet.ParseAddr execs
+	// git, so it is resolved once per session and reused on every later render,
+	// not re-shelled out to on each poll). Guarded by addrOnce, not findingsMu —
+	// the value is immutable once set.
+	addrOnce sync.Once
+	addr     packet.Addr
+}
+
+// resolvedAddr returns this session's repo identity (owner/name), computed
+// once per session and cached for every later render.
+func (e *liveEntry) resolvedAddr() packet.Addr {
+	e.addrOnce.Do(func() { e.addr = packet.ParseAddr(e.cfg.RepoDir) })
+	return e.addr
 }
 
 // maxActivityLog bounds the in-flight transcript so a long agent run can't grow the
@@ -447,6 +461,35 @@ func (e *liveEntry) orderQuestionCount(id int) int {
 	e.findingsMu.Lock()
 	defer e.findingsMu.Unlock()
 	return len(e.orderFindings[id])
+}
+
+// sessionPackets folds a session's dispatches into packets — the Console and
+// Inspector's shared read model (ROADMAP slice 6). n<=0 folds every dispatch
+// (an honest total for counts like the hero stat); a positive n caps the
+// underlying RecentDispatches read. Empty (nil) when the session or its
+// ledger is unknown — callers treat that as "nothing to show", never an
+// error.
+func sessionPackets(key string, n int) []packet.Packet {
+	e := lookupLiveEntry(key)
+	if e == nil || e.log == nil {
+		return nil
+	}
+	views, err := e.log.RecentDispatches(n)
+	if err != nil {
+		return nil
+	}
+	return packet.Fold(views, e.resolvedAddr(), func(id int) int {
+		return len(orderOpenThreads(key, id))
+	})
+}
+
+// sessionAddr returns a session's repo identity, or the zero Addr when the
+// session is unknown.
+func sessionAddr(key string) packet.Addr {
+	if e := lookupLiveEntry(key); e != nil {
+		return e.resolvedAddr()
+	}
+	return packet.Addr{}
 }
 
 // orderFindingsFor returns a filled order's cached review questions (nil if none).
@@ -953,7 +996,6 @@ func (c *LiveCard) View(ctx *via.CtxR) h.H {
 	var stock ledger.Stock
 	balance := 0
 	bandwidth := 0
-	var dispatch ledger.DispatchCounts
 	var dispatches []ledger.DispatchView
 	if log != nil {
 		if recs, err := log.Records(); err == nil {
@@ -964,9 +1006,6 @@ func (c *LiveCard) View(ctx *via.CtxR) h.H {
 		}
 		if bw, err := log.Bandwidth(); err == nil {
 			bandwidth = bw
-		}
-		if c, err := log.DispatchStatusCounts(); err == nil {
-			dispatch = c
 		}
 		// This session's recent funded work-orders + their caught/missed outcome —
 		// the round-trip the Lead watches after a Spend, on the same card they act on.
@@ -1050,11 +1089,13 @@ func (c *LiveCard) View(ctx *via.CtxR) h.H {
 		}
 		parts = append(parts, h.Section(append(section, actNow...)...))
 	}
+	// The economy meter rows (stock/balance/bandwidth/dispatch) are RETIRED from
+	// the UI (MVP.md vocabulary map, ROADMAP slice 6) — the underlying ledger
+	// reads above still feed renderFundWork/onboarding (their reframe is slice
+	// 11), but nothing renders them as a row here anymore.
 	state := []h.H{
 		h.Attr("aria-labelledby", "state-history-label"),
 		h.Span(h.Class("pk-section-label"), h.ID("state-history-label"), h.Text("state & history")),
-		surface.RenderStock(stock), surface.RenderBalance(balance),
-		surface.RenderBandwidth(bandwidth), surface.RenderDispatch(dispatch),
 	}
 	// WATCH IT FILL: when the background runner is mid-fill on an order, show it live
 	// — the order id + the cycle beats accruing as the oracle works (re-rendered each
@@ -1114,11 +1155,13 @@ func (c *LiveCard) View(ctx *via.CtxR) h.H {
 		state = append(state, surface.RenderLand(pipe.LandState(c.Land.Read(ctx))))
 	}
 	parts = append(parts, h.Section(state...))
-	// nav landmark first, then the Console grid (ROADMAP slice 3): a needs-you
-	// rail of this session's open review threads, the untouched economy region
-	// as the center column (behind a hero stat), and a settled+watches rail.
+	// nav landmark first, then the Console grid (ROADMAP slice 6): a needs-you
+	// rail of this session's HELD packets, the untouched center content (behind
+	// a hero stat + in-flight strip), and a settled+watches rail — every count
+	// folded from the SAME packet slice, never a second source of truth.
+	packets := sessionPackets(c.Key, 0)
 	return h.Div(navHeader(navKey, "console"),
-		renderConsole(navKey, sessionOpenThreads(navKey), dispatch.Done, dispatches, h.Div(parts...)))
+		renderConsole(navKey, packets, sessionAddr(c.Key), h.Div(parts...)))
 }
 
 // Spend funds one unit of dispatched work against the balance — the Lead's first
@@ -1544,7 +1587,11 @@ func (c *LiveCard) OnConnect(ctx *via.Ctx) error {
 		// watches the order move queued→running→done live. Keyed on a cheap signature
 		// so an unchanged tally writes nothing (no spurious frames).
 		if log != nil {
-			if cnt, err := log.DispatchStatusCounts(); err == nil {
+			// ONE ledger projection per tick (RecentDispatches), same cost as the
+			// DispatchStatusCounts poll it replaces — the per-status tally, the
+			// Caught tally, and the open-thread count all derive from it without a
+			// second fold.
+			if views, err := log.RecentDispatches(0); err == nil {
 				// The needs-you rail's open-thread count (ROADMAP slice 3) has no cell of
 				// its own — findings can change off the connect-cycle path (a dispatched
 				// order's own findings, a /review answer resolving one) with nothing else
@@ -1552,7 +1599,26 @@ func (c *LiveCard) OnConnect(ctx *via.Ctx) error {
 				// SAME cheap signature the dispatch tally already uses re-renders the rail
 				// live without standing up a whole new SSE channel/cell.
 				threads := len(sessionOpenThreads(c.Key))
-				if sig := threads*1_000_000_000 + cnt.Queued*1_000_000 + cnt.Running*1_000 + cnt.Done; sig != lastDispatch {
+				// A packet's Caught bit can flip WITHOUT any status/question change (a
+				// catch crediting an order whose status already settled to "done") — the
+				// hero/settled fold is Caught-sensitive, so the caught tally folds into
+				// the SAME signature too, or that transition would sit invisible behind
+				// an open SSE connection until reload.
+				var queued, running, done, caught int
+				for _, v := range views {
+					switch v.Status {
+					case "queued":
+						queued++
+					case "running":
+						running++
+					case "done":
+						done++
+					}
+					if v.Caught {
+						caught++
+					}
+				}
+				if sig := caught*1_000_000_000_000 + threads*1_000_000_000 + queued*1_000_000 + running*1_000 + done; sig != lastDispatch {
 					lastDispatch = sig
 					c.Dispatch.Write(ctx, strconv.Itoa(sig))
 				}

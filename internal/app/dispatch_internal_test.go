@@ -52,11 +52,12 @@ func awaitFrameContaining(t *testing.T, frames <-chan string, d time.Duration, m
 	}
 }
 
-func TestLiveCard_spendFundsAWorkOrderAndTheDispatchRowRisesAsTheBalanceDrains(t *testing.T) {
+func TestLiveCard_spendFundsAWorkOrderWhoseRoundTripSurfacesOverSSE(t *testing.T) {
 	// Internal test (package app): swaps resolveCycle so connect mints NOTHING,
 	// isolating the consequence to the Spend verb. NOT parallel (shared globals).
-	// The property: a spend BUYS something visible — in ONE render the balance row
-	// drains to 0 AND the dispatch row rises to 1 (the funded work-order).
+	// The property: a spend BUYS something visible — the funded work-order
+	// surfaces on the card and settles to done over SSE (the retired meter rows
+	// no longer render, so the dispatch LIST is the visible round-trip).
 	restore := resolveCycle
 	t.Cleanup(func() { resolveCycle = restore })
 	resolveCycle = func(_ context.Context, _, _, _, _ string, _ reanchor.Anchor, _ []string, _, _ bool, _ chan<- pipe.TraceEvent) (Resolution, error) {
@@ -78,13 +79,14 @@ func TestLiveCard_spendFundsAWorkOrderAndTheDispatchRowRisesAsTheBalanceDrains(t
 	tc := vt.NewClient(t, server, "/")
 	frames, cancel := tc.SSE()
 	defer cancel()
-	awaitFrameContaining(t, frames, 10*time.Second, `data-balance="1"`, `data-dispatch-queued="0"`)
+	// The seeded balance renders the spend affordance (present only with a
+	// catch to spend) — the pre-spend synchronization point.
+	awaitFrameContaining(t, frames, 10*time.Second, "/_action/Spend")
 
 	require.Equal(t, 200, tc.Action((&LiveCard{}).Spend).Fire())
-	// The spend drains the balance to 0 and funds an order; the order then RUNS
-	// (its fake target mints nothing) to done, surfaced live by the dispatch poll.
-	vt.AwaitFrame(t, frames, 10*time.Second, `data-balance="0"`)
-	vt.AwaitFrame(t, frames, 10*time.Second, `data-dispatch-done="1"`)
+	// The spend funds an order; the order then RUNS (its fake target mints
+	// nothing) to done, surfaced live by the dispatch poll on the order list.
+	vt.AwaitFrame(t, frames, 10*time.Second, "WO#1 other.go:9 done")
 
 	pending, err := log.PendingDispatches()
 	require.NoError(t, err)
@@ -95,7 +97,7 @@ func TestLiveCard_spendFundsAWorkOrderAndTheDispatchRowRisesAsTheBalanceDrains(t
 	// guard exactly as the balance drain does.
 	require.Equal(t, 200, tc.Action((&LiveCard{}).Spend).Fire())
 	tail := drainFramesFor(frames, 500*time.Millisecond)
-	require.NotContains(t, tail, `data-dispatch-done="2"`, "an over-budget spend must fund no second work-order")
+	require.NotContains(t, tail, "WO#2", "an over-budget spend must fund no second work-order")
 	stillOne, err := log.PendingDispatches()
 	require.NoError(t, err)
 	require.Equal(t, 1, stillOne, "the refused dispatch left the work-order count unchanged")

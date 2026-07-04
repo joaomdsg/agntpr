@@ -151,12 +151,6 @@ func TestBaseStylesheet_extractsTheSharedComponentLayer(t *testing.T) {
 	// regress a row back to its hand-rolled box.
 	require.Contains(t, board, `class="pk-card board-row"`,
 		"each fleet row composes .pk-card")
-	for _, hook := range []string{
-		"pk-card stock-row", "pk-card balance-row", "pk-card bandwidth-row",
-	} {
-		require.Containsf(t, page, hook,
-			"the session card's %q row composes .pk-card", hook)
-	}
 
 	// The board's create input + button compose the shared classes.
 	require.Contains(t, board, `class="pk-input board-create__key"`,

@@ -53,7 +53,7 @@ func TestLiveCard_spendDispatchesAnOrderThatRunsAndMintsBackADistinctCatch(t *te
 	tc := vt.NewClient(t, server, "/")
 	frames, cancel := tc.SSE()
 	defer cancel()
-	vt.AwaitFrame(t, frames, 10*time.Second, `data-balance="1"`)
+	vt.AwaitFrame(t, frames, 10*time.Second, "/_action/Spend") // the seeded catch renders the spend affordance
 
 	require.Equal(t, 200, tc.Action((&LiveCard{}).Spend).Fire())
 
@@ -109,7 +109,7 @@ func TestLiveCard_dispatchingOwnAlreadyCaughtWorkIsAnHonestLossNotAFarm(t *testi
 	tc := vt.NewClient(t, server, "/")
 	frames, cancel := tc.SSE()
 	defer cancel()
-	vt.AwaitFrame(t, frames, 10*time.Second, `data-balance="2"`)
+	vt.AwaitFrame(t, frames, 10*time.Second, "/_action/Spend") // the seeded balance renders the spend affordance
 
 	require.Equal(t, 200, tc.Action((&LiveCard{}).Spend).Fire())
 	require.Eventually(t, func() bool {
@@ -259,10 +259,10 @@ func TestLiveCard_dispatchedOrderProgressIsWatchableQueuedRunningDoneOverSSE(t *
 	tc := vt.NewClient(t, server, "/")
 	frames, cancel := tc.SSE()
 	defer cancel()
-	vt.AwaitFrame(t, frames, 10*time.Second, `data-balance="1"`)
+	vt.AwaitFrame(t, frames, 10*time.Second, "/_action/Spend") // the seeded catch renders the spend affordance
 
 	require.Equal(t, 200, tc.Action((&LiveCard{}).Spend).Fire())
-	vt.AwaitFrame(t, frames, 10*time.Second, `data-dispatch-running="1"`) // work in flight surfaces live
+	vt.AwaitFrame(t, frames, 10*time.Second, "in flight · 1") // work in flight surfaces live on the console strip
 	close(release)
-	vt.AwaitFrame(t, frames, 10*time.Second, `data-dispatch-done="1"`) // the payoff surfaces live
+	vt.AwaitFrame(t, frames, 10*time.Second, "settled · 1") // the payoff surfaces live on the settled rail
 }

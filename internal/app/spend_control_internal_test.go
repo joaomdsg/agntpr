@@ -117,10 +117,16 @@ func TestLiveCard_spendControlRetractsLiveWhenTheLastCatchIsSpent(t *testing.T) 
 	// The control is present while there is a catch to spend.
 	vt.AwaitFrame(t, frames, 10*time.Second, "/_action/Spend")
 
-	// Spend the lone catch: the drain-to-zero frame must show balance 0 AND no
-	// longer carry the spend control.
+	// Spend the lone catch: the drain-to-zero re-render must reach the live
+	// stream (the funded order surfacing proves the fan-out happened — no
+	// pre-spend render carries a WO row), and the re-evaluated card must no
+	// longer offer the spend control. The retract itself is asserted on a fresh
+	// full render because vt frames are fixed-size read chunks — a NotContains
+	// on one chunk of a large card would pass or fail by chunk boundary, not by
+	// behavior.
 	require.Equal(t, 200, tc.Action((&LiveCard{}).Spend).Fire())
-	drained := vt.AwaitFrame(t, frames, 10*time.Second, `data-balance="0"`)
-	require.NotContains(t, drained, "/_action/Spend",
+	vt.AwaitFrame(t, frames, 10*time.Second, "WO#1")
+	body := bodyOf(vt.NewClient(t, server, "/").HTML())
+	require.NotContains(t, body, "/_action/Spend",
 		"the spend control must retract once the last catch is spent — no dead button")
 }

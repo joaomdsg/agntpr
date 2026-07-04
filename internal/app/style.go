@@ -451,16 +451,13 @@ body {
 
 /* ---- the single review card ---- */
 /* box CSS (padding + surface + border + radius) now on .pk-card (multi-class);
-   these keep only the shared bottom margin between stacked cards. */
-.stock-row, .balance-row, .bandwidth-row, .dispatch-row, .beat-row, .review-card, .land-row, .onboarding {
+   these keep only the shared bottom margin between stacked cards. The
+   stock/balance/bandwidth/dispatch meter rows are RETIRED from the UI
+   (MVP.md vocabulary map, ROADMAP slice 6) — their render helpers are gone,
+   so no rule for them lives here anymore. */
+.beat-row, .review-card, .land-row, .onboarding {
   margin-bottom: var(--sp-3);
 }
-.stock__count { font-weight: 700; color: var(--verified); }
-.stock__reinvested { color: var(--verified); }
-.stock__reason, .stock__self-flagged, .stock__would-ship { color: var(--text-muted); font-size: var(--fs-small); }
-.balance-row__amount { margin: 0; color: var(--signal); font-weight: 600; }
-.bandwidth-row__amount { margin: 0; color: var(--signal); font-weight: 600; }
-.dispatch-row__counts { margin: 0; color: var(--text-muted); font-family: var(--font-mono); }
 .beat { color: var(--text-muted); font-family: var(--font-mono); }
 .review-card__headline { margin: 0 0 var(--sp-1) 0; font-weight: 600; }
 .review-card__detail { margin: 0; color: var(--text-muted); }
@@ -778,18 +775,53 @@ body {
   line-height: 1;
 }
 .console__hero-label { color: var(--text-muted); font-size: var(--fs-body); }
+.console__hero-addr {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-tiny);
+  color: var(--text-faint);
+}
 .console__cell {
   display: inline-block;
   flex: none;
   width: 8px;
   height: 8px;
   border-radius: var(--r-glyph);
+  box-sizing: border-box;
 }
 .console__cell[data-state="verified"] { background: var(--verified); }
 .console__cell[data-state="held"] { background: var(--held); }
+/* the blocking hold's matte hue — the same red the needs-you rail pulses,
+   but settled rows are retrospective ("live pulses; settled is matte"). */
+.console__cell[data-state="held-blocking"] { background: var(--risk); }
+/* only WITHIN the needs-you rail does a blocking hold pulse — it is the one
+   live, still-actionable use of the color; the settled rail never pulses. */
+.console__rail--needs-you .console__cell[data-state="held-blocking"] {
+  animation: pk-held-pulse 2s ease-in-out infinite;
+}
+.console__cell[data-state="in-flight"] { background: var(--signal); animation: pk-pulse 1.8s ease-in-out infinite; }
+/* the ghost "composing" cell — the mark's ghost idiom (8%-tint fill,
+   delivered-colored stroke) reused for a queued packet row. */
+.console__cell[data-state="composing"] {
+  background: color-mix(in srgb, var(--delivered) 8%, transparent);
+  border: 1.5px solid var(--delivered);
+}
 .console__settled-row { display: flex; align-items: center; gap: var(--sp-3); }
 .console__settled-id { font-family: var(--font-mono); font-size: var(--fs-tiny); color: var(--ink); }
 .console__settled-outcome { margin-left: auto; font-family: var(--font-mono); font-size: var(--fs-tiny); color: var(--text-muted); }
+.console__inflight {
+  margin-top: var(--sp-6);
+  padding-top: var(--sp-5);
+  border-top: 1px solid var(--hairline);
+}
+.console__inflight-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-2) 0;
+}
+.console__inflight-name { font-family: var(--font-mono); font-size: var(--fs-tiny); color: var(--ink); }
+.console__inflight-intent { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--text-muted); }
 
 /* ---- ROADMAP slice 4: the Inspector shell — identity strip | changed-files
    tree | Monaco island + answer form | annotation rail | timeline footer, per
@@ -807,6 +839,7 @@ body {
   font-family: var(--font-mono);
 }
 .inspector__name { color: var(--ink); font-weight: 600; font-size: var(--fs-body-mono); }
+.inspector__packet-name { color: var(--text-muted); font-size: var(--fs-tiny); }
 .inspector__rev { color: var(--text-muted); font-size: var(--fs-tiny); }
 .inspector__addr { margin-left: auto; color: var(--text-faint); font-size: var(--fs-tiny); }
 .inspector {

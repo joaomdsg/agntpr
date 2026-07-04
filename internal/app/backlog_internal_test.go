@@ -63,7 +63,7 @@ func TestLiveCard_spendsDrawDistinctConfigWorkThenSupplyRefillsFromCatches(t *te
 	tc := vt.NewClient(t, server, "/")
 	frames, cancel := tc.SSE()
 	defer cancel()
-	vt.AwaitFrame(t, frames, 10*time.Second, `data-balance="2"`)
+	vt.AwaitFrame(t, frames, 10*time.Second, "/_action/Spend") // the seeded balance renders the spend affordance
 
 	require.Equal(t, 200, tc.Action((&LiveCard{}).Spend).Fire()) // funds T1
 	require.Equal(t, 200, tc.Action((&LiveCard{}).Spend).Fire()) // funds T2 (head advances — NOT T1 again)

@@ -12,6 +12,7 @@ import (
 
 	"github.com/joaomdsg/packets/internal/ledger"
 	"github.com/joaomdsg/packets/internal/mutation"
+	"github.com/joaomdsg/packets/internal/packet"
 	"github.com/joaomdsg/packets/internal/pipe"
 	"github.com/joaomdsg/packets/internal/reanchor"
 	"github.com/joaomdsg/packets/internal/review"
@@ -76,6 +77,17 @@ func orderOpenThreads(key string, orderID int) []review.Thread {
 		return nil
 	}
 	return review.QuestionThreadsFromMutations(e.orderFindingsFor(orderID))
+}
+
+// packetForOrder finds a session's own folded Packet for orderID, ok=false
+// when the order is unknown or the session has no ledger to fold.
+func packetForOrder(key string, orderID int) (packet.Packet, bool) {
+	for _, p := range sessionPackets(key, 0) {
+		if p.ID == orderID {
+			return p, true
+		}
+	}
+	return packet.Packet{}, false
 }
 
 // orderTarget finds a funded work-order's Target (its base/fix revs + anchored path)
@@ -273,7 +285,11 @@ func (c *ReviewCard) View(_ *via.CtxR) h.H {
 		// be resolved (unfilled/unknown id) has no revs to show — the identity strip's
 		// rev chip and the tree/diff regions all degrade to their honest empties.
 		tgt, hasTarget := orderTarget(log, woID)
-		parts = append(parts, renderInspectorTitlebar("wo#"+strconv.Itoa(woID), tgt.BaseRev, tgt.FixRev, cfg.RepoDir))
+		pktName := ""
+		if pkt, ok := packetForOrder(navKey, woID); ok {
+			pktName = pkt.Name
+		}
+		parts = append(parts, renderInspectorTitlebar("wo#"+strconv.Itoa(woID), tgt.BaseRev, tgt.FixRev, sessionAddr(navKey), pktName))
 
 		left := renderInspectorEmptyTree()
 		var main []h.H
@@ -319,7 +335,7 @@ func (c *ReviewCard) View(_ *via.CtxR) h.H {
 	}
 
 	threads := sessionOpenThreads(navKey)
-	parts = append(parts, renderInspectorTitlebar(navKey, cfg.BaseRev, cfg.FixRev, cfg.RepoDir))
+	parts = append(parts, renderInspectorTitlebar(navKey, cfg.BaseRev, cfg.FixRev, sessionAddr(navKey), ""))
 
 	var main []h.H
 	if len(threads) > 0 {

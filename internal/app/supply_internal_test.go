@@ -98,7 +98,7 @@ func TestLiveCard_supplyRefillsFromItsOwnCatchesSoSpendNeverSilentlyDeadEnds(t *
 	tc := vt.NewClient(t, server, "/")
 	frames, cancel := tc.SSE()
 	defer cancel()
-	vt.AwaitFrame(t, frames, 10*time.Second, `data-balance="1"`)
+	vt.AwaitFrame(t, frames, 10*time.Second, "/_action/Spend") // the seeded catch renders the spend affordance
 
 	require.Equal(t, 200, tc.Action((&LiveCard{}).Spend).Fire()) // funds a DERIVED candidate (config is empty)
 	require.Eventually(t, func() bool {
@@ -137,7 +137,7 @@ func TestLiveCard_aDerivedCandidateReproducingASeenCatchIsAnHonestLoss(t *testin
 	tc := vt.NewClient(t, server, "/")
 	frames, cancel := tc.SSE()
 	defer cancel()
-	vt.AwaitFrame(t, frames, 10*time.Second, `data-balance="2"`)
+	vt.AwaitFrame(t, frames, 10*time.Second, "/_action/Spend") // the seeded balance renders the spend affordance
 
 	require.Equal(t, 200, tc.Action((&LiveCard{}).Spend).Fire())
 	require.Eventually(t, func() bool {

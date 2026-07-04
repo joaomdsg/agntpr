@@ -5,7 +5,7 @@ the spec). One slice per tick unless a slice says otherwise. Statuses:
 queued / in-flight / landed / dropped. Every landed slice carries one
 evidence line.
 
-NEXT: slice 6.
+NEXT: slice 7.
 
 ## Council verdicts
 
@@ -75,10 +75,17 @@ NEXT: slice 6.
   clause reasons), failed→held blocking, unknown→held blocking
   (fail-toward-attention); Delivered pinned unreachable until ACK
   (slice 13). 93 subtests. Evidence: full gate green; commit below.
-- [ ] **6. Wire surfaces to packets** — queued. Console + Inspector
-  read the Packet aggregate (queue = held, in-flight, delivered
-  rail; Inspector timeline from the fold). Economy meters
-  (stock/balance/bets/bandwidth wallet) leave the UI.
+- [x] **6. Wire surfaces to packets** — landed. Console reads the
+  fold: needs-you = held packets (blocking-first, reasons, pulse),
+  in-flight strip (pulsing + ghost composing cells), hero counts
+  ONLY State==Verified, settled rail lifecycle-colored, mono addr
+  line; Inspector titlebar shows addr + packet name. Meters
+  (stock/balance/bandwidth/dispatch rows) deleted from UI + their
+  surface helpers; caught count folded into the SSE poll signature
+  (Caught-flip-only transitions fan out, pinned). Poll stays one
+  ledger projection per tick; addr cached per session (sync.Once).
+  Fund/bench/land controls untouched (slice 11). Evidence: full
+  gate green; commit below.
 - [ ] **7. Lanes from blast radius** — queued. Pure host-side
   function: `go list` import-graph reverse-dependency weight of a
   packet's changed packages → lane (best-effort/standard/strict/

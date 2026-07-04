@@ -18,9 +18,11 @@ import (
 	"github.com/joaomdsg/packets/internal/reanchor"
 )
 
-func TestLiveCard_spendVerbDrainsTheBalanceRowOverSSE(t *testing.T) {
+func TestLiveCard_spendVerbDrainsTheBalanceAndTheFundedOrderSurfacesOverSSE(t *testing.T) {
 	// Internal test (package app): swaps resolveCycle so the connect cycle mints
 	// NOTHING, isolating the drain to the Spend verb. NOT parallel (shared globals).
+	// The balance row is retired from the UI (ROADMAP slice 6), so the drain is
+	// asserted on the ledger and the SSE-visible consequence is the funded order.
 	restore := resolveCycle
 	t.Cleanup(func() { resolveCycle = restore })
 	resolveCycle = func(_ context.Context, _, _, _, _ string, _ reanchor.Anchor, _ []string, _, _ bool, _ chan<- pipe.TraceEvent) (Resolution, error) {
@@ -43,12 +45,16 @@ func TestLiveCard_spendVerbDrainsTheBalanceRowOverSSE(t *testing.T) {
 	tc := vt.NewClient(t, server, "/")
 	frames, cancel := tc.SSE()
 	defer cancel()
-	vt.AwaitFrame(t, frames, 10*time.Second, `data-balance="2"`) // the seeded balance renders
+	vt.AwaitFrame(t, frames, 10*time.Second, "/_action/Spend") // the seeded balance renders the spend affordance
 
-	// Spend one confirmed catch: the balance row must DRAIN to 1 over SSE — the
-	// first non-climbing transition the Lead can actually trigger.
+	// Spend one confirmed catch: the funded work-order must surface over SSE —
+	// the first non-climbing transition the Lead can actually trigger — and the
+	// ledger's balance drains by exactly one.
 	require.Equal(t, 200, tc.Action((&LiveCard{}).Spend).Fire())
-	vt.AwaitFrame(t, frames, 10*time.Second, `data-balance="1"`)
+	vt.AwaitFrame(t, frames, 10*time.Second, "WO#1")
+	bal, err := log.Balance()
+	require.NoError(t, err)
+	require.Equal(t, 1, bal, "the spend debited exactly one catch")
 }
 
 func TestLiveCard_overBudgetSpendIsASilentNoOpNotASpuriousFrame(t *testing.T) {
@@ -78,19 +84,18 @@ func TestLiveCard_overBudgetSpendIsASilentNoOpNotASpuriousFrame(t *testing.T) {
 	tc := vt.NewClient(t, server, "/")
 	frames, cancel := tc.SSE()
 	defer cancel()
-	vt.AwaitFrame(t, frames, 10*time.Second, `data-balance="1"`)
+	vt.AwaitFrame(t, frames, 10*time.Second, "/_action/Spend") // the seeded catch renders the spend affordance
 
 	require.Equal(t, 200, tc.Action((&LiveCard{}).Spend).Fire()) // drain 1 → 0
-	vt.AwaitFrame(t, frames, 10*time.Second, `data-balance="0"`)
+	vt.AwaitFrame(t, frames, 10*time.Second, "WO#1")             // the funded order surfaces — the drain landed
 
 	// Spend past 0: a no-op. The action still returns 200 (never an error to the
 	// Lead). The card may still re-render as the first spend's funded order runs in
-	// the background (a legitimate dispatch-progress frame showing an UNCHANGED
-	// balance), but the refused spend must never drive the balance negative nor fund
-	// a second order.
+	// the background (a legitimate dispatch-progress frame), but the refused spend
+	// must never fund a second order.
 	require.Equal(t, 200, tc.Action((&LiveCard{}).Spend).Fire())
 	tail := drainFramesFor(frames, 500*time.Millisecond)
-	require.NotContains(t, tail, `data-balance="-1"`, "the balance must never render negative")
+	require.NotContains(t, tail, "WO#2", "the refused spend must surface no second work-order")
 
 	bal, err := log.Balance()
 	require.NoError(t, err)
