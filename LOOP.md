@@ -77,6 +77,18 @@ fabricated), and any marketing surface. Do not build them.
   debated to convergence. The coordinator writes the converged verdict
   into ROADMAP.md and acts on it. Never wait on the user for a design
   fork; only a truly irreversible/destructive action pauses the loop.
+- **Fable — extremely rare, last resort only.** `model: fable` (the
+  top-tier model) may be dispatched ONLY when a Sonnet builder has
+  genuinely failed to make progress on the SAME slice after a real
+  retry with a sharper prompt (not just hit its session/rate limit —
+  that's a retry, not an escalation) — i.e. the complexity has grown
+  out of control: a design deadlock a council round didn't resolve,
+  a defect whose root cause two Sonnet attempts couldn't isolate, or
+  a cross-cutting refactor Sonnet keeps getting subtly wrong. Default
+  to Sonnet retries and narrower/re-scoped prompts first; Fable is
+  the exception, not a tier to reach for out of convenience — the
+  user was explicit that it is expensive and must stay rare. Log why
+  in ROADMAP.md whenever it's used.
 
 ## State files (the loop's memory)
 
@@ -152,14 +164,21 @@ same tick.
 ## The gate (must be green to land)
 
 ```
-go build ./... && go vet ./... && \
-  TMPDIR=/home/jgonc/tmp go test -race -p 1 ./...
+./scripts/test-fast.sh
 ```
 
-(`TMPDIR` off tmpfs — cage tests fill `/tmp`. Create the dir if
-missing.) CI runs on the push; check the previous tick's run each
-orient step (`gh run list -L 1`). A cage-image pull flake is re-run,
-not debugged.
+Runs build+vet, then the ~20 non-container packages at full package
+parallelism concurrently with `internal/cage`+`internal/sandbox`
+under `-p 1` (those two — and only those two — must stay serialized
+against each other: both launch docker containers labeled
+`io.packets.sandbox=1` and assert on that shared label). Wall time is
+`max(fast, cage)`, not the sum — ~2min locally, vs. the old blanket
+`-p 1 ./...` gate. `TMPDIR` defaults to `/home/jgonc/tmp` (off tmpfs —
+cage tests fill `/tmp`; override with `TMPDIR_OVERRIDE`). CI mirrors
+this split as two concurrent jobs (`test-fast` / `test-cage` in
+`.github/workflows/ci.yml`). Check the previous tick's run each orient
+step (`gh run list -L 1`). A cage-image pull flake is re-run, not
+debugged.
 
 ## Build rules (put verbatim in every builder prompt)
 

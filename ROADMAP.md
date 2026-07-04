@@ -7,6 +7,29 @@ evidence line.
 
 NEXT: slice 7.
 
+## Infra
+
+- **Test suite speed** (2026-07-04, unscheduled — user directive to
+  fix holistically). The old gate (`-p 1 ./...`) serialized ALL 22
+  packages because `internal/cage`+`internal/sandbox` share a docker
+  container label (`io.packets.sandbox=1`) that only THOSE two need
+  isolated from each other. Split into `scripts/test-fast.sh`
+  (local) + `test-fast`/`test-cage` CI jobs (`.github/workflows/
+  ci.yml`): the other 20 packages run at full parallelism, no
+  docker dependency, concurrently with the serialized cage+sandbox
+  pair. Measured cold: ~45s (fast set) vs ~110s (cage+sandbox
+  serialized) running concurrently → ~1m53s wall vs. the prior
+  blanket-serial gate. LOOP.md's gate section updated to
+  `./scripts/test-fast.sh`. NOTED, not chased: a pre-existing flaky
+  `TestPruneProducerObjects_leavesOtherProducersUntouched`
+  (internal/ingest, `TempDir RemoveAll: directory not empty`) —
+  didn't reproduce on repeat runs, unrelated to this change.
+- **Fable escalation added to LOOP.md** (2026-07-04, user directive):
+  `model: fable` may be dispatched ONLY as a last resort when a
+  Sonnet builder has genuinely stalled on the same slice after a
+  real retry (not merely hit a session limit) — extremely rare,
+  logged here whenever used.
+
 ## Council verdicts
 
 - **R-B1 (bootstrap, 2026-07-04, 3 personas, converged):** economy

@@ -42,7 +42,12 @@ jobs:
         working-directory: packets
         run: go build ./...
 
-  test:
+  # test-fast and test-cage run CONCURRENTLY on separate runners. Only
+  # internal/cage and internal/sandbox share the io.packets.sandbox=1 docker
+  # label constraint (see test-cage below) — none of the other 20 packages
+  # touch docker or that label, so they no longer need to wait behind the
+  # cage image build or be serialized against each other.
+  test-fast:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -64,6 +69,33 @@ jobs:
       - name: Vet
         working-directory: packets
         run: go vet ./...
+      - name: Test
+        working-directory: packets
+        # All packages except internal/cage and internal/sandbox: no docker
+        # dependency, no shared-label constraint, so this runs with full
+        # package parallelism (no -p 1) and starts immediately instead of
+        # waiting on the cage image build in test-cage.
+        run: go test -race -timeout 5m $(go list ./... | grep -Ev '/internal/(cage|sandbox)$')
+
+  test-cage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: packets
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.VIA_REPO }}
+          ref: ${{ env.VIA_REF }}
+          path: via
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          # Cache the module + build cache (default on) keyed on go.sum, so a code
+          # push that leaves go.sum unchanged reuses the prior run's compiled
+          # objects (incl. the separate -race set) instead of recompiling the deps
+          # + stdlib cold every run.
+          cache-dependency-path: packets/go.sum
       # Build the cage image so the #6c sandbox tests run for REAL instead of
       # skipping: requireCageImage / requireDocker gate the break-out proofs and
       # the in-proc≡cage equivalence lock on this image being present. ubuntu-latest
@@ -99,6 +131,9 @@ jobs:
         # other's global-label assertion. Serial package execution keeps the
         # docker-state assertions isolated (within-package tests are already
         # non-parallel). Within-test parallelism (t.Parallel) is unaffected.
+        # This constraint is local to these two packages only — no other package
+        # in the module touches docker or the shared label, so test-fast (above)
+        # doesn't need to be part of this serialization.
         env:
           PACKETS_REQUIRE_CAGE: "1"
-        run: go test -race -timeout 20m -p 1 ./...
+        run: go test -race -timeout 10m -p 1 ./internal/cage/ ./internal/sandbox/
