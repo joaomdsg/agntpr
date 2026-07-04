@@ -790,4 +790,118 @@ body {
 .console__settled-row { display: flex; align-items: center; gap: var(--sp-3); }
 .console__settled-id { font-family: var(--font-mono); font-size: var(--fs-tiny); color: var(--ink); }
 .console__settled-outcome { margin-left: auto; font-family: var(--font-mono); font-size: var(--fs-tiny); color: var(--text-muted); }
+
+/* ---- ROADMAP slice 4: the Inspector shell — identity strip | changed-files
+   tree | Monaco island + answer form | annotation rail | timeline footer, per
+   design/ui_kits/console/InspectorScreen.jsx. FINAL design-system class names
+   (inspector, inspector__*, annotation-card*); .review-thread/.review-answer/
+   .review-adjust/.file-tree keep their own rules above (additive multi-class).
+   Every region is hairline-bounded; cards never drop-shadow. ---- */
+.inspector__titlebar {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-5);
+  padding-bottom: var(--sp-3);
+  margin-bottom: var(--sp-5);
+  border-bottom: 1px solid var(--hairline);
+  font-family: var(--font-mono);
+}
+.inspector__name { color: var(--ink); font-weight: 600; font-size: var(--fs-body-mono); }
+.inspector__rev { color: var(--text-muted); font-size: var(--fs-tiny); }
+.inspector__addr { margin-left: auto; color: var(--text-faint); font-size: var(--fs-tiny); }
+.inspector {
+  display: grid;
+  grid-template-columns: 252px 1fr 312px;
+  align-items: start;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  overflow: hidden;
+}
+.inspector__tree {
+  padding: var(--sp-5);
+  background: var(--surface-panel);
+  border-right: 1px solid var(--hairline);
+  min-width: 0;
+}
+.inspector__main {
+  padding: var(--sp-5);
+  background: var(--surface-card);
+  min-width: 0;
+}
+.inspector__rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-5);
+  background: var(--surface-panel);
+  border-left: 1px solid var(--hairline);
+  min-width: 0;
+}
+.inspector__rail-header {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: var(--track-kicker);
+  text-transform: lowercase;
+  color: var(--text-muted);
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--hairline);
+}
+.inspector__tree-empty {
+  padding: var(--sp-4);
+  border: 1px dashed var(--border-dashed);
+  border-radius: var(--r-card-sm);
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  color: var(--text-faint);
+}
+.inspector__timeline {
+  margin-top: var(--sp-5);
+  padding: var(--sp-4);
+  border: 1px dashed var(--border-dashed);
+  border-radius: var(--r-card-sm);
+  text-align: center;
+}
+.inspector__timeline-kicker {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: var(--track-kicker);
+  text-transform: lowercase;
+  color: var(--text-faint);
+  margin-bottom: var(--sp-1);
+}
+/* the annotation card (MVP.md AnnotationCard spec): authorship is the 3px
+   left border — --agent, since every open thread on the rail is oracle-
+   authored. Overrides .review-thread's own thinner signal-hue accent
+   (later in the stylesheet wins at equal specificity). */
+.annotation-card {
+  border-left: 3px solid var(--agent);
+  background: var(--surface-raised);
+  border-radius: var(--r-ann);
+  padding: var(--sp-3) var(--sp-4);
+}
+.annotation-card__head { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-2); }
+.annotation-card__chip {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: var(--track-chip);
+  text-transform: lowercase;
+  padding: 1px var(--sp-3);
+  border-radius: var(--r-pill);
+  border: 1px solid var(--hairline);
+  color: var(--text-muted);
+}
+.annotation-card__chip--author {
+  color: var(--agent);
+  border-color: color-mix(in srgb, var(--agent) 40%, var(--hairline));
+  background: color-mix(in srgb, var(--agent) 14%, transparent);
+}
+.annotation-card__chip--sev {
+  color: var(--held);
+  border-color: color-mix(in srgb, var(--held) 40%, var(--hairline));
+  background: color-mix(in srgb, var(--held) 14%, transparent);
+}
+.annotation-card__where { margin-left: auto; color: var(--text-faint); font-size: var(--fs-tiny); }
 `

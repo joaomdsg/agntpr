@@ -5,7 +5,7 @@ the spec). One slice per tick unless a slice says otherwise. Statuses:
 queued / in-flight / landed / dropped. Every landed slice carries one
 evidence line.
 
-NEXT: slice 4.
+NEXT: slice 5.
 
 ## Council verdicts
 
@@ -56,11 +56,16 @@ NEXT: slice 4.
   Follow-up noted: settled-row "missed" renders amber (--held) —
   revisit the color semantics when hold states become real (slice
   10). Evidence: full gate green; commit below.
-- [ ] **4. Inspector shell** — queued. `/inspect/<packet>` becomes
-  the 3-column Inspector (252|1fr|312): changed-files tree, Monaco
-  rich diff, annotation rail (today's question threads reframed),
-  Titlebar; timeline footer stubbed honestly. `/review` folds in
-  and dies.
+- [x] **4. Inspector shell** — landed. /review renders the 3-column
+  Inspector (252|1fr|312, internal/app/inspector.go): identity
+  strip (wo#/key, short base→fix rev chip omitted when unknown,
+  repo folder name), file tree left (honest empty when unscoped),
+  Monaco + answer form center (islands untouched), annotation rail
+  right (threads as agent/question annotation cards keeping
+  review-thread classes + data anchors; adjustment ✎ zone below),
+  honest timeline footer. Zero pre-existing test edits needed.
+  Route rename + owner/repo addr deferred (slices 15 / 5).
+  Evidence: full gate green; commit below.
 - [ ] **5. Packet aggregate** — queued. `internal/packet`: Packet
   {name, addr, intent, revs, lane?, gate results?, lifecycle}
   folded from existing fabric/ledger events; addr = `owner/repo`

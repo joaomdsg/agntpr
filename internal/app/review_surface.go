@@ -68,22 +68,6 @@ type ReviewCard struct {
 	AdjText via.SignalStr `via:"adjtext"`
 }
 
-// renderQuestionThreads renders anchored "question:" threads (File:Line + body) —
-// the shared read-only rendering for both the session review and a per-order review.
-func renderQuestionThreads(threads []review.Thread) []h.H {
-	out := make([]h.H, 0, len(threads))
-	for _, t := range threads {
-		out = append(out, h.Div(
-			h.Class("review-thread"),
-			h.Data("file", t.File),
-			h.Data("line", strconv.Itoa(t.StartLine)),
-			h.Span(h.Class("review-thread__anchor"), h.Text(t.File+":"+strconv.Itoa(t.StartLine))),
-			h.Span(h.Class("review-thread__body"), h.Text(t.Render())), // "question: <body>"
-		))
-	}
-	return out
-}
-
 // orderOpenThreads converts a filled work-order's cached findings into review
 // threads. Empty when the order is unknown, unfilled, or left no surviving mutants.
 func orderOpenThreads(key string, orderID int) []review.Thread {
@@ -255,8 +239,11 @@ func findingsHaveLine(fs []mutation.Finding, file string, line int) bool {
 	return false
 }
 
-// View renders the session's open question-threads, anchored File:Line with their
-// Conventional-Comment body, or a calm empty state when the oracle left none.
+// View renders the Inspector shell (ROADMAP slice 4): the identity strip, the
+// 3-column grid (changed-files tree | Monaco island + answer form | annotation
+// rail), and a timeline footer. The session's open question-threads (or a
+// funded work-order's own) render as annotation cards on the rail; a calm
+// empty state fills it when the oracle left none.
 func (c *ReviewCard) View(_ *via.CtxR) h.H {
 	navKey := c.Key
 	if navKey == "" {
@@ -269,10 +256,6 @@ func (c *ReviewCard) View(_ *via.CtxR) h.H {
 	// the session review, making per-order↔session nav symmetric.
 	parts = append(parts, h.Nav(h.Attr("aria-label", "return"),
 		h.P(h.Class("review__return"), cardReturnCrumb(navKey))))
-	// The adjustment entry point: leave an anchored comment and the live harness re-edits
-	// in place (the comment→harness round-trip, DESIGN §12.3). Present on every review
-	// view so the Lead can always tell the agent what to change.
-	parts = append(parts, renderAdjustmentForm(c))
 
 	// Per-order review (/review?wo=<id>): the filled work-order's OWN review questions
 	// — the test-debt the funded work left — read from the per-order findings cache,
@@ -283,61 +266,96 @@ func (c *ReviewCard) View(_ *via.CtxR) h.H {
 		// funded order's test-debt isn't a dead end — the symmetric leg of Flow C.
 		parts = append(parts, h.Nav(h.Attr("aria-label", "review nav"),
 			h.P(h.Class("review__up"), reviewSessionCrumb(navKey))))
+
 		// "See the edits this order made": the order's base→fix diff, in a Monaco diff
 		// editor. The diff is STATIC and pre-funded (the fix revision the order ran) —
-		// honest framing, never a faked "live agent typing".
-		if tgt, ok := orderTarget(log, woID); ok {
+		// honest framing, never a faked "live agent typing". An order whose target can't
+		// be resolved (unfilled/unknown id) has no revs to show — the identity strip's
+		// rev chip and the tree/diff regions all degrade to their honest empties.
+		tgt, hasTarget := orderTarget(log, woID)
+		parts = append(parts, renderInspectorTitlebar("wo#"+strconv.Itoa(woID), tgt.BaseRev, tgt.FixRev, cfg.RepoDir))
+
+		left := renderInspectorEmptyTree()
+		var main []h.H
+		if hasTarget {
 			// The full fix tree with the order's changes highlighted; the clicked leaf
 			// (or, by default, the anchor — or the first changed file for an anchorless
-			// order) is what the diff editor below shows.
+			// order) is what the diff editor shows.
 			selected := resolveSelectedFile(cfg, tgt, c.File)
-			parts = append(parts, h.P(h.Class("review__lead"),
-				h.Text("Changed files — WO#"+strconv.Itoa(woID)+" (pick one to inspect):")))
-			parts = append(parts, renderFileTree(cfg, tgt, woID, selected))
-			parts = append(parts, h.P(h.Class("review__lead"),
-				h.Text("The edits WO#"+strconv.Itoa(woID)+" made — "+selected+":")))
-			parts = append(parts, orderDiffIsland(cfg, tgt, selected))
+			left = h.Div(
+				h.P(h.Class("review__lead"),
+					h.Text("Changed files — WO#"+strconv.Itoa(woID)+" (pick one to inspect):")),
+				renderFileTree(cfg, tgt, woID, selected),
+			)
+			main = append(main,
+				h.P(h.Class("review__lead"),
+					h.Text("The edits WO#"+strconv.Itoa(woID)+" made — "+selected+":")),
+				orderDiffIsland(cfg, tgt, selected),
+			)
 		}
+
 		orderThreads := orderOpenThreads(navKey, woID)
 		parts = append(parts, h.P(h.Class("review__lead"),
 			h.Text("Reviewing WO#"+strconv.Itoa(woID)+" — the work order's surviving mutants:")))
+
+		rail := []h.H{annotationRailHeader(len(orderThreads))}
 		if len(orderThreads) == 0 {
-			parts = append(parts, h.Div(h.Class("review__empty"),
+			rail = append(rail, h.Div(h.Class("review__empty"),
 				h.Text("No open questions for this order — the work left no surviving mutants (or it hasn't filled yet).")))
-			return h.Div(parts...)
+		} else {
+			rail = append(rail, renderAnnotationCards(orderThreads)...)
+			// Answer the order's questions in-place: the editable pane, scoped to THIS
+			// order ($answerwo) so the re-run uses the order's revs, not the session's.
+			main = append(main, renderAnswerForm(orderThreads[0], woID))
 		}
-		parts = append(parts, renderQuestionThreads(orderThreads)...)
-		// Answer the order's questions in-place: the editable pane, scoped to THIS
-		// order ($answerwo) so the re-run uses the order's revs, not the session's.
-		parts = append(parts, renderAnswerForm(orderThreads[0], woID))
+		// The adjustment entry point (DESIGN §12.3, the ✎ you-authored zone): leave an
+		// anchored comment and the live harness re-edits in place. Present on every
+		// review view so the Lead can always tell the agent what to change.
+		rail = append(rail, renderAdjustmentForm(c))
+
+		parts = append(parts, renderInspectorGrid(left, h.Div(main...), rail))
+		parts = append(parts, renderInspectorTimeline())
 		return h.Div(parts...)
 	}
 
 	threads := sessionOpenThreads(navKey)
-	if len(threads) == 0 {
-		parts = append(parts, h.Div(h.Class("review__empty"),
-			h.Text("No open questions — the oracle killed every mutant it tried (or this session hasn't run a cycle yet).")))
-		return h.Div(parts...)
+	parts = append(parts, renderInspectorTitlebar(navKey, cfg.BaseRev, cfg.FixRev, cfg.RepoDir))
+
+	var main []h.H
+	if len(threads) > 0 {
+		parts = append(parts, h.P(h.Class("review__lead"),
+			h.Text(strconv.Itoa(len(threads))+" open — surviving mutants the tests didn't catch:")))
+		// The editor island: a DOM subtree the client-side Monaco review editor (a later
+		// slice) mounts into, plus the SAME threads as a machine-readable JSON payload so
+		// the editor reads structured data, not the human text above. data-ignore-morph
+		// shields the editor's own DOM from being clobbered by an SSE re-render. Emitted
+		// only when there ARE questions — nothing to scaffold over an empty set.
+		main = append(main, reviewEditorIsland(cfg, threads))
+		// The answer affordance: write the killing test in an editable Monaco pane and
+		// submit. Following the maplibre plugin's client→server pattern (the only one
+		// that survives morphs cleanly): the editor + submit live in ONE data-ignore-morph
+		// wrapper, the submit dispatches a CustomEvent carrying the editor's value, and the
+		// wrapper's data-on:viaanswer ASSIGNS the answer signals from evt.detail INLINE,
+		// then @posts AnswerQuestion. Assigning in the datastar expression (not data-bind)
+		// is what makes the signal reliably present at post time. AnswerQuestion re-runs
+		// the oracle with the test injected — a kill makes the question vanish
+		// (diagnostic, off-economy).
+		main = append(main, renderAnswerForm(threads[0], 0))
 	}
-	parts = append(parts, h.P(h.Class("review__lead"),
-		h.Text(strconv.Itoa(len(threads))+" open — surviving mutants the tests didn't catch:")))
-	parts = append(parts, renderQuestionThreads(threads)...)
-	// The editor island: a DOM subtree the client-side Monaco review editor (a later
-	// slice) mounts into, plus the SAME threads as a machine-readable JSON payload so
-	// the editor reads structured data, not the human text above. data-ignore-morph
-	// shields the editor's own DOM from being clobbered by an SSE re-render. Emitted
-	// only when there ARE questions — nothing to scaffold over an empty set.
-	parts = append(parts, reviewEditorIsland(cfg, threads))
-	// The answer affordance: write the killing test in an editable Monaco pane and
-	// submit. Following the maplibre plugin's client→server pattern (the only one
-	// that survives morphs cleanly): the editor + submit live in ONE data-ignore-morph
-	// wrapper, the submit dispatches a CustomEvent carrying the editor's value, and the
-	// wrapper's data-on:viaanswer ASSIGNS the answer signals from evt.detail INLINE,
-	// then @posts AnswerQuestion. Assigning in the datastar expression (not data-bind)
-	// is what makes the signal reliably present at post time. AnswerQuestion re-runs
-	// the oracle with the test injected — a kill makes the question vanish
-	// (diagnostic, off-economy).
-	parts = append(parts, renderAnswerForm(threads[0], 0))
+
+	rail := []h.H{annotationRailHeader(len(threads))}
+	if len(threads) == 0 {
+		rail = append(rail, h.Div(h.Class("review__empty"),
+			h.Text("No open questions — the oracle killed every mutant it tried (or this session hasn't run a cycle yet).")))
+	} else {
+		rail = append(rail, renderAnnotationCards(threads)...)
+	}
+	// The adjustment entry point, present on every review view (see the per-order
+	// branch above for the full rationale).
+	rail = append(rail, renderAdjustmentForm(c))
+
+	parts = append(parts, renderInspectorGrid(renderInspectorEmptyTree(), h.Div(main...), rail))
+	parts = append(parts, renderInspectorTimeline())
 	return h.Div(parts...)
 }
 
