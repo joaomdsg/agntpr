@@ -1,0 +1,117 @@
+package packet_test
+
+import (
+	"fmt"
+	"testing"
+
+	"github.com/joaomdsg/packets/internal/ledger"
+	"github.com/joaomdsg/packets/internal/packet"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestFold_derivesNameAsASlugOfTheFirstThreeWordsOfThePrompt(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		prompt string
+		id     int
+		want   string
+	}{
+		{"three-plus words keeps only the first three", "Fix the rate limiter now", 1, "fix-the-rate"},
+		{"exactly three words", "Fix the limiter", 1, "fix-the-limiter"},
+		{"two words uses both", "Fix limiter", 1, "fix-limiter"},
+		{"one word uses it alone", "Fix", 1, "fix"},
+		{"empty prompt falls back to the order id", "", 7, "wo-7"},
+		{"whitespace-only prompt falls back to the order id", "   ", 9, "wo-9"},
+		{"non letter/digit runes are dropped from each word", "Fix! the-rate #limiter", 1, "fix-therate-limiter"},
+		{"punctuation-only words clean to empty and are skipped, not fabricated", "--- the limiter", 1, "the-limiter"},
+		{"all three candidate words clean to empty falls back to the order id", "--- *** !!!", 3, "wo-3"},
+		{"digits are kept", "Bump v2 config", 1, "bump-v2-config"},
+		{"an all-digit word is kept as-is", "123 abc def", 1, "123-abc-def"},
+		{"multi-byte unicode letters are kept and lowercased", "Café Latte Fix", 1, "café-latte-fix"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			views := []ledger.DispatchView{{
+				ID:     tt.id,
+				Target: ledger.Target{Prompt: tt.prompt},
+				Status: "queued",
+			}}
+
+			got := packet.Fold(views, packet.Addr{}, zeroQuestions)
+
+			require.Len(t, got, 1)
+			assert.Equal(t, tt.want, got[0].Name)
+		})
+	}
+}
+
+func TestFold_copiesOrderFactsThroughUnchanged(t *testing.T) {
+	t.Parallel()
+
+	addr := packet.Addr{Owner: "acme", Name: "widgets"}
+	views := []ledger.DispatchView{{
+		ID:      42,
+		Target:  ledger.Target{Prompt: "fix the thing", BaseRev: "base123", FixRev: "fix456"},
+		Status:  "done",
+		Caught:  true,
+		Verdict: "tested",
+	}}
+
+	got := packet.Fold(views, addr, constQuestions(5))
+
+	require.Len(t, got, 1)
+	p := got[0]
+	assert.Equal(t, 42, p.ID)
+	assert.Equal(t, addr, p.Addr)
+	assert.Equal(t, "fix the thing", p.Intent)
+	assert.Equal(t, "base123", p.BaseRev)
+	assert.Equal(t, "fix456", p.FixRev)
+	assert.True(t, p.Caught)
+	assert.Equal(t, "tested", p.Verdict)
+	assert.Equal(t, 5, p.OpenQuestions)
+}
+
+func TestPacket_isNeverDeliverableUntilARealAckMechanicExists(t *testing.T) {
+	t.Parallel()
+
+	statuses := []string{"queued", "running", "done", "failed", "cancelled"}
+	caughtValues := []bool{true, false}
+	questionCounts := []int{0, 1, 3}
+
+	for _, status := range statuses {
+		for _, caught := range caughtValues {
+			for _, questions := range questionCounts {
+				name := fmt.Sprintf("status=%s caught=%v questions=%d", status, caught, questions)
+				t.Run(name, func(t *testing.T) {
+					t.Parallel()
+
+					views := []ledger.DispatchView{{
+						ID:     1,
+						Target: ledger.Target{Prompt: "irrelevant prompt here"},
+						Status: status,
+						Caught: caught,
+					}}
+					got := packet.Fold(views, packet.Addr{}, constQuestions(questions))
+
+					require.Len(t, got, 1)
+					assert.NotEqual(t, packet.Delivered, got[0].State,
+						"delivered must never be reachable from Fold — it requires real ACK evidence")
+					assert.False(t, got[0].Deliverable(),
+						"Deliverable() is hard-wired false until slice 13's ACK mechanic exists")
+				})
+			}
+		}
+	}
+}
+
+func zeroQuestions(int) int { return 0 }
+
+func constQuestions(n int) func(int) int {
+	return func(int) int { return n }
+}

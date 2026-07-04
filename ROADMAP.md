@@ -5,7 +5,7 @@ the spec). One slice per tick unless a slice says otherwise. Statuses:
 queued / in-flight / landed / dropped. Every landed slice carries one
 evidence line.
 
-NEXT: slice 5.
+NEXT: slice 6.
 
 ## Council verdicts
 
@@ -66,12 +66,15 @@ NEXT: slice 5.
   honest timeline footer. Zero pre-existing test edits needed.
   Route rename + owner/repo addr deferred (slices 15 / 5).
   Evidence: full gate green; commit below.
-- [ ] **5. Packet aggregate** — queued. `internal/packet`: Packet
-  {name, addr, intent, revs, lane?, gate results?, lifecycle}
-  folded from existing fabric/ledger events; addr = `owner/repo`
-  binding for configured repos; lifecycle states
-  composing→in-flight→verified→held→delivered mapped from existing
-  events (delivered unreachable until slice 13). No new UI.
+- [x] **5. Packet aggregate** — landed. internal/packet: Addr
+  (owner/repo from git origin, ssh+https parsing, honest
+  local/<dir> fallback), Lifecycle+HoldKind state machine, Packet
+  aggregate w/ prompt-slug names, pure Fold(views, addr,
+  openQuestions) — mapping: queued→composing, running→in-flight,
+  done+caught+0q→verified, done+(!caught|q>0)→held advisory (one-
+  clause reasons), failed→held blocking, unknown→held blocking
+  (fail-toward-attention); Delivered pinned unreachable until ACK
+  (slice 13). 93 subtests. Evidence: full gate green; commit below.
 - [ ] **6. Wire surfaces to packets** — queued. Console + Inspector
   read the Packet aggregate (queue = held, in-flight, delivered
   rail; Inspector timeline from the fold). Economy meters
