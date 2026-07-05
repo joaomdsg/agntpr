@@ -49,7 +49,7 @@ func TestProducer_authenticatedExternalClaimPublishMintsAndCannotForgeAMint(t *t
 	// kind subjectKindClaim publishes under). It is consumed, verified, and minted.
 	pubCtx, pcancel := context.WithTimeout(ctx, 3*time.Second)
 	defer pcancel()
-	_, err = pjs.Publish(fabric.EventSubject(defaultSessionKey, ledgerInstance, fabric.StatusClaim, "work"), data, nats.Context(pubCtx))
+	_, err = pjs.Publish(fabric.EventSubject(defaultSessionKey, LedgerInstance, fabric.StatusClaim, "work"), data, nats.Context(pubCtx))
 	require.NoError(t, err, "a granted producer may publish to its own claim subtree")
 
 	require.Eventually(t, func() bool {
@@ -61,6 +61,6 @@ func TestProducer_authenticatedExternalClaimPublishMintsAndCannotForgeAMint(t *t
 	// DENIED: a producer cannot publish to the MINTED subtree — only the host mints.
 	forgeCtx, fcancel := context.WithTimeout(ctx, 2*time.Second)
 	defer fcancel()
-	_, ferr := pjs.Publish(fabric.EventSubject(defaultSessionKey, ledgerInstance, fabric.StatusMinted, "catch"), data, nats.Context(forgeCtx))
+	_, ferr := pjs.Publish(fabric.EventSubject(defaultSessionKey, LedgerInstance, fabric.StatusMinted, "catch"), data, nats.Context(forgeCtx))
 	require.Error(t, ferr, "a producer publishing to the minted subtree must be denied — it can never forge a catch")
 }

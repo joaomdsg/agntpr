@@ -114,11 +114,11 @@ func bundleAuthorized(grants []fabric.ProducerGrant, key string, r *http.Request
 
 // NewProducerGrant builds a producer authorization for the live server: the
 // credentials may publish claims ONLY to sessionKey's claim subtree, bound to
-// the one instance every economy uses (ledgerInstance), and may never mint. It
+// the one instance every economy uses (LedgerInstance), and may never mint. It
 // is the sanctioned constructor so callers (e.g. cmd/packets) need not know the
 // internal instance token.
 func NewProducerGrant(sessionKey, user, pass string) fabric.ProducerGrant {
-	return fabric.ProducerGrant{User: user, Pass: pass, Session: sessionKey, Instance: ledgerInstance}
+	return fabric.ProducerGrant{User: user, Pass: pass, Session: sessionKey, Instance: LedgerInstance}
 }
 
 // resolveCycle is the seam OnConnect runs the catch cycle through. It defaults to
@@ -1225,10 +1225,14 @@ func StartClaimConsumers(ctx context.Context, verifierFor func(LiveConfig) ledge
 	})
 }
 
-// ledgerInstance is the subject instance token every session's economy binds to.
+// LedgerInstance is the subject instance token every session's economy binds to.
 // There is one economy per session, so the session key alone demuxes them; the
-// instance is a fixed token completing the canonical subject.
-const ledgerInstance = "ledger"
+// instance is a fixed token completing the canonical subject. Exported so any
+// out-of-process writer (e.g. a host CLI ACKing a delivery) binds under the
+// identical token a running server's own sessions use — a caller-invented
+// instance string writes to a wire subject no server projection ever folds,
+// silently stranding the write.
+const LedgerInstance = "ledger"
 
 // liveFabric is the one embedded JetStream the server's sessions share — the
 // single authoritative economy substrate. NewServer
@@ -1276,7 +1280,7 @@ func AddSession(key string, cfg LiveConfig) (*ledger.Log, error) {
 	if !fabric.ValidToken(key) {
 		return nil, fmt.Errorf("app: session key %q is not a valid subject token", key)
 	}
-	log := ledger.Bind(liveFabric, key, ledgerInstance)
+	log := ledger.Bind(liveFabric, key, LedgerInstance)
 	registerSession(key, cfg, log)
 	return log, nil
 }
@@ -2180,7 +2184,7 @@ func NewServer(cfg LiveConfig, opts ...via.Option) (*via.App, *ledger.Log, error
 		return nil, nil, err
 	}
 	liveFabric = f
-	log := ledger.BindOwning(f, defaultSessionKey, ledgerInstance)
+	log := ledger.BindOwning(f, defaultSessionKey, LedgerInstance)
 	// Register the default session when it has a repo — enough to be usable
 	// (prompt-authoring; an anchor adds the catch-cycle but is derived from the repo, so
 	// a real boot with an anchor always has one). A repo-less flag-less boot registers
@@ -2224,7 +2228,7 @@ func NewServer(cfg LiveConfig, opts ...via.Option) (*via.App, *ledger.Log, error
 			http.NotFound(w, r)
 			return
 		}
-		bridge.Handler(f, key, ledgerInstance)(w, r)
+		bridge.Handler(f, key, LedgerInstance)(w, r)
 	})
 	// Claim submission is RETIRED from the HTTP surface (council R82): a producer
 	// submits a claim ONLY through the authenticated NATS ingress

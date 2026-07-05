@@ -123,8 +123,8 @@ func TestLiveCard_spendDispatchesOnlyIntoItsOwnSessionNotAnother(t *testing.T) {
 	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = defLog.Close() })
 
-	logA := ledger.Bind(liveFabric, "dspA", ledgerInstance)
-	logB := ledger.Bind(liveFabric, "dspB", ledgerInstance)
+	logA := ledger.Bind(liveFabric, "dspA", LedgerInstance)
+	logB := ledger.Bind(liveFabric, "dspB", LedgerInstance)
 	registerSession("dspA", LiveConfig{RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(), TestCmd: []string{"true"}, DispatchBacklog: []ledger.Target{woDispatchTarget()}}, logA)
 	registerSession("dspB", LiveConfig{RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(), TestCmd: []string{"true"}, DispatchBacklog: []ledger.Target{woDispatchTarget()}}, logB)
 

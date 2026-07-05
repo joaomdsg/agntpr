@@ -30,7 +30,7 @@ func TestDrainQueuedOrders_terminatesWhenAStatusWriteFailsPermanently(t *testing
 
 	f, err := fabric.Start(context.Background(), t.TempDir())
 	require.NoError(t, err)
-	log := ledger.BindOwning(f, "term-key", ledgerInstance)
+	log := ledger.BindOwning(f, "term-key", LedgerInstance)
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Line: 1, ReasonTag: "catch"}))
 	require.NoError(t, log.AppendDispatch("dispatch", woTargetN(1), ledger.Target{})) // fund order 1 while the fabric is up
 	registerSession("term-key", LiveConfig{RepoDir: ".", TestCmd: []string{"true"}, LedgerPath: ""}, log)

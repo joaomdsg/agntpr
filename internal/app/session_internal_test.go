@@ -43,8 +43,8 @@ func TestLiveCard_distinctSessionKeysHaveIsolatedBalances(t *testing.T) {
 	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = defLog.Close() })
 
-	logA := ledger.Bind(liveFabric, "ssnA", ledgerInstance)
-	logB := ledger.Bind(liveFabric, "ssnB", ledgerInstance)
+	logA := ledger.Bind(liveFabric, "ssnA", LedgerInstance)
+	logB := ledger.Bind(liveFabric, "ssnB", LedgerInstance)
 	registerSession("ssnA", LiveConfig{RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(), TestCmd: []string{"true"}, DispatchBacklog: []ledger.Target{woDispatchTarget()}}, logA)
 	registerSession("ssnB", LiveConfig{RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(), TestCmd: []string{"true"}, DispatchBacklog: []ledger.Target{woDispatchTarget()}}, logB)
 

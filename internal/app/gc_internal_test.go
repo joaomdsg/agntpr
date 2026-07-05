@@ -44,7 +44,7 @@ func TestPruneIdleProducers_keepsASessionWithClaimsInFlightButReclaimsAnIdleOne(
 	busyBundle, _ := producerCommitBundle(t)
 	require.NoError(t, ingest.IngestProducerObjects(ctx, busyRepo, "busy", busyBundle, 1<<20))
 	require.True(t, resolvesRef(t, busyRepo, "refs/producers/busy/heads/main"))
-	_, err = ledger.PublishClaim(ctx, liveFabric, "busy", ledgerInstance,
+	_, err = ledger.PublishClaim(ctx, liveFabric, "busy", LedgerInstance,
 		ledger.ClaimRecord{Target: ledger.Target{BaseRev: "x", FixRev: "y", TipRev: "y", Path: "a.go", Line: 1}})
 	require.NoError(t, err)
 	inflight, err := busyLog.ClaimsInFlight()

@@ -23,7 +23,7 @@ var validClaimTarget = ledger.Target{BaseRev: "basesha", FixRev: "fixsha", TipRe
 // claim edge to post to — so tests publish here exactly as the host does.
 func publishClaim(t *testing.T, key string, tgt ledger.Target) {
 	t.Helper()
-	_, err := ledger.PublishClaim(context.Background(), liveFabric, key, ledgerInstance, ledger.ClaimRecord{Target: tgt})
+	_, err := ledger.PublishClaim(context.Background(), liveFabric, key, LedgerInstance, ledger.ClaimRecord{Target: tgt})
 	require.NoError(t, err)
 }
 

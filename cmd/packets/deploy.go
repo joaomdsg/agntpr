@@ -8,6 +8,7 @@ import (
 	"io"
 	"os/exec"
 
+	"github.com/joaomdsg/packets/internal/app"
 	"github.com/joaomdsg/packets/internal/fabric"
 	"github.com/joaomdsg/packets/internal/ledger"
 )
@@ -88,7 +89,7 @@ func runDeploy(verb string, args []string, out io.Writer) error {
 		return fmt.Errorf("%s: open ledger: %w", verb, err)
 	}
 	defer f.Close()
-	log := ledger.Bind(f, *session, "cli")
+	log := ledger.Bind(f, *session, app.LedgerInstance)
 	if err := log.AppendStatus(*wo, status); err != nil {
 		return fmt.Errorf("%s: %w", verb, err)
 	}
