@@ -323,12 +323,12 @@ func (c *ReviewCard) View(_ *via.CtxR) h.H {
 
 		orderThreads := orderOpenThreads(navKey, woID)
 		parts = append(parts, h.P(h.Class("review__lead"),
-			h.Text("Reviewing WO#"+strconv.Itoa(woID)+" — the work order's surviving mutants:")))
+			h.Text("Inspecting WO#"+strconv.Itoa(woID)+" — the packet's surviving mutants:")))
 
 		rail := []h.H{annotationRailHeader(len(orderThreads))}
 		if len(orderThreads) == 0 {
 			rail = append(rail, h.Div(h.Class("review__empty"),
-				h.Text("No open questions for this order — the work left no surviving mutants (or it hasn't filled yet).")))
+				h.Text("No open questions for this packet — the work left no surviving mutants (or it hasn't filled yet).")))
 		} else {
 			rail = append(rail, renderAnnotationCards(orderThreads)...)
 			// Answer the order's questions in-place: the editable pane, scoped to THIS
@@ -376,7 +376,7 @@ func (c *ReviewCard) View(_ *via.CtxR) h.H {
 	rail := []h.H{annotationRailHeader(len(threads))}
 	if len(threads) == 0 {
 		rail = append(rail, h.Div(h.Class("review__empty"),
-			h.Text("No open questions — the oracle killed every mutant it tried (or this session hasn't run a cycle yet).")))
+			h.Text("No open questions — every mutant it tried was caught (or this addr hasn't run a cycle yet).")))
 	} else {
 		rail = append(rail, renderAnnotationCards(threads)...)
 	}
@@ -417,7 +417,7 @@ func renderAnswerForm(anchor review.Thread, woID int) h.H {
 			h.Attr("data-indicator", "answering"),
 			h.Div(h.ID("answer-editor"), h.Class("review-answer__editor")),
 			h.Button(h.Type("button"), h.Class("pk-btn review-answer__submit"),
-				h.Text("Submit answer — re-run the oracle")),
+				h.Text("Submit answer — recheck the gate")),
 			h.Script(h.Raw(answerEditorJS(anchor.File, anchor.StartLine))),
 		),
 		// Shown ONLY while the re-run is in flight (data-show on the indicator signal):
@@ -425,7 +425,7 @@ func renderAnswerForm(anchor review.Thread, woID int) h.H {
 		h.Div(
 			h.Attr("data-show", "$answering"),
 			h.Class("review-answer__running"),
-			h.Text("re-running the oracle — checking if your test kills the mutant…"),
+			h.Text("rechecking the gate — checking if your test kills the mutant…"),
 		),
 	)
 }

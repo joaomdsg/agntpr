@@ -41,10 +41,10 @@ func TestLiveCard_freshSessionShowsOnboardingAffordance(t *testing.T) {
 	// next action the Lead takes.
 	require.Contains(t, body, "No confirmed catches yet",
 		"the affordance names the honest current state of a fresh session")
-	require.Contains(t, body, "mints to your balance",
-		"the affordance explains how the oracle's catch becomes spendable balance")
-	require.Contains(t, body, "Spend",
-		"the affordance names the real next action (spend a catch to fund work)")
+	require.Contains(t, body, "mints a new one to compose",
+		"the affordance explains how a confirmed catch becomes something to compose")
+	require.Contains(t, body, "composes one packet",
+		"the affordance names the real next action (a confirmed catch composes a packet)")
 }
 
 // A repo-only session (no base revision + anchored file) runs no connect catch
@@ -69,13 +69,13 @@ func TestLiveCard_repoOnlySessionDoesNotPromiseAutomaticCatchCycle(t *testing.T)
 	body := bodyOf(vt.NewClient(t, server, "/").HTML())
 	require.Contains(t, body, `data-state="empty"`,
 		"a fresh repo-only session is still usable and must carry the onboarding affordance")
-	require.NotContains(t, body, "runs the catch cycle on load",
+	require.NotContains(t, body, "runs the gauntlet on load",
 		"a repo-only session runs no connect cycle, so the affordance must not promise an automatic catch on load")
-	require.Contains(t, body, "Funded work-orders run the catch cycle",
-		"instead of an on-load promise, a repo-only session must name the honest path to a mint: funded work-orders run the cycle")
-	require.Contains(t, body, "mints to your balance",
-		"the affordance still explains how a confirmed catch becomes spendable balance")
-	require.Contains(t, body, "Spend",
+	require.Contains(t, body, "Dispatched packets run the gauntlet",
+		"instead of an on-load promise, a repo-only session must name the honest path to a mint: dispatched packets run the gauntlet")
+	require.Contains(t, body, "mints a new one to compose",
+		"the affordance still explains how a confirmed catch becomes something to compose")
+	require.Contains(t, body, "composes one packet",
 		"the affordance still names the real next action even for a repo-only session")
 }
 
@@ -95,7 +95,7 @@ func TestLiveCard_anchoredSessionPromisesAutomaticCatchCycle(t *testing.T) {
 	t.Cleanup(func() { _ = log.Close() })
 
 	body := bodyOf(vt.NewClient(t, server, "/").HTML())
-	require.Contains(t, body, "runs the catch cycle on load",
+	require.Contains(t, body, "runs the gauntlet on load",
 		"an anchored session runs the connect cycle, so the affordance honestly promises the automatic catch")
 }
 

@@ -294,7 +294,7 @@ func TestReviewCard_showsACalmRunningAffordanceWhileTheAnswerReRuns(t *testing.T
 	body := bodyOf(vt.NewClient(t, server, "/review").HTML())
 	require.Contains(t, body, `data-indicator="answering"`, "the submit marks the request in-flight via a datastar indicator signal")
 	require.Contains(t, body, `data-show="$answering"`, "a sibling reveals the running affordance only while in flight")
-	require.Contains(t, body, "re-running the oracle", "the calm running message, not dead-air")
+	require.Contains(t, body, "rechecking the gate", "the calm running message, not dead-air")
 }
 
 // The flaky-truth fence: a transient re-run failure (oracle timeout, git error,

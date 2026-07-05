@@ -68,8 +68,8 @@ func present(verdict string) (state, headline, detail string) {
 	case catch.NoCatch:
 		return "no-catch", "No catch", "No survivor-set transition on this line."
 	case catch.NoOracleSignal:
-		return "no-oracle-signal", "No oracle signal",
-			"This line has no mutable operator — the oracle cannot speak to it."
+		return "no-oracle-signal", "No signal",
+			"This line has no mutable operator — the gate has nothing to say."
 	case catch.PartialCatch:
 		return "partial-catch", "Partially caught",
 			"Fewer mutants survive, but the line is not yet fully constrained."
@@ -79,18 +79,18 @@ func present(verdict string) (state, headline, detail string) {
 		return "tested", "Tested — ship it", "Every mutation on this line was killed."
 	case LostViaRename:
 		return "lost-via-rename", "Anchor lost: file renamed",
-			"The file was renamed, so the oracle cannot follow this line across the change."
+			"The file was renamed, so the gate cannot follow this line across the change."
 	case AnchorEdited:
 		return "anchor-edited", "Anchor edited",
-			"The anchored line was edited, so the oracle can no longer speak to the original line."
+			"The anchored line was edited, so the gate can no longer speak to the original line."
 	case AnchorDeleted:
 		return "anchor-deleted", "Anchor lost: file gone",
-			"The anchored file was deleted — or renamed beyond recognition — so the oracle cannot follow this line."
+			"The anchored file was deleted — or renamed beyond recognition — so the gate cannot follow this line."
 	case OracleIncomplete:
-		return "oracle-incomplete", "Oracle incomplete",
-			"The line has mutable operators, but a mutation run did not finish — no verdict yet."
-	default: // empty or unrecognized → the oracle is still working
-		return "in-flight", "Oracle running…", "Mutating the changed lines and checking your tests."
+		return "oracle-incomplete", "Gate incomplete",
+			"The line has mutable operators, but a mutation run did not finish — no result yet."
+	default: // empty or unrecognized → the gate is still working
+		return "in-flight", "Gate running…", "Mutating the changed lines and checking your tests."
 	}
 }
 

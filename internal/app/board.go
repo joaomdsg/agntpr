@@ -497,10 +497,10 @@ func (c *BoardCard) View(ctx *via.CtxR) h.H {
 		createKids = append(createKids, panel)
 	}
 	createKids = append(createKids,
-		h.Button(on.Click(c.CreateSession), h.Class("pk-btn board-create__btn"), h.Text("Create session")))
+		h.Button(on.Click(c.CreateSession), h.Class("pk-btn board-create__btn"), h.Text("Track repo")))
 
 	parts := []h.H{h.Class("board"), h.Data("state", "board"),
-		h.Role("main"), h.Attr("aria-label", "fleet board"), h.Attr("aria-live", "polite"),
+		h.Role("main"), h.Attr("aria-label", "fleet"), h.Attr("aria-live", "polite"),
 		h.Div(createKids...),
 	}
 	rows := BoardRows()
@@ -513,7 +513,7 @@ func (c *BoardCard) View(ctx *via.CtxR) h.H {
 	if blocked := blockedLandCount(rows); blocked > 0 {
 		parts = append(parts, h.Span(
 			h.Class("board__land-summary"),
-			h.Text(strconv.Itoa(blocked)+" of "+strconv.Itoa(len(rows))+" sessions blocked from landing"),
+			h.Text(strconv.Itoa(blocked)+" of "+strconv.Itoa(len(rows))+" addrs held from forwarding"),
 		))
 	}
 	for _, r := range rows {
@@ -533,11 +533,11 @@ func (c *BoardCard) View(ctx *via.CtxR) h.H {
 			// reader parses each label. The inner spans keep their class hooks so a
 			// future stylesheet can color bets muted-vs-solid with no server change.
 			h.Div(h.Class("board-row__bets"),
-				h.Span(h.Class("pk-section-label board-row__bets-label"), h.Text("bets:")),
+				h.Span(h.Class("pk-section-label board-row__bets-label"), h.Text("claims:")),
 				h.Span(h.Class("board-row__inflight"), h.Text(strconv.Itoa(r.InFlight)+" in flight")),
 				h.Span(h.Class("board-row__rejected"), h.Text(strconv.Itoa(r.Rejected)+" verified-lost")),
 			),
-			h.Span(h.Class("board-row__balance"), h.Text("balance "+strconv.Itoa(r.Balance))),
+			h.Span(h.Class("board-row__balance"), h.Text("catches "+strconv.Itoa(r.Balance))),
 			h.Span(h.Class("board-row__activity"), h.Text("queued "+strconv.Itoa(r.Queued)+", running "+strconv.Itoa(r.Running)+", done "+strconv.Itoa(r.Done))),
 			h.Span(h.Class("board-row__misses"), h.Text(strconv.Itoa(r.Misses)+" misses")),
 			h.Span(h.Class("board-row__hitrate"), h.Text(hitRateLabel(r))),
@@ -608,9 +608,9 @@ func (c *BoardCard) View(ctx *via.CtxR) h.H {
 func boardLand(land string) (state, label string, blocked bool) {
 	switch pipe.LandState(land) {
 	case pipe.LandConflict:
-		return "land-conflict", "merge blocked: rebase", true
+		return "land-conflict", "held: rebase", true
 	case pipe.LandChecksRed:
-		return "land-checks-red", "merge blocked: checks red", true
+		return "land-checks-red", "held: checks red", true
 	default: // clean / pending / unknown — nothing blocking to surface
 		return "", "", false
 	}
@@ -624,9 +624,9 @@ func boardLand(land string) (state, label string, blocked bool) {
 func boardLifecycle(lc string) (state, label string, show bool) {
 	switch landLifecycle(lc) {
 	case lifecycleMerged:
-		return "merged", "merged", true
+		return "merged", "forwarded", true
 	case lifecycleBounced:
-		return "bounced", "closed unmerged", true
+		return "bounced", "closed, not forwarded", true
 	default: // landed (routine transient) / empty / unknown — nothing terminal to surface
 		return "", "", false
 	}

@@ -30,7 +30,7 @@ func renderBench(c *LiveCard, targets []ledger.Target, annos map[ledger.Target]b
 	if len(targets) > benchCap {
 		targets = targets[:benchCap]
 	}
-	items := []h.H{h.Class("bench"), h.Span(h.Class("pk-section-label bench__label"), h.Text("on the bench:"))}
+	items := []h.H{h.Class("bench"), h.Span(h.Class("pk-section-label bench__label"), h.Text("queued targets:"))}
 	for i, t := range targets {
 		at := t.Path + ":" + strconv.Itoa(t.Line)
 		fundLabel := "fund " + at

@@ -58,10 +58,10 @@ func TestSpendButtonLabel_namesTheNextTargetOrFallsBackWhenNoneFundable(t *testi
 
 	// No fundable work (empty log, empty config) → the honest generic fallback.
 	empty := ledger.Bind(f, "empty", "i")
-	require.Equal(t, "Spend a catch → fund a work-order", spendButtonLabel(LiveConfig{}, empty))
+	require.Equal(t, "Compose a packet → target the next gap", spendButtonLabel(LiveConfig{}, empty))
 
 	// A fundable target present → the label names it exactly.
 	cfg := LiveConfig{DispatchBacklog: []ledger.Target{{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 8}}}
 	withWork := ledger.Bind(f, "withwork", "i")
-	require.Equal(t, "Spend a catch → fund alpha.go:8", spendButtonLabel(cfg, withWork))
+	require.Equal(t, "Compose a packet → target alpha.go:8", spendButtonLabel(cfg, withWork))
 }

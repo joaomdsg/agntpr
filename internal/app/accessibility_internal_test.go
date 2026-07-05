@@ -32,7 +32,7 @@ func TestLiveCard_liveEconomyIsAnnouncedToAssistiveTech(t *testing.T) {
 	body := bodyOf(vt.NewClient(t, server, "/").HTML())
 	require.Contains(t, body, `role="main"`, "the economy is the page's main landmark")
 	require.Contains(t, body, `aria-live="polite"`, "live SSE state changes are announced to assistive tech")
-	require.Contains(t, body, `aria-label="session economy"`, "the main region is named for screen-reader navigation")
+	require.Contains(t, body, `aria-label="packet activity"`, "the main region is named for screen-reader navigation")
 	require.Contains(t, body, `aria-label="primary"`, "the nav is a named landmark, distinct from the content")
 }
 
@@ -54,7 +54,7 @@ func TestBoardCard_fleetExposesANamedMainLandmark(t *testing.T) {
 
 	body := bodyOf(vt.NewClient(t, server, "/board").HTML())
 	require.Contains(t, body, `role="main"`, "the fleet is the page's main landmark")
-	require.Contains(t, body, `aria-label="fleet board"`, "the main region is named for screen-reader navigation")
+	require.Contains(t, body, `aria-label="fleet"`, "the main region is named for screen-reader navigation")
 	require.Contains(t, body, `aria-label="primary"`, "the nav is a named landmark, distinct from the content")
 	require.Contains(t, body, `aria-live="polite"`, "the board live-refreshes over SSE, so its main region announces updates")
 }

@@ -59,15 +59,15 @@ func TestAnalysisPanel_everyQuestionHasANotesInput(t *testing.T) {
 		"a question with no suggestions still renders (answerable via the note)")
 }
 
-// The panel must offer ONE 'Update draft' control at the end (not per question), so
-// the Lead answers all the questions and then updates the draft in a single action.
+// The panel must offer ONE 'Update intent' control at the end (not per question), so
+// the Lead answers all the questions and then updates the intent in a single action.
 func TestAnalysisPanel_offersASingleUpdateDraftControl(t *testing.T) {
 	out := panelFor(t, []assist.Question{
 		{Q: "Q1?", Suggestions: []string{"a"}},
 		{Q: "Q2?", Suggestions: []string{"b"}},
 	})
-	assert.Contains(t, out, "analysis__update", "the panel offers an Update-draft control")
-	assert.Contains(t, out, "Update draft", "labelled so the Lead knows it applies their answers")
+	assert.Contains(t, out, "analysis__update", "the panel offers an Update-intent control")
+	assert.Contains(t, out, "Update intent", "labelled so the Lead knows it applies their answers")
 	assert.Equal(t, 1, strings.Count(out, "analysis__update"),
 		"exactly one update control, at the end — not one per question")
 }

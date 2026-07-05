@@ -79,9 +79,9 @@ func (c *SettingsCard) SaveToken(ctx *via.Ctx) {
 // idiom plus a masked input + save button. The token value is NEVER emitted.
 func (c *SettingsCard) View(_ *via.CtxR) h.H {
 	configured := tokenStore != nil && tokenStore.Configured()
-	state, status := "unconfigured", "No Anthropic API key configured — live orders cannot run yet."
+	state, status := "unconfigured", "No Anthropic API key configured — live packets cannot compose yet."
 	if configured {
-		state, status = "configured", "Anthropic API key configured — live orders can run."
+		state, status = "configured", "Anthropic API key configured — live packets can compose."
 	}
 	return h.Div(
 		navHeader(defaultSessionKey, "settings"),

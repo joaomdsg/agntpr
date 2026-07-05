@@ -130,7 +130,7 @@ func TestApprove_cachesThePushedSHAEvenWhenThePRStepFails(t *testing.T) {
 	assert.Equal(t, "pushedsha1", lookupLiveEntry("appwedge").lastPushedSHASnapshot(),
 		"the pushed SHA is cached despite the PR-open failure, so the next re-land's lease matches the remote")
 	body := bodyOf(vt.NewClient(t, server, "/?key=appwedge").HTML())
-	assert.Contains(t, body, "PR failed", "the failure still surfaces calmly on the card")
+	assert.Contains(t, body, "forward failed", "the failure still surfaces calmly on the card")
 }
 
 // A push/PR failure must surface calmly on the card, never crash the action. NOT
@@ -237,7 +237,7 @@ func TestRenderLandControl_surfacesLandedNotMergedOnAnOpenedPR(t *testing.T) {
 	require.Equal(t, 200, tc.Action((&LiveCard{Key: "applife"}).Approve).Fire())
 
 	body := bodyOf(vt.NewClient(t, server, "/?key=applife").HTML())
-	assert.Contains(t, body, "not yet merged", "an opened PR is shown as landed, NOT merged (§29.2)")
+	assert.Contains(t, body, "not yet forwarded", "an opened PR is shown as landed, NOT merged (§29.2)")
 	assert.Contains(t, body, "/_action/CheckMergeState", "a check-merge-state affordance is wired")
 }
 
@@ -281,6 +281,6 @@ func TestRenderLandControl_surfacesMergedAndBouncedLifecycle(t *testing.T) {
 		body := bodyOf(vt.NewClient(t, server, "/?key="+key).HTML())
 		assert.Contains(t, body, want)
 	}
-	render(t, "appmrg", "MERGED", "Merged")
-	render(t, "appbnc", "CLOSED", "PR closed unmerged")
+	render(t, "appmrg", "MERGED", "forwarded")
+	render(t, "appbnc", "CLOSED", "closed, not forwarded")
 }

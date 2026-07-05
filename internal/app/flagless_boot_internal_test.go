@@ -27,12 +27,12 @@ func TestNewServer_bootsWithoutADefaultSessionWhenUnconfigured(t *testing.T) {
 	assert.Nil(t, lookupLiveEntry(defaultSessionKey), "no default session is registered when unconfigured")
 
 	home := bodyOf(vt.NewClient(t, server, "/").HTML())
-	assert.Contains(t, home, "No session configured", "the / card is a calm no-session landing")
-	assert.NotContains(t, home, "Oracle running", "no phantom catch-cycle card when there is no session")
+	assert.Contains(t, home, "No addr configured", "the / card is a calm no-addr landing")
+	assert.NotContains(t, home, "Gate running", "no phantom catch-cycle card when there is no session")
 	assert.Contains(t, home, `href="/board"`, "the landing points to the fleet board")
 
 	board := bodyOf(vt.NewClient(t, server, "/board").HTML())
-	assert.Contains(t, board, "Create session", "the board still serves on a flag-less boot")
+	assert.Contains(t, board, "Track repo", "the board still serves on a flag-less boot")
 }
 
 // A repo-only boot (a repo but no primary anchor) is a USABLE session: the Lead can
@@ -54,9 +54,9 @@ func TestNewServer_repoOnlySessionIsUsableNotALanding(t *testing.T) {
 	assert.NotNil(t, lookupLiveEntry(defaultSessionKey), "a repo-only boot registers a usable default session")
 
 	home := bodyOf(vt.NewClient(t, server, "/").HTML())
-	assert.NotContains(t, home, "No session configured", "a repo-only session renders the working card, not the landing")
-	assert.Contains(t, home, "session economy", "the working card's economy region renders")
-	assert.NotContains(t, home, "Oracle running", "no phantom catch-cycle spinner without an anchor")
+	assert.NotContains(t, home, "No addr configured", "a repo-only session renders the working card, not the landing")
+	assert.Contains(t, home, "packet activity", "the working card's activity region renders")
+	assert.NotContains(t, home, "Gate running", "no phantom catch-cycle spinner without an anchor")
 }
 
 // A boot WITH a primary anchor still registers the default session and renders the
@@ -75,5 +75,5 @@ func TestNewServer_stillRegistersTheDefaultWhenConfigured(t *testing.T) {
 
 	assert.NotNil(t, lookupLiveEntry(defaultSessionKey), "a configured boot registers the default session")
 	home := bodyOf(vt.NewClient(t, server, "/").HTML())
-	assert.NotContains(t, home, "No session configured", "a configured session renders the economy card, not the landing")
+	assert.NotContains(t, home, "No addr configured", "a configured session renders the economy card, not the landing")
 }

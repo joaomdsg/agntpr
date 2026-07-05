@@ -40,7 +40,7 @@ func renderFundWork(c *LiveCard, cfg LiveConfig, log *ledger.Log, balance, bandw
 		h.Class("fund-work"),
 		h.Span(h.Class("pk-section-label fund-work__label"), h.Text("fund work")),
 		h.P(h.Class("fund-work__explainer"),
-			h.Text("balance spends a catch; bandwidth places a live order.")),
+			h.Text("each catch composes a packet; bandwidth authors a live one.")),
 	}
 	return h.Div(append(group, controls...)...)
 }

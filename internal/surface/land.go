@@ -32,7 +32,7 @@ func presentLand(land pipe.LandState) (state, headline, detail string) {
 		return "land-clean", "", "" // integrates cleanly — nothing to act on
 	case pipe.LandConflict:
 		return "land-conflict", "Trunk moved — rebase needed",
-			"Trunk advanced under this change; it must be rebased onto the new tip before it can merge."
+			"Trunk advanced under this change; it must be rebased onto the new tip before it can forward."
 	case pipe.LandChecksRed:
 		return "land-checks-red", "Red on trunk tip",
 			"Green before integration, but the checks fail once rebased onto the current trunk tip."

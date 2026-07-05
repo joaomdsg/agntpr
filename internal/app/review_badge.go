@@ -25,6 +25,6 @@ func reviewQuestionsBadge(count, key string) h.H {
 		h.Href("/review?key="+url.QueryEscape(key)),
 		h.Class("review-questions"),
 		h.Data("count", count),
-		h.Text(count+" "+noun+" — the oracle found unkilled mutants the tests didn't catch"),
+		h.Text(count+" "+noun+" — unkilled mutants the tests didn't catch"),
 	)
 }

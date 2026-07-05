@@ -21,8 +21,8 @@ func TestBoardLifecycle_surfacesOnlyTerminalOutcomes(t *testing.T) {
 		wantState string
 		wantLabel string
 	}{
-		{string(lifecycleMerged), true, "merged", "merged"},
-		{string(lifecycleBounced), true, "bounced", "closed unmerged"},
+		{string(lifecycleMerged), true, "merged", "forwarded"},
+		{string(lifecycleBounced), true, "bounced", "closed, not forwarded"},
 		{string(lifecycleLanded), false, "", ""}, // routine transient — board stays calm
 		{"", false, "", ""},
 		{"weird", false, "", ""}, // never surface an unrecognized state

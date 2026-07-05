@@ -48,7 +48,7 @@ func TestBoardCard_surfacesBlockedIntegrationVerdicts(t *testing.T) {
 	require.Contains(t, body, "board-row__land", "the board surfaces the blocked integration verdict")
 	require.Contains(t, body, `data-state="land-conflict"`, "a rebase-needed conflict carries its honest-color state hook")
 	require.Contains(t, body, `data-state="land-checks-red"`, "a checks-red block carries its own honest-color state hook")
-	require.Contains(t, body, "merge blocked", "naming that the session can't land yet")
+	require.Contains(t, body, "held: rebase", "naming that the session can't land yet")
 }
 
 // A clean (or not-yet-resolved) integration verdict surfaces NO land span — the

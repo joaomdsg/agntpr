@@ -29,15 +29,15 @@ func onboardingHint(stock ledger.Stock, hasAnchor bool) h.H {
 	if stock.Count != 0 {
 		return nil
 	}
-	mintStep := "Funded work-orders run the catch cycle — when the oracle confirms a catch it mints to your balance."
+	mintStep := "Dispatched packets run the gauntlet — a confirmed catch mints a new one to compose."
 	if hasAnchor {
-		mintStep = "This card runs the catch cycle on load — when the oracle confirms a catch it mints to your balance."
+		mintStep = "This card runs the gauntlet on load — a confirmed catch mints a new one to compose."
 	}
 	return h.Section(
 		h.Class("pk-card onboarding"),
 		h.Data("state", "empty"),
 		h.P(h.Class("onboarding__lead"), h.Text("No confirmed catches yet.")),
 		h.P(h.Class("onboarding__step"), h.Text(mintStep)),
-		h.P(h.Class("onboarding__step"), h.Text("Spend balance to fund a work-order; a funded order that catches reinvests, compounding the stock.")),
+		h.P(h.Class("onboarding__step"), h.Text("Each confirmed catch composes one packet; a packet that catches something mints another, compounding the count.")),
 	)
 }

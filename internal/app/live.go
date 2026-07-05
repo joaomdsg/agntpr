@@ -1420,12 +1420,12 @@ func (c *LiveCard) View(ctx *via.CtxR) h.H {
 	// an anchored session is usable and renders the working card below.
 	if log == nil || (!cfg.hasRepo() && !cfg.hasAnchor()) {
 		return h.Div(navHeader("", "console"),
-			h.Div(h.Role("main"), h.Attr("aria-label", "no session"),
+			h.Div(h.Role("main"), h.Attr("aria-label", "no addr"),
 				h.Div(h.Class("pk-card onboarding"), h.Data("state", "empty"),
-					h.P(h.Class("onboarding__lead"), h.Text("No session configured.")),
+					h.P(h.Class("onboarding__lead"), h.Text("No addr configured.")),
 					h.P(h.Class("onboarding__step"),
 						h.Text("Open the "),
-						h.A(h.Href("/board"), h.Text("fleet board")),
+						h.A(h.Href("/board"), h.Text("fleet")),
 						h.Text(" to create or pick one.")),
 				),
 			),
@@ -1473,7 +1473,7 @@ func (c *LiveCard) View(ctx *via.CtxR) h.H {
 	parts := []h.H{
 		h.Role("main"),
 		h.Attr("aria-live", "polite"),
-		h.Attr("aria-label", "session economy"),
+		h.Attr("aria-label", "packet activity"),
 	}
 	// A brand-new session gets a calm onboarding affordance ahead of the (all-zero)
 	// economy rows, so a first-run Lead sees the next action, not a dead screen.
@@ -2176,7 +2176,7 @@ func NewServer(cfg LiveConfig, opts ...via.Option) (*via.App, *ledger.Log, error
 	app.AppendToHead(styleHead())
 	via.Mount[LiveCard](app, "/")
 	via.Mount[BoardCard](app, "/board")       // the cross-card fleet view (read-only projection of liveReg)
-	via.Mount[ReviewCard](app, "/review")     // the per-session review surface: the oracle's open "question:" threads
+	via.Mount[ReviewCard](app, "/review")     // the Inspector: the gate's open "question:" threads
 	via.Mount[SettingsCard](app, "/settings") // the setup surface: configure the Anthropic API key the harness runs with
 	// The raw SSE bridge over the authoritative stream: a plain text/event-stream
 	// endpoint a browser (or any cross-process consumer) tails, distinct from the

@@ -165,10 +165,10 @@ func candidatesFromCatches(log *ledger.Log) []ledger.Target {
 func spendButtonLabel(cfg LiveConfig, log *ledger.Log) string {
 	if log != nil {
 		if t, ok := nextUnconsumedTarget(cfg, log); ok {
-			return "Spend a catch → fund " + t.Path + ":" + strconv.Itoa(t.Line)
+			return "Compose a packet → target " + t.Path + ":" + strconv.Itoa(t.Line)
 		}
 	}
-	return "Spend a catch → fund a work-order"
+	return "Compose a packet → target the next gap"
 }
 
 // ownTargetOf is the card's OWN caught cycle as a Target — what a dispatch must

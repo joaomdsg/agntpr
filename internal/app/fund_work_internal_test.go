@@ -18,8 +18,8 @@ func TestLiveCard_colocatesBothFundingMovesUnderOneGroup(t *testing.T) {
 	require.Contains(t, body, "fund-work__label", "the funding moves share one labelled group")
 	require.Contains(t, strings.ToLower(body), "fund work", "the group is labelled 'fund work'")
 	require.Contains(t, body, "fund-work__explainer", "a dim one-line two-currency explainer accompanies the group")
-	require.Contains(t, body, "balance spends a catch", "the explainer names the balance currency")
-	require.Contains(t, body, "bandwidth places a live order", "the explainer names the bandwidth currency")
+	require.Contains(t, body, "each catch composes a packet", "the explainer names the catch currency")
+	require.Contains(t, body, "bandwidth authors a live one", "the explainer names the bandwidth currency")
 
 	// Both affordances render UNDER the one group, not as scattered siblings.
 	start := strings.Index(body, "fund-work__label")

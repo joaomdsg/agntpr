@@ -54,7 +54,7 @@ func TestLiveCard_rendersASpendControlWhenThereIsBalanceToSpend(t *testing.T) {
 	// the Lead knows what the click does, not a bare verb. (The exact target named
 	// is locked by the spend-preview tests; here we only assert the spend-and-fund
 	// framing is present.)
-	require.Contains(t, body, "Spend a catch → fund ",
+	require.Contains(t, body, "Compose a packet → target ",
 		"the spend control names the real outcome of the click")
 }
 

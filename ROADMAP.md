@@ -5,7 +5,7 @@ the spec). One slice per tick unless a slice says otherwise. Statuses:
 queued / in-flight / landed / dropped. Every landed slice carries one
 evidence line.
 
-NEXT: slice 15.
+NEXT: slice 16.
 
 ## Infra
 
@@ -240,10 +240,27 @@ NEXT: slice 15.
   subcommand prints the report and exits non-zero on an escape,
   doubling as a gate-health check. Manually smoke-tested (real run:
   caught, exit 0). Evidence: full gate green; commit below.
-- [ ] **15. Vocabulary sweep + retirement** — queued. Banned-word
-  render test (MVP.md list) across all surfaces; kill remaining
-  casino/PR vocabulary; retire dead routes/flags; voice QA (mono
-  machine strings, lowercase, `·` counts, trailing →).
+- [x] **15. Vocabulary sweep + retirement** — landed (built directly
+  by the coordinator). Renamed ~35 rendered-copy violations found by
+  an exhaustive scan: land/PR/merge → forward/held (land_action.go,
+  land.go, board.go); draft → intent, Place order → Compose packet
+  (authoring.go); spend/balance/stock/order → compose/catches/
+  target (onboarding.go, fund_work.go, supply.go); session/board →
+  addr/fleet (board.go, live.go, nav.go); bench → "queued targets:";
+  oracle → gate, including surface/card.go's verdict headlines used
+  by BOTH Console and the fleet board. New
+  `TestSurfaces_neverRenderRetiredVocabulary` +
+  `..._perPacketInspectorNeverRendersRetiredVocabulary`
+  (internal/app/vocabulary_internal_test.go): a real regex-based
+  regression guard exercising every packet lifecycle state across
+  `/`, `/board`, `/review` (both branches), `/settings` — it caught
+  one real violation on first run (`/settings`'s "live orders"). A
+  Blue audit of the guard itself then found a genuine coverage gap
+  (the land-lifecycle badges need a real Approve action, which the
+  fixture can't drive) and, through that gap, a live "merge" bug in
+  `internal/surface/land.go` no test had ever exercised — both
+  fixed. Routes/flags checked: none dead, nothing to retire.
+  Evidence: full gate green; commit below.
 - [ ] **16. Final gauntlet sweep** — queued. Adversarial review of
   slices 1–15 (Sonnet reviewers), doc freshness (MVP.md, README),
   demo script: compose → forward → hold → inspect → deliver on a

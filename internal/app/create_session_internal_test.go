@@ -178,7 +178,7 @@ func TestBoardCard_createdSessionCanPlaceAPromptOrderImmediately(t *testing.T) {
 	assert.Contains(t, card, "compose__place", "the place-order control renders immediately on the new session")
 	// The new session is prompt-first — it inherits no anchor from the (anchored)
 	// default, so it runs no catch-cycle and shows no phantom Oracle-running spinner.
-	assert.NotContains(t, card, "Oracle running", "a created session is prompt-first — no inherited catch-cycle")
+	assert.NotContains(t, card, "Gate running", "a created session is prompt-first — no inherited catch-cycle")
 }
 
 // The typed repo dir must become the created session's repo — else a session

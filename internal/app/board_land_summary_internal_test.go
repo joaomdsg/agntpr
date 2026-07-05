@@ -45,7 +45,7 @@ func TestBoardCard_summarisesHowMuchOfTheFleetIsBlockedFromLanding(t *testing.T)
 	// it but N does not: 2 of 3 sessions are blocked from landing.
 	body := bodyOf(vt.NewClient(t, server, "/board").HTML())
 	require.Contains(t, body, "board__land-summary", "the fleet surfaces a merge-readiness roll-up")
-	require.Contains(t, body, "2 of 3 sessions blocked from landing", "an honest count of blocked vs total sessions")
+	require.Contains(t, body, "2 of 3 addrs held from forwarding", "an honest count of blocked vs total sessions")
 }
 
 // The count is an honest projection of the actual fleet, not a fixed string: a
@@ -72,7 +72,7 @@ func TestBoardCard_landSummaryCountTracksTheRealFleet(t *testing.T) {
 
 	// Default (pending) + oneblocked (conflict) = 1 of 2 blocked.
 	body := bodyOf(vt.NewClient(t, server, "/board").HTML())
-	require.Contains(t, body, "1 of 2 sessions blocked from landing", "the count tracks the real blocked/total, not a fixed string")
+	require.Contains(t, body, "1 of 2 addrs held from forwarding", "the count tracks the real blocked/total, not a fixed string")
 }
 
 // When every session can land (clean or not-yet-resolved), the summary is silent —

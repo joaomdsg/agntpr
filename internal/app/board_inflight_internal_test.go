@@ -157,7 +157,7 @@ func TestBoardCard_sealsTheBetLifecycleIntoOneClusterApartFromConfirmedStock(t *
 	// The grouping cluster + its explicit "bets:" label exist.
 	require.Contains(t, body, "board-row__bets", "the bet lifecycle is sealed in its own grouping container")
 	require.Contains(t, body, "board-row__bets-label", "the bets cluster is explicitly labelled")
-	require.Contains(t, strings.ToLower(body), "bets:", "the cluster carries the 'bets:' boundary so a bet can't blend into the stock")
+	require.Contains(t, strings.ToLower(body), "claims:", "the cluster carries the 'claims:' boundary so a bet can't blend into the stock")
 
 	// Structure: the confirmed stock span comes BEFORE the bets cluster (outside
 	// it), and both bet spans come AFTER the cluster opens (inside it) — so the

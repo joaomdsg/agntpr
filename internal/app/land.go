@@ -18,12 +18,12 @@ import (
 func landBlocked(openThreads int, land pipe.LandState) (bool, string) {
 	switch land {
 	case pipe.LandConflict:
-		return true, "merge blocked: rebase needed — the fix conflicts with trunk tip"
+		return true, "held: rebase needed — the fix conflicts with trunk tip"
 	case pipe.LandChecksRed:
-		return true, "merge blocked: checks red — the integrated tree fails its tests"
+		return true, "held: checks red — the integrated tree fails its tests"
 	}
 	if openThreads > 0 {
-		return true, strconv.Itoa(openThreads) + " open review threads — resolve them first"
+		return true, strconv.Itoa(openThreads) + " open threads — resolve them first"
 	}
 	return false, ""
 }

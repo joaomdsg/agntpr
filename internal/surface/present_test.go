@@ -132,14 +132,14 @@ func TestVerdictLabel_humanizesKnownTokensAndPassesUnknownThrough(t *testing.T) 
 	cases := []struct{ token, want string }{
 		{"catch", "Caught"},
 		{"no_catch", "No catch"},
-		{"no_oracle_signal", "No oracle signal"},
+		{"no_oracle_signal", "No signal"},
 		{"partial_catch", "Partially caught"},
 		{surface.Tested, "Tested — ship it"},
 		{surface.LostViaRename, "Anchor lost: file renamed"},
 		{surface.AnchorEdited, "Anchor edited"},
 		{surface.AnchorDeleted, "Anchor lost: file gone"},
-		{surface.OracleIncomplete, "Oracle incomplete"},
-		{"future_kind", "future_kind"}, // unknown → raw, never "Oracle running…"
+		{surface.OracleIncomplete, "Gate incomplete"},
+		{"future_kind", "future_kind"}, // unknown → raw, never "Gate running…"
 		{"", ""},                       // empty → raw
 	}
 	for _, tc := range cases {

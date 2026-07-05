@@ -201,7 +201,7 @@ func (c *LiveCard) Approve(ctx *via.Ctx) {
 		}
 	}
 	if err != nil {
-		setLandResult(key, "PR failed — "+err.Error())
+		setLandResult(key, "forward failed — "+err.Error())
 		setLandLifecycle(key, "") // no opened PR → no lifecycle badge
 		c.Landed.Write(ctx, "error")
 		return
@@ -370,7 +370,7 @@ func renderLandControl(c *LiveCard) h.H {
 	}
 	parts := []h.H{
 		h.Class("land-control"),
-		h.Button(on.Click(c.Approve), h.Class("pk-btn land-control__approve"), h.Text("Approve & open PR")),
+		h.Button(on.Click(c.Approve), h.Class("pk-btn land-control__approve"), h.Text("forward →")),
 		h.Label(h.Class("land-control__override"),
 			h.Input(h.Type("checkbox"), c.LandOverride.Bind()),
 			h.Span(h.Text("override guard")),
@@ -395,16 +395,16 @@ func renderLandControl(c *LiveCard) h.H {
 		var cls, text string
 		switch landLifecycle(lc) {
 		case lifecycleMerged:
-			cls, text = "land-control__lifecycle--merged", "Merged"
+			cls, text = "land-control__lifecycle--merged", "forwarded"
 		case lifecycleBounced:
-			cls, text = "land-control__lifecycle--bounced", "PR closed unmerged"
+			cls, text = "land-control__lifecycle--bounced", "closed, not forwarded"
 		default: // lifecycleLanded
-			cls, text = "land-control__lifecycle--landed", "Landed — not yet merged"
+			cls, text = "land-control__lifecycle--landed", "opened — not yet forwarded"
 		}
 		parts = append(parts,
 			h.Span(h.Class("land-control__lifecycle "+cls), h.Text(text)),
 			h.Button(on.Click(c.CheckMergeState), h.Class("pk-btn land-control__check-merge"),
-				h.Text("check merge state")),
+				h.Text("check forward status")),
 		)
 	}
 	return h.Div(parts...)

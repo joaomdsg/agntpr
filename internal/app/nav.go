@@ -26,7 +26,7 @@ func reviewSessionCrumb(key string) h.H {
 	return h.A(
 		h.Href("/review?key="+url.QueryEscape(key)),
 		h.Class("board-nav__crumb drill-return"),
-		h.Text("↑ session review"),
+		h.Text("↑ inspect all"),
 	)
 }
 

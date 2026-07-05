@@ -18,8 +18,8 @@ func TestClassifyLandResult_distinguishesEachOutcomeForTheLead(t *testing.T) {
 		{"an https PR URL is a clickable success", "https://github.com/o/r/pull/42", landResultOpened, "https://github.com/o/r/pull/42"},
 		{"a PR URL whose path contains a keyword is still a success, not a guard match", "https://github.com/o/blocked/pull/9", landResultOpened, "https://github.com/o/blocked/pull/9"},
 		{"a plain http PR URL is still a success", "http://example.test/pr/1", landResultOpened, "http://example.test/pr/1"},
-		{"a guard message reads as blocked", "blocked — 2 open review threads — resolve them first", landResultBlocked, ""},
-		{"a push failure reads as an error", "PR failed — push rejected", landResultError, ""},
+		{"a guard message reads as blocked", "blocked — 2 open threads — resolve them first", landResultBlocked, ""},
+		{"a push failure reads as an error", "forward failed — push rejected", landResultError, ""},
 		{"an unrecognized non-empty string is treated as an error, never a clickable success", "weird unexpected value", landResultError, ""},
 	}
 	for _, tc := range cases {

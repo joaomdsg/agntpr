@@ -314,8 +314,8 @@ func composeSurface(da *draftAnalysis, rewrite string) h.H {
 		h.Data("on:viaplace", "$orderprompt=evt.detail.draft;@post('/_action/PlaceOrder')"),
 		h.Data("on:viaupdatedraft", "$orderprompt=evt.detail.draft;$draftanswers=evt.detail.answers;@post('/_action/UpdateDraft')"),
 		h.Div(h.ID("authoring-editor"), h.Class("compose__editor")),
-		h.Button(h.Type("button"), h.Class("pk-btn pk-btn--quiet compose__analyze"), h.Text("Analyze draft")),
-		h.Button(h.Type("button"), h.Class("pk-btn compose__place"), h.Text("Place order")),
+		h.Button(h.Type("button"), h.Class("pk-btn pk-btn--quiet compose__analyze"), h.Text("Analyze intent")),
+		h.Button(h.Type("button"), h.Class("pk-btn compose__place"), h.Text("Compose packet")),
 		h.Span(h.Class("compose__analyzing"), h.Data("state", "idle"), h.Text("analyzing…")),
 		h.Script(h.Src(monacoLoaderURL)),
 		h.Script(h.Raw(authoringEditorJS)),
@@ -355,7 +355,7 @@ func composeSurface(da *draftAnalysis, rewrite string) h.H {
 			h.Class("compose__needs-key"),
 			h.Text("No Anthropic API key configured — "),
 			h.A(h.Href("/settings"), h.Class("compose__needs-key-link"), h.Text("set one in settings")),
-			h.Text(" to run live orders."),
+			h.Text(" to compose live packets."),
 		))
 	}
 	return h.Div(parts...)
@@ -394,14 +394,14 @@ func renderAnalysisPanel(da *draftAnalysis) h.H {
 			qs = append(qs, renderQuestion(i, q))
 		}
 		parts = append(parts,
-			h.Span(h.Class("analysis__questions-label"), h.Text("Answer these, then update the draft:")),
+			h.Span(h.Class("analysis__questions-label"), h.Text("Answer these, then update the intent:")),
 			h.Ul(qs...),
 			// One Update-draft control at the END (not per question): the Lead answers
 			// all the questions, then this single button gathers the picks + notes and the
 			// current draft into the viaupdatedraft bridge (see authoringEditorJS) so the
 			// producer rewrites the draft incorporating them. It is a plain button (no
 			// data-bind) — the delegated click handler fires it — so it survives morphs.
-			h.Button(h.Type("button"), h.Class("pk-btn analysis__update"), h.Text("Update draft")),
+			h.Button(h.Type("button"), h.Class("pk-btn analysis__update"), h.Text("Update intent")),
 		)
 	}
 	return h.Div(parts...)
