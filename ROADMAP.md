@@ -5,7 +5,7 @@ the spec). One slice per tick unless a slice says otherwise. Statuses:
 queued / in-flight / landed / dropped. Every landed slice carries one
 evidence line.
 
-NEXT: slice 14.
+NEXT: slice 15.
 
 ## Infra
 
@@ -229,9 +229,17 @@ NEXT: slice 14.
   server uses. Manually smoke-tested end to end (bare assert,
   confirming check, contradicting check → refusal). Evidence: full
   gate green; commit below.
-- [ ] **14. Adversarial probes** — queued. Seeded known-bad packet
-  through the REAL gates via a scratch ledger session (never the
-  real economy); probe report (caught/escaped) surfaced honestly.
+- [x] **14. Adversarial probes** — landed (built directly by the
+  coordinator). internal/packet/probe.go: RunAdversarialProbe
+  materializes its own throwaway git repo with a deliberate syntax
+  error and runs it through the real RunBuildVetGate (G4) — no
+  repoDir/ledger parameter anywhere in the call chain, so it cannot
+  touch any real session's economy by construction (simpler and
+  safer than routing through a scratch ledger session). ProbeReport
+  distinguishes "caught" from "ESCAPED". New `packets probe` CLI
+  subcommand prints the report and exits non-zero on an escape,
+  doubling as a gate-health check. Manually smoke-tested (real run:
+  caught, exit 0). Evidence: full gate green; commit below.
 - [ ] **15. Vocabulary sweep + retirement** — queued. Banned-word
   render test (MVP.md list) across all surfaces; kill remaining
   casino/PR vocabulary; retire dead routes/flags; voice QA (mono

@@ -176,6 +176,12 @@ func main() {
 		}
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "probe" {
+		if err := runProbe(os.Stdout); err != nil {
+			log.Fatalf("packets probe: %v", err)
+		}
+		return
+	}
 
 	repo := flag.String("repo", ".", "git repo directory")
 	base := flag.String("base", "", "base (pre-fix) revision")
