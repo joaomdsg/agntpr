@@ -5,7 +5,7 @@ the spec). One slice per tick unless a slice says otherwise. Statuses:
 queued / in-flight / landed / dropped. Every landed slice carries one
 evidence line.
 
-NEXT: slice 12.
+NEXT: slice 13.
 
 ## Infra
 
@@ -197,10 +197,21 @@ NEXT: slice 12.
   composite-int signature assumes each folded count stays <1000 —
   pre-existing pattern, extended one digit deeper, immaterial at
   MVP session scale. Evidence: full gate green; commit below.
-- [ ] **12. Watches + precision** — queued. Standing watch/capture
-  triggers with precision scores counted from real fired-vs-useful
-  history; "no history yet" until real; noisy triggers lose
-  interrupt rights.
+- [x] **12. Watches + precision** — landed (built directly by the
+  coordinator, per the 2026-07-04 model-discipline revision — no
+  Sonnet builder subagent). internal/packet/watch.go: 3 canonical
+  pre-defined triggers (strict-lane, gate-failure, blocking-hold —
+  not an author-your-own DSL), EvaluateWatch (fail-closed on an
+  unrecognized kind), Precision (marked-fires-only sample, "no
+  history yet" when empty), IsNoisy (sampled≥5 && score<0.5). App
+  wiring: fires recorded once per (kind,packet) idempotently on the
+  same render pass as reconcileHolds, a real MarkWatchFire human
+  action (mirrors ConfirmIntentFidelity), Console's "your watches"
+  rail replaced with real precision + an inline mark prompt
+  suppressed once a watch turns noisy. Full RYGBA (Explore Yellow +
+  general-purpose Blue) on both the pure unit and the app wiring;
+  Blue caught only a doc-comment overclaim. Evidence: full gate
+  green; commit below.
 - [ ] **13. ACK/deliver** — queued. `packets deployed|regressed`
   host command backed by a re-checkable check run; delivered state
   reachable; the mark's BR cell fills only on real ACK; regressed

@@ -305,6 +305,14 @@ type liveEntry struct {
 	// re-running the mutation oracle. Guarded by findingsMu, written
 	// together with orderFindings in settleCatch.
 	orderCatch map[int]orderCatchOutcome
+	// watchMu guards watchFires: this session's standing-watch history
+	// (ROADMAP slice 12, MVP.md concept 6). Pure in-memory bookkeeping — an
+	// append/read over a slice, no exec — so, like calibMu, there is no
+	// reason to share findingsMu/laneMu's own traffic. Off the ledger: no
+	// persisted event kind for a fire/mark exists yet (a deferral matching
+	// intentFidelityConfirmed's precedent).
+	watchMu    sync.Mutex
+	watchFires []packet.WatchFire
 }
 
 // orderCatchOutcome is one order's raw catch-cycle result, cached off the
@@ -360,6 +368,75 @@ func (e *liveEntry) confirmIntentFidelity(orderID int, navKey string) {
 	}
 	e.intentFidelityConfirmed[orderID] = packet.Gate{Status: packet.GatePassed, Detail: "confirmed by " + navKey}
 	e.gauntletMu.Unlock()
+}
+
+// standingWatchKinds is the three canonical, pre-defined STANDING triggers
+// (packet.WatchKind's fixed set) evaluated every render — not an
+// author-your-own DSL, per MVP.md concept 6's bounded-scope design.
+var standingWatchKinds = []packet.WatchKind{
+	packet.WatchStrictLane, packet.WatchGateFailure, packet.WatchBlockingHold,
+}
+
+// recordWatchFires evaluates every standing watch kind against packets and
+// appends a new WatchFire the FIRST time a given (kind, packet id) pair
+// matches — idempotent, mirroring recordQuestionBlocks' dedup pattern, so a
+// packet sitting in a matching state across many renders logs exactly one
+// fire, never one per render (a render is not an event).
+func (e *liveEntry) recordWatchFires(packets []packet.Packet) {
+	e.watchMu.Lock()
+	defer e.watchMu.Unlock()
+	seen := make(map[packet.WatchKind]map[int]bool, len(standingWatchKinds))
+	for _, f := range e.watchFires {
+		if seen[f.Kind] == nil {
+			seen[f.Kind] = map[int]bool{}
+		}
+		seen[f.Kind][f.PacketID] = true
+	}
+	now := time.Now().UnixMilli()
+	for _, p := range packets {
+		for _, k := range standingWatchKinds {
+			if seen[k][p.ID] {
+				continue
+			}
+			if !packet.EvaluateWatch(k, p) {
+				continue
+			}
+			e.watchFires = append(e.watchFires, packet.WatchFire{Kind: k, PacketID: p.ID, AtUnixMs: now})
+			if seen[k] == nil {
+				seen[k] = map[int]bool{}
+			}
+			seen[k][p.ID] = true
+		}
+	}
+}
+
+// watchFireSnapshot returns a COPY of this session's recorded fires — safe
+// to range over after the lock is released, and never mutated by the caller
+// (that would race the next recordWatchFires/markWatchFire call).
+func (e *liveEntry) watchFireSnapshot() []packet.WatchFire {
+	e.watchMu.Lock()
+	defer e.watchMu.Unlock()
+	out := make([]packet.WatchFire, len(e.watchFires))
+	copy(out, e.watchFires)
+	return out
+}
+
+// markWatchFire finds the unmarked fire for (kind, packetID) and records the
+// human's usefulness judgment — Precision is computed from real judgment,
+// never inferred. The reverse scan is defensive, not load-bearing: recordWatchFires'
+// own dedup means at most one fire is ever recorded per (kind, packetID), so there
+// is never more than one to find. A (kind, packetID) with no unmarked fire (never
+// fired, or already resolved) is a calm no-op.
+func (e *liveEntry) markWatchFire(kind packet.WatchKind, packetID int, useful bool) {
+	e.watchMu.Lock()
+	defer e.watchMu.Unlock()
+	for i := len(e.watchFires) - 1; i >= 0; i-- {
+		f := &e.watchFires[i]
+		if f.Kind == kind && f.PacketID == packetID && f.Useful == nil {
+			f.Useful = &useful
+			return
+		}
+	}
 }
 
 // notMeasuredNoHandshake is G5's honest default: G5 needs the handshake/
@@ -1299,6 +1376,35 @@ type LiveCard struct {
 	// — View re-reads the refinements — and changes on every append (the count rises),
 	// so the frame always fans out even when the fundable target list is unchanged.
 	Bench via.StateTabStr
+	// MarkWatchKind/MarkWatchWO/MarkUseful carry a standing watch's mark prompt
+	// (ROADMAP slice 12, MVP.md concept 6): which WatchKind (its int value, as a
+	// string), which packet id, and the human's usefulness judgment ("true"/
+	// "false"). Read by MarkWatchFire, which finds that (kind, packet)'s
+	// unmarked fire and records the judgment — Precision is computed from real
+	// human marks, never inferred. Per-tab signals, not authoritative state.
+	MarkWatchKind via.SignalStr `via:"markwatchkind"`
+	MarkWatchWO   via.SignalStr `via:"markwatchwo"`
+	MarkUseful    via.SignalStr `via:"markuseful"`
+}
+
+// MarkWatchFire records a human's usefulness judgment on the unmarked fire
+// for the given standing-watch kind + packet. A malformed kind/packet id
+// or an unknown session is a calm no-op, mirroring ConfirmIntentFidelity's
+// handling of bad input.
+func (c *LiveCard) MarkWatchFire(ctx *via.Ctx) {
+	e := lookupLiveEntry(c.Key)
+	if e == nil {
+		return
+	}
+	kindInt, err := strconv.Atoi(c.MarkWatchKind.Read(ctx))
+	if err != nil {
+		return
+	}
+	packetID, err := strconv.Atoi(c.MarkWatchWO.Read(ctx))
+	if err != nil || packetID <= 0 {
+		return
+	}
+	e.markWatchFire(packet.WatchKind(kindInt), packetID, c.MarkUseful.Read(ctx) == "true")
 }
 
 // View renders the card's rows via the shared surface rendering: the retrospective
@@ -1493,8 +1599,11 @@ func (c *LiveCard) View(ctx *via.CtxR) h.H {
 	// folded from the SAME packet slice, never a second source of truth.
 	packets := sessionPackets(c.Key, 0)
 	reconcileHolds(c.Key, packets)
+	if e := lookupLiveEntry(c.Key); e != nil {
+		e.recordWatchFires(packets)
+	}
 	return h.Div(navHeader(navKey, "console"),
-		renderConsole(navKey, packets, sessionAddr(c.Key), h.Div(parts...)))
+		renderConsole(c, navKey, packets, sessionAddr(c.Key), h.Div(parts...)))
 }
 
 // reconcileHolds attaches each packet's ALREADY-cached Lane/Gauntlet (pure

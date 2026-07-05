@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/go-via/via/h"
+	"github.com/go-via/via/on"
 
 	"github.com/joaomdsg/packets/internal/packet"
 )
@@ -30,7 +31,7 @@ const consoleIntentWords = 8
 // sections), and a settled+watches rail. Every region folds from the SAME
 // packets slice (ROADMAP slice 6's packet aggregate) — one source of truth,
 // never a fabricated placeholder.
-func renderConsole(navKey string, packets []packet.Packet, addr packet.Addr, center h.H) h.H {
+func renderConsole(c *LiveCard, navKey string, packets []packet.Packet, addr packet.Addr, center h.H) h.H {
 	verified := 0
 	for _, p := range packets {
 		if p.State == packet.Verified {
@@ -48,7 +49,7 @@ func renderConsole(navKey string, packets []packet.Packet, addr packet.Addr, cen
 		h.Class("console"),
 		renderNeedsYouRail(navKey, packets),
 		h.Div(mainParts...),
-		renderSettledRail(packets),
+		renderSettledRail(c, navKey, packets),
 	)
 }
 
@@ -290,9 +291,11 @@ func firstWords(s string, n int) string {
 // verified and held packets — a run failure IS settled-red, only
 // composing/in-flight packets are excluded — each a lifecycle-colored state
 // square + Name + one-word state, or the dashed empty state when nothing has
-// settled. Below it, "your watches" is a dashed empty placeholder — the
-// mechanic (slice 12) doesn't exist yet.
-func renderSettledRail(packets []packet.Packet) h.H {
+// settled. Below it, "your watches" (ROADMAP slice 12, MVP.md concept 6): the
+// three canonical standing triggers, each with a real precision score folded
+// from human fired-vs-useful marks — "no history yet" until one exists,
+// never a fabricated score.
+func renderSettledRail(c *LiveCard, navKey string, packets []packet.Packet) h.H {
 	var settled []packet.Packet
 	for _, p := range packets {
 		if p.State == packet.Verified || p.State == packet.Held {
@@ -317,15 +320,104 @@ func renderSettledRail(packets []packet.Packet) h.H {
 		}
 	}
 
-	watchesHeader := h.Div(h.Class("console__panel-header"), h.Text("your watches"))
-	watchesBody := h.Div(h.Class("console__rail-body"),
-		h.Div(h.Class("console__card", "console__card--dashed"), h.Text("no watches yet")),
-	)
-
 	return h.Aside(h.Class("console__rail", "console__rail--settled"),
 		header, h.Div(body...),
-		watchesHeader, watchesBody,
+		renderWatchesRail(c, navKey, packets),
 	)
+}
+
+// renderWatchesRail lists the three canonical standing watches (ROADMAP
+// slice 12): each card names the watch, its real precision (or the honest
+// "no history yet" before any fire has been marked), and — for a kind's
+// unmarked fire, only while that kind hasn't lost the right to
+// interrupt — a mark prompt naming the packet that tripped it.
+func renderWatchesRail(c *LiveCard, navKey string, packets []packet.Packet) h.H {
+	var fires []packet.WatchFire
+	if e := lookupLiveEntry(navKey); e != nil {
+		fires = e.watchFireSnapshot()
+	}
+	header := h.Div(h.Class("console__panel-header"), h.Text("your watches"))
+	body := []h.H{h.Class("console__rail-body")}
+	for _, kind := range standingWatchKinds {
+		body = append(body, renderWatchCard(c, packets, kind, fires))
+	}
+	return h.Div(header, h.Div(body...))
+}
+
+// renderWatchCard renders one standing watch's status card. useful/sampled
+// are counted directly from fires (never re-derived from Precision's
+// fraction, which would risk a lossy float round-trip back to exact
+// integers) while the NOISY judgment itself calls packet.IsNoisy — the one
+// piece of real domain logic here, never duplicated.
+func renderWatchCard(c *LiveCard, packets []packet.Packet, kind packet.WatchKind, fires []packet.WatchFire) h.H {
+	var sampled, useful int
+	var unmarked *packet.WatchFire
+	for i := range fires {
+		if fires[i].Kind != kind {
+			continue
+		}
+		if fires[i].Useful == nil {
+			f := fires[i]
+			unmarked = &f // the LAST match wins — fires are appended chronologically
+			continue
+		}
+		sampled++
+		if *fires[i].Useful {
+			useful++
+		}
+	}
+	score := 0.0
+	if sampled > 0 {
+		score = float64(useful) / float64(sampled)
+	}
+	noisy := packet.IsNoisy(score, sampled)
+
+	precisionLine := "no history yet"
+	if sampled > 0 {
+		precisionLine = strconv.Itoa(useful) + "/" + strconv.Itoa(sampled) + " useful"
+		if noisy {
+			precisionLine += " · noisy — lost interrupt rights"
+		}
+	}
+
+	card := []h.H{
+		h.Class("console__card"),
+		h.Div(h.Class("console__watch-name"), h.Text(kind.String())),
+		h.Div(h.Class("console__watch-precision"), h.Text(precisionLine)),
+	}
+	if unmarked != nil && !noisy {
+		name := ""
+		for _, p := range packets {
+			if p.ID == unmarked.PacketID {
+				name = p.Name
+				break
+			}
+		}
+		kindStr := strconv.Itoa(int(kind))
+		woStr := strconv.Itoa(unmarked.PacketID)
+		card = append(card, h.Div(h.Class("console__watch-prompt"),
+			h.Span(h.Class("console__watch-prompt-name"), h.Text(name)),
+			h.Button(
+				on.Click(c.MarkWatchFire,
+					on.SetSignal(&c.MarkWatchKind.Signal, kindStr),
+					on.SetSignal(&c.MarkWatchWO.Signal, woStr),
+					on.SetSignal(&c.MarkUseful.Signal, "true"),
+				),
+				h.Class("pk-btn", "console__watch-mark"),
+				h.Text("useful"),
+			),
+			h.Button(
+				on.Click(c.MarkWatchFire,
+					on.SetSignal(&c.MarkWatchKind.Signal, kindStr),
+					on.SetSignal(&c.MarkWatchWO.Signal, woStr),
+					on.SetSignal(&c.MarkUseful.Signal, "false"),
+				),
+				h.Class("pk-btn--quiet", "console__watch-mark"),
+				h.Text("noise"),
+			),
+		))
+	}
+	return h.Div(card...)
 }
 
 // renderSettledRow renders one settled packet: a state square colored by

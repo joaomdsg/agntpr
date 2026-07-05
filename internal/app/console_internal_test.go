@@ -263,9 +263,11 @@ func TestLiveCard_settledRailShowsDashedEmptyWhenNothingSettled(t *testing.T) {
 	require.Contains(t, body, "nothing settled yet", "the dashed empty state names the honest absence")
 }
 
-// Watches (slice 12) do not exist yet — the rail must show the honest empty
-// state, never a fabricated watch. NOT parallel (shared liveReg/liveFabric).
-func TestLiveCard_watchesRailShowsHonestEmptyStateBeforeItsMechanicExists(t *testing.T) {
+// The watches region is always present, even before any watch has fired —
+// its per-kind "no history yet" content is now covered in depth by
+// watch_internal_test.go (ROADMAP slice 12). NOT parallel (shared
+// liveReg/liveFabric).
+func TestLiveCard_watchesRailIsPresentBeforeAnyWatchHasFired(t *testing.T) {
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
 	viaApp, log, err := NewServer(LiveConfig{
@@ -278,7 +280,6 @@ func TestLiveCard_watchesRailShowsHonestEmptyStateBeforeItsMechanicExists(t *tes
 
 	body := bodyOf(vt.NewClient(t, server, "/").HTML())
 	require.Contains(t, body, "your watches", "the watches region is present")
-	require.Contains(t, body, "no watches yet", "no fabricated watch before the mechanic ships")
 }
 
 // ROADMAP slice 6: the hero stat counts ONLY packets whose State is Verified

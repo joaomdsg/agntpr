@@ -876,6 +876,37 @@ body {
   color: var(--ink);
 }
 
+/* ROADMAP slice 12: "your watches" — three canonical standing triggers, each
+   a neutral card (lanes are QoS, not states; watches are the same — no
+   state-grammar color belongs here, only text tokens). */
+.console__watch-name {
+  font-family: var(--font-mono);
+  font-size: var(--fs-tiny);
+  color: var(--ink);
+}
+.console__watch-precision {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  color: var(--text-faint);
+  margin-top: var(--sp-1);
+}
+.console__watch-prompt {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+.console__watch-prompt-name {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  color: var(--text-muted);
+  flex: 1;
+}
+.console__watch-mark {
+  font-size: var(--fs-micro);
+  padding: 1px var(--sp-3);
+}
+
 /* ---- ROADMAP slice 4: the Inspector shell — identity strip | changed-files
    tree | Monaco island + answer form | annotation rail | timeline footer, per
    design/ui_kits/console/InspectorScreen.jsx. FINAL design-system class names
