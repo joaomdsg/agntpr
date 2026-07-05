@@ -1,61 +1,13 @@
-package app
+package app_test
 
 import (
-	"context"
-	"net/http/httptest"
-	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/go-via/via/vt"
-
-	"github.com/joaomdsg/packets/internal/catch"
-	"github.com/joaomdsg/packets/internal/fabric"
-	"github.com/joaomdsg/packets/internal/ledger"
 )
-
-// actNowCardBody stands up a session with BOTH a spendable balance (one confirmed
-// catch) and earned attention bandwidth (one fast-cleared block), so every act-now
-// affordance — spend, bench, authoring, place-order — renders. It returns the live
-// card body for that session. NOT parallel (shared liveReg/liveFabric).
-func actNowCardBody(t *testing.T) string {
-	t.Helper()
-	resetConsumersForTest()
-	ctx := context.Background()
-	f, err := fabric.Start(ctx, t.TempDir())
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = f.Close() })
-	log := ledger.Bind(f, "actnow", "i")
-
-	// A confirmed catch → balance 1 (spend + bench render).
-	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "seed.go", Line: 1, ReasonTag: "catch"}))
-	// A fast-cleared block → bandwidth (authoring + place-order render).
-	base := time.Unix(1_700_000_000, 0)
-	require.NoError(t, log.AppendBlock("wo:1", base))
-	require.NoError(t, log.AppendUnblock("wo:1", base.Add(30*time.Second)))
-	registerSession("actnow", LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"},
-		DispatchBacklog: []ledger.Target{
-			{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "deck.go", Line: 9},
-		},
-	}, log)
-
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, defLog, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = defLog.Close() })
-
-	return bodyOf(vt.NewClient(t, server, "/?key=actnow").HTML())
-}
 
 // FLOW A: the live card mixes act-now controls with retrospective state in a flat
 // scroll. Without sub-landmarks an assistive-tech user can't tell "what I act on"
@@ -106,15 +58,7 @@ func TestLiveCard_sectioningKeepsTheMainLiveRegionIntact(t *testing.T) {
 // section is OMITTED (not an empty-shouting heading) — but the onboarding guide
 // still renders, so a first-run Lead is never stranded.
 func TestLiveCard_freshSessionOmitsActNowButKeepsOnboarding(t *testing.T) {
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, log, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = log.Close() })
+	server, _ := bootDefaultServer(t, defaultBootCfg)
 
 	body := bodyOf(vt.NewClient(t, server, "/").HTML())
 	require.NotContains(t, body, `aria-labelledby="act-now-label"`,

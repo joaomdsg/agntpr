@@ -1,9 +1,6 @@
-package app
+package app_test
 
 import (
-	"context"
-	"net/http/httptest"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -13,29 +10,16 @@ import (
 
 	"github.com/go-via/via/vt"
 
+	"github.com/joaomdsg/packets/internal/app"
 	"github.com/joaomdsg/packets/internal/catch"
-	"github.com/joaomdsg/packets/internal/fabric"
 	"github.com/joaomdsg/packets/internal/ledger"
 	"github.com/joaomdsg/packets/internal/packet"
 )
 
-// newWatchTestServer boots a fresh default session (no anchor — the watches
-// rail lives on the Console, which never needs the legacy catch-cycle) so
-// each test gets an isolated ledger without repeating the boilerplate.
-func newWatchTestServer(t *testing.T) *httptest.Server {
-	t.Helper()
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	viaApp, defLog, err := NewServer(LiveConfig{RepoDir: ".", LedgerPath: defLogPath})
-	require.NoError(t, err)
-	server := httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = defLog.Close() })
-	return server
-}
-
 // failedDispatch mints a catch to cover the dispatch's cost (AppendDispatch
-// refuses a zero balance — mirrors calibration_console_internal_test.go's
-// fixture), funds one work order, and fails it — a "failed" status folds to
-// a HoldBlocking packet (ROADMAP slice 5), the cheapest real trigger for
+// refuses a zero balance — mirrors calibration_console_test.go's fixture),
+// funds one work order, and fails it — a "failed" status folds to a
+// HoldBlocking packet (ROADMAP slice 5), the cheapest real trigger for
 // WatchBlockingHold without needing a real mutation/build cycle. Returns the
 // new order's id.
 func failedDispatch(t *testing.T, log *ledger.Log, name string) int {
@@ -55,7 +39,7 @@ func failedDispatch(t *testing.T, log *ledger.Log, name string) int {
 // A watch with nothing recorded yet must say so literally — never a
 // fabricated score. NOT parallel (shared liveReg/liveFabric).
 func TestLiveCard_watchesRailReportsNoHistoryYetForEveryKindBeforeAnythingFires(t *testing.T) {
-	server := newWatchTestServer(t)
+	server, _ := bootDefaultServer(t, app.LiveConfig{RepoDir: "."})
 
 	body := bodyOf(vt.NewClient(t, server, "/").HTML())
 
@@ -70,15 +54,10 @@ func TestLiveCard_watchesRailReportsNoHistoryYetForEveryKindBeforeAnythingFires(
 // human judgment Precision is computed from. NOT parallel (shared
 // liveReg/liveFabric).
 func TestLiveCard_watchesRailOffersAMarkPromptForAnUnmarkedFire(t *testing.T) {
-	ctx := context.Background()
-	f, err := fabric.Start(ctx, t.TempDir())
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = f.Close() })
-	log := ledger.Bind(f, "watchfireprompt", "i")
+	server, _ := bootDefaultServer(t, app.LiveConfig{RepoDir: "."})
+	log := addFundedSession(t, "watchfireprompt", app.LiveConfig{BaseRev: "own-b-watchfireprompt", FixRev: "own-f", Anchor: anchorForCap()})
 	failedDispatch(t, log, "d1")
-	registerSession("watchfireprompt", LiveConfig{BaseRev: "own-b-watchfireprompt", FixRev: "own-f", Anchor: anchorForCap()}, log)
 
-	server := newWatchTestServer(t)
 	body := bodyOf(vt.NewClient(t, server, "/?key=watchfireprompt").HTML())
 
 	assert.Contains(t, body, "/_action/MarkWatchFire", "an unmarked fire offers the mark affordance")
@@ -90,20 +69,15 @@ func TestLiveCard_watchesRailOffersAMarkPromptForAnUnmarkedFire(t *testing.T) {
 // resolved — asking again would be noise on the human, not the trigger). NOT
 // parallel (shared liveReg/liveFabric).
 func TestLiveCard_markingAFireUsefulUpdatesPrecisionAndClearsThePrompt(t *testing.T) {
-	ctx := context.Background()
-	f, err := fabric.Start(ctx, t.TempDir())
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = f.Close() })
-	log := ledger.Bind(f, "watchfiremark", "i")
+	server, _ := bootDefaultServer(t, app.LiveConfig{RepoDir: "."})
+	log := addFundedSession(t, "watchfiremark", app.LiveConfig{BaseRev: "own-b-watchfiremark", FixRev: "own-f", Anchor: anchorForCap()})
 	id := failedDispatch(t, log, "d1")
-	registerSession("watchfiremark", LiveConfig{BaseRev: "own-b-watchfiremark", FixRev: "own-f", Anchor: anchorForCap()}, log)
 
-	server := newWatchTestServer(t)
 	// A render records the fire before it can be marked.
 	_ = bodyOf(vt.NewClient(t, server, "/?key=watchfiremark").HTML())
 
 	tc := vt.NewClient(t, server, "/?key=watchfiremark")
-	require.Equal(t, 200, tc.Action((&LiveCard{Key: "watchfiremark"}).MarkWatchFire).
+	require.Equal(t, 200, tc.Action((&app.LiveCard{Key: "watchfiremark"}).MarkWatchFire).
 		WithSignal("markwatchkind", strconv.Itoa(int(packet.WatchBlockingHold))).
 		WithSignal("markwatchwo", strconv.Itoa(id)).
 		WithSignal("markuseful", "true").
@@ -119,21 +93,16 @@ func TestLiveCard_markingAFireUsefulUpdatesPrecisionAndClearsThePrompt(t *testin
 // nothing but repeated renders, corrupting the score. NOT parallel (shared
 // liveReg/liveFabric).
 func TestLiveCard_repeatedRendersRecordExactlyOneFirePerPacket(t *testing.T) {
-	ctx := context.Background()
-	f, err := fabric.Start(ctx, t.TempDir())
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = f.Close() })
-	log := ledger.Bind(f, "watchfiredupe", "i")
+	server, _ := bootDefaultServer(t, app.LiveConfig{RepoDir: "."})
+	log := addFundedSession(t, "watchfiredupe", app.LiveConfig{BaseRev: "own-b-watchfiredupe", FixRev: "own-f", Anchor: anchorForCap()})
 	id := failedDispatch(t, log, "d1")
-	registerSession("watchfiredupe", LiveConfig{BaseRev: "own-b-watchfiredupe", FixRev: "own-f", Anchor: anchorForCap()}, log)
 
-	server := newWatchTestServer(t)
 	for i := 0; i < 5; i++ {
 		_ = bodyOf(vt.NewClient(t, server, "/?key=watchfiredupe").HTML())
 	}
 
 	tc := vt.NewClient(t, server, "/?key=watchfiredupe")
-	require.Equal(t, 200, tc.Action((&LiveCard{Key: "watchfiredupe"}).MarkWatchFire).
+	require.Equal(t, 200, tc.Action((&app.LiveCard{Key: "watchfiredupe"}).MarkWatchFire).
 		WithSignal("markwatchkind", strconv.Itoa(int(packet.WatchBlockingHold))).
 		WithSignal("markwatchwo", strconv.Itoa(id)).
 		WithSignal("markuseful", "false").
@@ -149,7 +118,7 @@ func TestLiveCard_repeatedRendersRecordExactlyOneFirePerPacket(t *testing.T) {
 	// If dedup were broken, this second mark would find one of those leftovers
 	// and flip the score to "1/2 useful".
 	tc2 := vt.NewClient(t, server, "/?key=watchfiredupe")
-	require.Equal(t, 200, tc2.Action((&LiveCard{Key: "watchfiredupe"}).MarkWatchFire).
+	require.Equal(t, 200, tc2.Action((&app.LiveCard{Key: "watchfiredupe"}).MarkWatchFire).
 		WithSignal("markwatchkind", strconv.Itoa(int(packet.WatchBlockingHold))).
 		WithSignal("markwatchwo", strconv.Itoa(id)).
 		WithSignal("markuseful", "true").
@@ -164,20 +133,15 @@ func TestLiveCard_repeatedRendersRecordExactlyOneFirePerPacket(t *testing.T) {
 // independent mark prompt — mirrors gauntlet's "confirming a second order
 // doesn't clobber the first". NOT parallel (shared liveReg/liveFabric).
 func TestLiveCard_markingOneFireDoesNotClobberAnotherPacketsFire(t *testing.T) {
-	ctx := context.Background()
-	f, err := fabric.Start(ctx, t.TempDir())
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = f.Close() })
-	log := ledger.Bind(f, "watchfiretwo", "i")
+	server, _ := bootDefaultServer(t, app.LiveConfig{RepoDir: "."})
+	log := addFundedSession(t, "watchfiretwo", app.LiveConfig{BaseRev: "own-b-watchfiretwo", FixRev: "own-f", Anchor: anchorForCap()})
 	id1 := failedDispatch(t, log, "d1")
 	id2 := failedDispatch(t, log, "d2")
-	registerSession("watchfiretwo", LiveConfig{BaseRev: "own-b-watchfiretwo", FixRev: "own-f", Anchor: anchorForCap()}, log)
 
-	server := newWatchTestServer(t)
 	_ = bodyOf(vt.NewClient(t, server, "/?key=watchfiretwo").HTML())
 
 	tc := vt.NewClient(t, server, "/?key=watchfiretwo")
-	require.Equal(t, 200, tc.Action((&LiveCard{Key: "watchfiretwo"}).MarkWatchFire).
+	require.Equal(t, 200, tc.Action((&app.LiveCard{Key: "watchfiretwo"}).MarkWatchFire).
 		WithSignal("markwatchkind", strconv.Itoa(int(packet.WatchBlockingHold))).
 		WithSignal("markwatchwo", strconv.Itoa(id1)).
 		WithSignal("markuseful", "true").
@@ -189,7 +153,7 @@ func TestLiveCard_markingOneFireDoesNotClobberAnotherPacketsFire(t *testing.T) {
 	assert.Contains(t, body, "/_action/MarkWatchFire", "d2's mark prompt is still offered")
 
 	tc2 := vt.NewClient(t, server, "/?key=watchfiretwo")
-	require.Equal(t, 200, tc2.Action((&LiveCard{Key: "watchfiretwo"}).MarkWatchFire).
+	require.Equal(t, 200, tc2.Action((&app.LiveCard{Key: "watchfiretwo"}).MarkWatchFire).
 		WithSignal("markwatchkind", strconv.Itoa(int(packet.WatchBlockingHold))).
 		WithSignal("markwatchwo", strconv.Itoa(id2)).
 		WithSignal("markuseful", "false").
@@ -203,27 +167,22 @@ func TestLiveCard_markingOneFireDoesNotClobberAnotherPacketsFire(t *testing.T) {
 // parse) must be a calm no-op — mirroring ConfirmIntentFidelity's handling of
 // bad input. NOT parallel (shared liveReg/liveFabric).
 func TestLiveCard_markWatchFireWithMalformedSignalsIsASilentNoOp(t *testing.T) {
-	ctx := context.Background()
-	f, err := fabric.Start(ctx, t.TempDir())
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = f.Close() })
-	log := ledger.Bind(f, "watchfirebad", "i")
+	server, _ := bootDefaultServer(t, app.LiveConfig{RepoDir: "."})
+	log := addFundedSession(t, "watchfirebad", app.LiveConfig{BaseRev: "own-b-watchfirebad", FixRev: "own-f", Anchor: anchorForCap()})
 	id := failedDispatch(t, log, "d1")
-	registerSession("watchfirebad", LiveConfig{BaseRev: "own-b-watchfirebad", FixRev: "own-f", Anchor: anchorForCap()}, log)
 
-	server := newWatchTestServer(t)
 	before := bodyOf(vt.NewClient(t, server, "/?key=watchfirebad").HTML())
 	require.Contains(t, before, "/_action/MarkWatchFire")
 
 	tc := vt.NewClient(t, server, "/?key=watchfirebad")
-	require.Equal(t, 200, tc.Action((&LiveCard{Key: "watchfirebad"}).MarkWatchFire).
+	require.Equal(t, 200, tc.Action((&app.LiveCard{Key: "watchfirebad"}).MarkWatchFire).
 		WithSignal("markwatchkind", "not-a-number").
 		WithSignal("markwatchwo", strconv.Itoa(id)).
 		WithSignal("markuseful", "true").
 		Fire(), "a malformed kind must not error the action itself")
 
 	tc2 := vt.NewClient(t, server, "/?key=watchfirebad")
-	require.Equal(t, 200, tc2.Action((&LiveCard{Key: "watchfirebad"}).MarkWatchFire).
+	require.Equal(t, 200, tc2.Action((&app.LiveCard{Key: "watchfirebad"}).MarkWatchFire).
 		WithSignal("markwatchkind", strconv.Itoa(int(packet.WatchBlockingHold))).
 		WithSignal("markwatchwo", "").
 		WithSignal("markuseful", "true").
@@ -238,14 +197,8 @@ func TestLiveCard_markWatchFireWithMalformedSignalsIsASilentNoOp(t *testing.T) {
 // right to interrupt: its precision line still shows the real score, but new
 // fires no longer prompt for a mark. NOT parallel (shared liveReg/liveFabric).
 func TestLiveCard_aWatchWithMostlyNoiseMarksAcrossARealSampleStopsPromptingForNewFires(t *testing.T) {
-	ctx := context.Background()
-	f, err := fabric.Start(ctx, t.TempDir())
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = f.Close() })
-	log := ledger.Bind(f, "watchnoisy", "i")
-
-	server := newWatchTestServer(t)
-	registerSession("watchnoisy", LiveConfig{BaseRev: "own-b-watchnoisy", FixRev: "own-f", Anchor: anchorForCap()}, log)
+	server, _ := bootDefaultServer(t, app.LiveConfig{RepoDir: "."})
+	log := addFundedSession(t, "watchnoisy", app.LiveConfig{BaseRev: "own-b-watchnoisy", FixRev: "own-f", Anchor: anchorForCap()})
 
 	ids := make([]int, 5)
 	for i := range ids {
@@ -255,7 +208,7 @@ func TestLiveCard_aWatchWithMostlyNoiseMarksAcrossARealSampleStopsPromptingForNe
 	_ = bodyOf(vt.NewClient(t, server, "/?key=watchnoisy").HTML())
 	for _, id := range ids {
 		tc := vt.NewClient(t, server, "/?key=watchnoisy")
-		require.Equal(t, 200, tc.Action((&LiveCard{Key: "watchnoisy"}).MarkWatchFire).
+		require.Equal(t, 200, tc.Action((&app.LiveCard{Key: "watchnoisy"}).MarkWatchFire).
 			WithSignal("markwatchkind", strconv.Itoa(int(packet.WatchBlockingHold))).
 			WithSignal("markwatchwo", strconv.Itoa(id)).
 			WithSignal("markuseful", "false").

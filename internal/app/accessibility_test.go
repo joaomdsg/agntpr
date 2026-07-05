@@ -1,8 +1,6 @@
-package app
+package app_test
 
 import (
-	"net/http/httptest"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -19,15 +17,7 @@ import (
 // landmark (a sibling of main, not nested), so navigation and content are distinct
 // regions. NOT parallel (shared liveReg/liveFabric).
 func TestLiveCard_liveEconomyIsAnnouncedToAssistiveTech(t *testing.T) {
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, log, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = log.Close() })
+	server, _ := bootDefaultServer(t, defaultBootCfg)
 
 	body := bodyOf(vt.NewClient(t, server, "/").HTML())
 	require.Contains(t, body, `role="main"`, "the economy is the page's main landmark")
@@ -42,15 +32,7 @@ func TestLiveCard_liveEconomyIsAnnouncedToAssistiveTech(t *testing.T) {
 // the board now re-renders over SSE when the fleet changes (OnConnect), so announcing
 // updates is honest, not a lie about liveness. NOT parallel (shared globals).
 func TestBoardCard_fleetExposesANamedMainLandmark(t *testing.T) {
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, log, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = log.Close() })
+	server, _ := bootDefaultServer(t, defaultBootCfg)
 
 	body := bodyOf(vt.NewClient(t, server, "/board").HTML())
 	require.Contains(t, body, `role="main"`, "the fleet is the page's main landmark")

@@ -1,8 +1,6 @@
-package app
+package app_test
 
 import (
-	"net/http/httptest"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -10,6 +8,7 @@ import (
 
 	"github.com/go-via/via/vt"
 
+	"github.com/joaomdsg/packets/internal/app"
 	"github.com/joaomdsg/packets/internal/ledger"
 )
 
@@ -18,19 +17,14 @@ import (
 // Lead sees what a Spend would fund (and, in a later slice, curates it), killing
 // the compute dead-air. NOT parallel (shared liveReg/liveFabric).
 func TestLiveCard_showsTheFundableWorkOnTheBench(t *testing.T) {
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, log, err := NewServer(LiveConfig{
+	server, _ := bootDefaultServer(t, app.LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
+		TestCmd: []string{"true"},
 		DispatchBacklog: []ledger.Target{
 			{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7},
 			{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "beta.go", Line: 9},
 		},
 	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = log.Close() })
 
 	body := bodyOf(vt.NewClient(t, server, "/").HTML())
 	require.Contains(t, body, "bench", "the card surfaces the fundable work on the bench")
@@ -42,39 +36,29 @@ func TestLiveCard_showsTheFundableWorkOnTheBench(t *testing.T) {
 // A session with no fundable work renders no bench — no empty block implying there
 // is work on deck. NOT parallel (shared globals).
 func TestLiveCard_omitsTheBenchWhenNoFundableWork(t *testing.T) {
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, log, err := NewServer(LiveConfig{
+	server, _ := bootDefaultServer(t, app.LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath, // no DispatchBacklog, no catches → no fundable work
+		TestCmd: []string{"true"}, // no DispatchBacklog, no catches → no fundable work
 	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = log.Close() })
 
 	body := bodyOf(vt.NewClient(t, server, "/").HTML())
 	require.NotContains(t, body, `class="bench"`, "no bench when there is no fundable work")
 }
 
 // The bench shows only the next few fundable targets — the Lead curates what's on
-// deck, not an unbounded wall. A backlog past the cap renders exactly benchCap
+// deck, not an unbounded wall. A backlog past the cap renders exactly benchCapMirror
 // items. NOT parallel (shared globals).
 func TestLiveCard_benchCapsTheVisibleTargets(t *testing.T) {
 	var many []ledger.Target
-	for i := 0; i < benchCap+3; i++ {
+	for i := 0; i < benchCapMirror+3; i++ {
 		many = append(many, ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "f.go", Line: i + 1})
 	}
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, log, err := NewServer(LiveConfig{
+	server, _ := bootDefaultServer(t, app.LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath, DispatchBacklog: many,
+		TestCmd: []string{"true"}, DispatchBacklog: many,
 	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = log.Close() })
 
 	body := bodyOf(vt.NewClient(t, server, "/").HTML())
-	require.Equal(t, benchCap, strings.Count(body, "bench__item"),
+	require.Equal(t, benchCapMirror, strings.Count(body, "bench__item"),
 		"the bench shows exactly benchCap items, not the whole backlog")
 }

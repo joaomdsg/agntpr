@@ -1,30 +1,22 @@
-package app
+package app_test
 
 import (
-	"net/http/httptest"
 	"net/url"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/go-via/via/vt"
+
+	"github.com/joaomdsg/packets/internal/app"
 )
 
 // A session card with no way BACK to the fleet strands the Lead. Every page
 // carries the nav header, and the card's "fleet" crumb links back to /board.
 // NOT parallel (shared liveReg/liveFabric).
 func TestLiveCard_rendersNavWithBackToFleet(t *testing.T) {
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, log, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = log.Close() })
+	server, _ := bootDefaultServer(t, defaultBootCfg)
 
 	body := bodyOf(vt.NewClient(t, server, "/").HTML())
 	require.Contains(t, body, "board-nav", "the session card carries the nav header")
@@ -32,24 +24,16 @@ func TestLiveCard_rendersNavWithBackToFleet(t *testing.T) {
 	// The breadcrumb shows the REAL session key (here the default), not a
 	// fabricated label — the Lead always knows which session they're on.
 	require.Contains(t, body, "board-nav__key", "the card breadcrumb names the current session")
-	require.Contains(t, body, defaultSessionKey, "the breadcrumb shows the real key, not a renamed label")
+	require.Contains(t, body, defaultKey, "the breadcrumb shows the real key, not a renamed label")
 }
 
 // The fleet board is a DEAD END unless each row drills into its session: the row
 // key is a link to that session's card (/?key=<key>). Without it the Lead can see
 // the fleet but never reach a session.
 func TestBoardCard_rendersNavAndDrillsIntoASession(t *testing.T) {
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, defLog, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = defLog.Close() })
+	server, _ := bootDefaultServer(t, defaultBootCfg)
 
-	alphaLog, err := AddSession("alpha", LiveConfig{
+	alphaLog, err := app.AddSession("alpha", app.LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"},
 	})
@@ -71,18 +55,10 @@ func TestBoardCard_rendersNavAndDrillsIntoASession(t *testing.T) {
 // so the drill link targets the WRONG session (or none). The href must URL-escape
 // the key so the link round-trips to the exact session the row names.
 func TestBoardCard_drillHrefURLEscapesTheKey(t *testing.T) {
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, defLog, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = defLog.Close() })
+	server, _ := bootDefaultServer(t, defaultBootCfg)
 
 	const trickyKey = "a&b=c"
-	trickyLog, err := AddSession(trickyKey, LiveConfig{
+	trickyLog, err := app.AddSession(trickyKey, app.LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"},
 	})
@@ -104,15 +80,7 @@ func TestBoardCard_drillHrefURLEscapesTheKey(t *testing.T) {
 // in-app chrome instead. A regression back to plain text would silently drop
 // the brand from every page. NOT parallel (shared liveReg/liveFabric).
 func TestBoardCard_navHomeLinkIsTheMarkAndStackedLockupNotBareText(t *testing.T) {
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, log, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = log.Close() })
+	server, _ := bootDefaultServer(t, defaultBootCfg)
 
 	body := bodyOf(vt.NewClient(t, server, "/board").HTML())
 	require.Contains(t, body, "board-nav__home", "the home link keeps its stable class hook")
@@ -128,15 +96,7 @@ func TestBoardCard_navHomeLinkIsTheMarkAndStackedLockupNotBareText(t *testing.T)
 // it must rebrand identically, not regress to the old bare-text link.
 // NOT parallel (shared liveReg/liveFabric).
 func TestLiveCard_navHomeLinkIsTheMarkAndStackedLockup(t *testing.T) {
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, log, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = log.Close() })
+	server, _ := bootDefaultServer(t, defaultBootCfg)
 
 	body := bodyOf(vt.NewClient(t, server, "/").HTML())
 	require.Contains(t, body, "pk-mark", "the session card's home link mounts the brand mark")
@@ -150,15 +110,7 @@ func TestLiveCard_navHomeLinkIsTheMarkAndStackedLockup(t *testing.T) {
 // or hardcoded one, so the Lead always knows which surface they're on.
 // NOT parallel (shared liveReg/liveFabric).
 func TestReviewAndSettings_navLockupSublabelNamesTheirOwnSurface(t *testing.T) {
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, log, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = log.Close() })
+	server, _ := bootDefaultServer(t, defaultBootCfg)
 
 	review := bodyOf(vt.NewClient(t, server, "/review").HTML())
 	require.Contains(t, review, "pk-mark", "/review mounts the brand mark")

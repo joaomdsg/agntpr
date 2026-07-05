@@ -47,25 +47,6 @@ func TestReviewCard_rendersOpenQuestionThreadsForASession(t *testing.T) {
 	require.Contains(t, body, "auth.go:30", "every open question renders, including the undetermined one")
 }
 
-// With no surviving mutants (or before a cycle ran), /review shows a calm empty
-// state — never a fabricated or alarming surface. NOT parallel.
-func TestReviewCard_showsCalmEmptyStateWhenNoOpenQuestions(t *testing.T) {
-	resetConsumersForTest()
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, log, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = log.Close() })
-
-	body := bodyOf(vt.NewClient(t, server, "/review").HTML())
-	require.NotContains(t, body, "review-thread", "no threads when the oracle left no survivors")
-	require.Contains(t, body, "No open questions", "a calm empty state, not a blank or alarming surface")
-}
-
 // A long-running session's OLDEST packet must still be inspectable. packetForOrder
 // folds ALL of a session's dispatches unboundedly, so once more than 50 orders exist
 // the first one is a packet the Console can name but orderTarget must still resolve

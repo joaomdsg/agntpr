@@ -1,14 +1,13 @@
-package app
+package app_test
 
 import (
-	"net/http/httptest"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/go-via/via/vt"
 
+	"github.com/joaomdsg/packets/internal/app"
 	"github.com/joaomdsg/packets/internal/ledger"
 )
 
@@ -16,16 +15,11 @@ import (
 // affordance (the curation decision, flow d) AND a sharpen body so the Lead can
 // refine the work during dead-air without leaving the card. NOT parallel (globals).
 func TestLiveCard_benchItemRendersAsACardWithFundAndSharpenAffordances(t *testing.T) {
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, log, err := NewServer(LiveConfig{
+	server, _ := bootDefaultServer(t, app.LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
+		TestCmd: []string{"true"},
 		DispatchBacklog: []ledger.Target{{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 88}},
 	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = log.Close() })
 
 	body := bodyOf(vt.NewClient(t, server, "/").HTML())
 	// The fund affordance survives the grow-into-a-card (flow d is unchanged).
@@ -44,16 +38,11 @@ func TestLiveCard_benchItemRendersAsACardWithFundAndSharpenAffordances(t *testin
 // the refinement is visible (and survives a reopen — it is a logged fact). NOT
 // parallel (shared globals).
 func TestLiveCard_benchCardShowsAnAttachedCriterion(t *testing.T) {
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, log, err := NewServer(LiveConfig{
+	server, log := bootDefaultServer(t, app.LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
+		TestCmd: []string{"true"},
 		DispatchBacklog: []ledger.Target{{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 88}},
 	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = log.Close() })
 	require.NoError(t, log.AppendRefine(ledger.RefinedOrderRecord{
 		Target: ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 88},
 		Refine: "criteria", Criteria: []string{"rejects a negative amount"},
@@ -67,16 +56,11 @@ func TestLiveCard_benchCardShowsAnAttachedCriterion(t *testing.T) {
 // A convention the Lead noted on a target shows on its card too — the symmetric
 // annotation to criteria, so both sharpening kinds are visible. NOT parallel.
 func TestLiveCard_benchCardShowsAnAttachedConvention(t *testing.T) {
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, log, err := NewServer(LiveConfig{
+	server, log := bootDefaultServer(t, app.LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
+		TestCmd: []string{"true"},
 		DispatchBacklog: []ledger.Target{{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 88}},
 	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = log.Close() })
 	require.NoError(t, log.AppendRefine(ledger.RefinedOrderRecord{
 		Target: ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 88},
 		Refine: "convention", Note: "wrap errors with an origin prefix",

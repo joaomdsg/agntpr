@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -18,6 +19,15 @@ import (
 	"github.com/joaomdsg/packets/internal/pipe"
 	"github.com/joaomdsg/packets/internal/reanchor"
 )
+
+// gitInitNoRemote initializes a bare local repo with no origin remote, so
+// packet.ParseAddr on it deterministically falls back to the honest
+// "local/<dir>" identity instead of resolving a real remote. Duplicated in
+// console_test.go (app_test scope) for the tests that moved there.
+func gitInitNoRemote(t testing.TB, dir string) {
+	t.Helper()
+	require.NoError(t, exec.Command("git", "init", "-q", dir).Run())
+}
 
 // ROADMAP slice 4: /review renders as the 3-column Inspector (252|1fr|312,
 // MVP.md) rather than a flat stack — the changed-files tree, the Monaco

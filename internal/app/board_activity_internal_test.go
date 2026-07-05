@@ -48,24 +48,3 @@ func TestBoardCard_showsAnAgentsLiveActivityOnItsRow(t *testing.T) {
 	require.Contains(t, body, "board-row__activity-beat", "a live activity beat renders as its own hook on the row")
 	require.Contains(t, body, "running go test", "the board shows what the agent is doing right now")
 }
-
-func TestBoardCard_omitsTheActivityBeatWhenTheAgentIsIdle(t *testing.T) {
-	// NOT parallel (shared liveReg). An idle session (no live fill) shows no beat —
-	// no dead "·" with nothing after it.
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	_, log, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = log.Close() })
-
-	boardSession(t, "act-idle", 0, nil) // registered, never given an activity beat
-
-	rows := BoardRows()
-	for _, r := range rows {
-		if r.Key == "act-idle" {
-			require.Empty(t, r.Activity, "an idle session carries no activity beat")
-		}
-	}
-}

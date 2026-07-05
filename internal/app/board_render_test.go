@@ -1,8 +1,6 @@
-package app
+package app_test
 
 import (
-	"net/http/httptest"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -10,6 +8,7 @@ import (
 
 	"github.com/go-via/via/vt"
 
+	"github.com/joaomdsg/packets/internal/app"
 	"github.com/joaomdsg/packets/internal/ledger"
 )
 
@@ -18,22 +17,13 @@ func TestBoardCard_rendersACalmRowPerCardAsActivityNeverLeverage(t *testing.T) {
 	// with its activity (queued/running/done), framed as ACTIVITY — it must NEVER
 	// label or rank cards by leverage/priority (blocked-downstream is uncomputable;
 	// faking it would mis-point the Lead's attention). NOT parallel (shared globals).
+	server, _ := bootDefaultServer(t, defaultBootCfg)
 	t1, t2 := woTargetN(1), woTargetN(2)
-	own := ownTargetOf(LiveConfig{BaseRev: "own-b-bcB", FixRev: "own-f", Anchor: anchorForCap()})
+	own := ownTargetOf(app.LiveConfig{BaseRev: "own-b-bcB", FixRev: "own-f", Anchor: anchorForCap()})
 	logB := boardSession(t, "bcB", 3, []ledger.Target{t1, t2})
 	require.NoError(t, logB.AppendDispatch("d", t1, own))
 	require.NoError(t, logB.AppendDispatch("d", t2, own))
 	boardSession(t, "bcA", 1, nil)
-
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, defLog, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = defLog.Close() })
 
 	// The board is a static read-only projection — its content is the initial
 	// rendered page (the GET body), not an SSE patch stream.

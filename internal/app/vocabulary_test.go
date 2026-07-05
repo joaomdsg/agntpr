@@ -1,9 +1,6 @@
-package app
+package app_test
 
 import (
-	"context"
-	"net/http/httptest"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"testing"
@@ -13,8 +10,8 @@ import (
 
 	"github.com/go-via/via/vt"
 
+	"github.com/joaomdsg/packets/internal/app"
 	"github.com/joaomdsg/packets/internal/catch"
-	"github.com/joaomdsg/packets/internal/fabric"
 	"github.com/joaomdsg/packets/internal/ledger"
 )
 
@@ -51,20 +48,15 @@ func assertNoBannedVocabulary(t *testing.T, surface, body string) {
 	assert.Empty(t, hits, "%s renders retired vocabulary: %v", surface, hits)
 }
 
-// vocabularySweepFixture funds a session spanning every packet lifecycle state
-// (composing/queued, in-flight/running, verified, held-advisory, held-blocking,
-// delivered) plus an open review thread — the widest real surface a single
-// fixture can drive, so the banned-word sweep exercises the needs-you rail,
-// the settled rail, the in-flight strip, and the Inspector's annotation rail
-// all in one pass.
-func vocabularySweepFixture(t *testing.T, key string) *ledger.Log {
+// vocabularySweepFixture funds an already-registered session's log spanning
+// every packet lifecycle state (composing/queued, in-flight/running, verified,
+// held-advisory, held-blocking, delivered) plus an open review thread — the
+// widest real surface a single fixture can drive, so the banned-word sweep
+// exercises the needs-you rail, the settled rail, and the in-flight strip
+// all in one pass. Populates log in place (does not create its own fabric),
+// since app.AddSession's log is already bound to the server's shared fabric.
+func vocabularySweepFixture(t *testing.T, log *ledger.Log) {
 	t.Helper()
-	ctx := context.Background()
-	f, err := fabric.Start(ctx, t.TempDir())
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = f.Close() })
-	log := ledger.Bind(f, key, "i")
-
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
 	fund := func(name, path string, line int) int {
 		require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "cover-" + name + ".go", Line: 1, ReasonTag: "catch"}))
@@ -94,10 +86,7 @@ func vocabularySweepFixture(t *testing.T, key string) *ledger.Log {
 	require.NoError(t, log.AppendStatus(delivered, "done"))
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "delivered.go", Line: 6, ReasonTag: "catch", Producer: "wo:" + strconv.Itoa(delivered)}))
 	require.NoError(t, log.AppendStatus(delivered, "deployed"))
-
-	return log
 }
-
 
 // The Console, the fleet board, and the utility settings page must never
 // render MVP.md's retired vocabulary (PR/merge/approve/order/session/board/
@@ -106,17 +95,9 @@ func vocabularySweepFixture(t *testing.T, key string) *ledger.Log {
 // exercises the needs-you rail, the settled rail, and the in-flight strip
 // together. NOT parallel (shared liveReg/liveFabric).
 func TestSurfaces_neverRenderRetiredVocabulary(t *testing.T) {
-	log := vocabularySweepFixture(t, "vocabsweep")
-	registerSession("vocabsweep", LiveConfig{BaseRev: "own-b-vocabsweep", FixRev: "own-f", Anchor: anchorForCap()}, log)
-
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	viaApp, defLog, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server := httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = defLog.Close() })
+	server, _ := bootDefaultServer(t, defaultBootCfg)
+	log := addFundedSession(t, "vocabsweep", app.LiveConfig{BaseRev: "own-b-vocabsweep", FixRev: "own-f", Anchor: anchorForCap()})
+	vocabularySweepFixture(t, log)
 
 	assertNoBannedVocabulary(t, "/ (Console)", bodyOf(vt.NewClient(t, server, "/?key=vocabsweep").HTML()))
 	assertNoBannedVocabulary(t, "/board (fleet)", bodyOf(vt.NewClient(t, server, "/board").HTML()))
@@ -128,17 +109,9 @@ func TestSurfaces_neverRenderRetiredVocabulary(t *testing.T) {
 // session-scoped one (a different branch in ReviewCard.View) — it must be
 // swept separately. NOT parallel (shared liveReg/liveFabric).
 func TestSurfaces_perPacketInspectorNeverRendersRetiredVocabulary(t *testing.T) {
-	log := vocabularySweepFixture(t, "vocabsweeporder")
-	registerSession("vocabsweeporder", LiveConfig{BaseRev: "own-b-vocabsweeporder", FixRev: "own-f", Anchor: anchorForCap()}, log)
-
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	viaApp, defLog, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server := httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = defLog.Close() })
+	server, _ := bootDefaultServer(t, defaultBootCfg)
+	log := addFundedSession(t, "vocabsweeporder", app.LiveConfig{BaseRev: "own-b-vocabsweeporder", FixRev: "own-f", Anchor: anchorForCap()})
+	vocabularySweepFixture(t, log)
 
 	rows, err := log.RecentDispatches(0)
 	require.NoError(t, err)

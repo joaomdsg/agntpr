@@ -84,67 +84,6 @@ func TestLiveCard_addAdjustmentDispatchesAReviewTurnToTheHarness(t *testing.T) {
 	assert.Equal(t, head, got.Target.BaseRev, "the turn runs against the session's live HEAD")
 }
 
-// An empty adjustment comment is nothing to address — a silent no-op, never a
-// dispatched turn. NOT parallel (shared globals).
-func TestLiveCard_addAdjustmentIsANoOpOnEmptyComment(t *testing.T) {
-	resetConsumersForTest()
-	repo := initGitRepoForOrder(t)
-	head := gitOrder(t, repo, "rev-parse", "HEAD")
-	ctx := context.Background()
-	f, err := fabric.Start(ctx, t.TempDir())
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = f.Close() })
-	log := ledger.Bind(f, "adjnoop", "i")
-	registerSession("adjnoop", LiveConfig{RepoDir: repo, BaseRev: head, Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
-
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, defLog, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = defLog.Close() })
-
-	tc := vt.NewClient(t, server, "/review?key=adjnoop")
-	require.Equal(t, 200, tc.Action((&ReviewCard{Key: "adjnoop"}).AddAdjustment).
-		WithSignal("adjfile", "main.go").WithSignal("adjline", "3").WithSignal("adjtext", "   ").Fire())
-
-	got := orderRecordFor(t, log, 1)
-	assert.Equal(t, "", got.Target.Prompt, "an empty comment never dispatches a turn")
-}
-
-// The review surface must render the adjustment entry point — inputs bound to the
-// adjustment signals and a button wired to AddAdjustment — else the Lead has no way to
-// leave an adjustment (the comment→harness round-trip would be unreachable from the
-// UI). NOT parallel (shared globals).
-func TestReviewCard_rendersTheAdjustmentEntryPoint(t *testing.T) {
-	resetConsumersForTest()
-	repo := initGitRepoForOrder(t)
-	head := gitOrder(t, repo, "rev-parse", "HEAD")
-	ctx := context.Background()
-	f, err := fabric.Start(ctx, t.TempDir())
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = f.Close() })
-	log := ledger.Bind(f, "adjui", "i")
-	registerSession("adjui", LiveConfig{RepoDir: repo, BaseRev: head, Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
-
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, defLog, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = defLog.Close() })
-
-	body := bodyOf(vt.NewClient(t, server, "/review?key=adjui").HTML())
-	assert.Contains(t, body, "/_action/AddAdjustment", "the review surface renders the leave-adjustment action")
-	assert.Contains(t, body, `data-bind="adjtext"`, "with an input bound to the adjustment comment signal")
-}
-
 // After an adjustment is left, the surface must report whether it was addressed by
 // relocating the anchor against the file's current content — so "leave an adjustment →
 // watch it addressed" has a visible payoff instead of a write-only box. When the

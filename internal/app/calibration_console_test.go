@@ -1,9 +1,6 @@
-package app
+package app_test
 
 import (
-	"context"
-	"net/http/httptest"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -11,8 +8,8 @@ import (
 
 	"github.com/go-via/via/vt"
 
+	"github.com/joaomdsg/packets/internal/app"
 	"github.com/joaomdsg/packets/internal/catch"
-	"github.com/joaomdsg/packets/internal/fabric"
 	"github.com/joaomdsg/packets/internal/ledger"
 )
 
@@ -23,15 +20,7 @@ const dryAsideLine = "✱ an empty queue is success, not idleness."
 // concepts.md's attention-economics framing — empty is a success, never a
 // dead end. NOT parallel (shared liveReg/liveFabric).
 func TestLiveCard_needsYouRailShowsTheDryAsideOnlyWhenTrulyEmpty(t *testing.T) {
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, log, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = log.Close() })
+	server, _ := bootDefaultServer(t, defaultBootCfg)
 
 	body := bodyOf(vt.NewClient(t, server, "/").HTML())
 	require.Equal(t, 1, strings.Count(body, dryAsideLine),
@@ -42,27 +31,13 @@ func TestLiveCard_needsYouRailShowsTheDryAsideOnlyWhenTrulyEmpty(t *testing.T) {
 // line for the empty case only, never appended alongside real cards. NOT
 // parallel (shared liveReg/liveFabric).
 func TestLiveCard_needsYouRailOmitsTheDryAsideWhenPacketsAreHeld(t *testing.T) {
-	ctx := context.Background()
-	f, err := fabric.Start(ctx, t.TempDir())
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = f.Close() })
-	log := ledger.Bind(f, "dryasideheld", "i")
+	server, _ := bootDefaultServer(t, defaultBootCfg)
+	log := addFundedSession(t, "dryasideheld", app.LiveConfig{BaseRev: "own-b-dryasideheld", FixRev: "own-f", Anchor: anchorForCap()})
 
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 100, ReasonTag: "catch"}))
 	require.NoError(t, log.AppendDispatch("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
 	require.NoError(t, log.AppendStatus(1, "failed"))
-	registerSession("dryasideheld", LiveConfig{BaseRev: "own-b-dryasideheld", FixRev: "own-f", Anchor: anchorForCap()}, log)
-
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, defLog, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = defLog.Close() })
 
 	body := bodyOf(vt.NewClient(t, server, "/?key=dryasideheld").HTML())
 	require.NotContains(t, body, dryAsideLine, "the dry aside never renders alongside real held cards")
@@ -73,28 +48,14 @@ func TestLiveCard_needsYouRailOmitsTheDryAsideWhenPacketsAreHeld(t *testing.T) {
 // Name, and a trailing "skim →" link into its own review. NOT parallel
 // (shared liveReg/liveFabric).
 func TestLiveCard_calibrationCardShowsADrawnVerifiedPacketWithASkimLink(t *testing.T) {
-	ctx := context.Background()
-	f, err := fabric.Start(ctx, t.TempDir())
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = f.Close() })
-	log := ledger.Bind(f, "calibdrawn", "i")
+	server, _ := bootDefaultServer(t, defaultBootCfg)
+	log := addFundedSession(t, "calibdrawn", app.LiveConfig{BaseRev: "own-b-calibdrawn", FixRev: "own-f", Anchor: anchorForCap()})
 
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 100, ReasonTag: "catch"}))
 	require.NoError(t, log.AppendDispatch("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Prompt: "skim me packet", Path: "alpha.go", Line: 7}, own))
 	require.NoError(t, log.AppendStatus(1, "done"))
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "alpha.go", Line: 7, ReasonTag: "catch", Producer: "wo:1"}))
-	registerSession("calibdrawn", LiveConfig{BaseRev: "own-b-calibdrawn", FixRev: "own-f", Anchor: anchorForCap()}, log)
-
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, defLog, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = defLog.Close() })
 
 	body := bodyOf(vt.NewClient(t, server, "/?key=calibdrawn").HTML())
 	require.Contains(t, body, "calibration", "the calibration kicker still names the region")
@@ -109,11 +70,8 @@ func TestLiveCard_calibrationCardShowsADrawnVerifiedPacketWithASkimLink(t *testi
 // non-cached implementation would flicker between them across requests. NOT
 // parallel (shared liveReg/liveFabric).
 func TestLiveCard_calibrationCardStaysStableAcrossRepeatedRenders(t *testing.T) {
-	ctx := context.Background()
-	f, err := fabric.Start(ctx, t.TempDir())
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = f.Close() })
-	log := ledger.Bind(f, "calibstable", "i")
+	server, _ := bootDefaultServer(t, defaultBootCfg)
+	log := addFundedSession(t, "calibstable", app.LiveConfig{BaseRev: "own-b-calibstable", FixRev: "own-f", Anchor: anchorForCap()})
 
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 100, ReasonTag: "catch"}))
@@ -124,17 +82,6 @@ func TestLiveCard_calibrationCardStaysStableAcrossRepeatedRenders(t *testing.T) 
 	require.NoError(t, log.AppendDispatch("d2", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "beta.go", Line: 9}, own))
 	require.NoError(t, log.AppendStatus(2, "done"))
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "beta.go", Line: 9, ReasonTag: "catch", Producer: "wo:2"}))
-	registerSession("calibstable", LiveConfig{BaseRev: "own-b-calibstable", FixRev: "own-f", Anchor: anchorForCap()}, log)
-
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, defLog, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = defLog.Close() })
 
 	first := bodyOf(vt.NewClient(t, server, "/?key=calibstable").HTML())
 	firstHref := extractCalibrationHref(t, first)
@@ -150,11 +97,8 @@ func TestLiveCard_calibrationCardStaysStableAcrossRepeatedRenders(t *testing.T) 
 // the Verified packet — one never masks or gets confused with the other. NOT
 // parallel (shared liveReg/liveFabric).
 func TestLiveCard_calibrationCardCoexistsWithAHeldNeedsYouCard(t *testing.T) {
-	ctx := context.Background()
-	f, err := fabric.Start(ctx, t.TempDir())
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = f.Close() })
-	log := ledger.Bind(f, "calibcoexist", "i")
+	server, _ := bootDefaultServer(t, defaultBootCfg)
+	log := addFundedSession(t, "calibcoexist", app.LiveConfig{BaseRev: "own-b-calibcoexist", FixRev: "own-f", Anchor: anchorForCap()})
 
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 100, ReasonTag: "catch"}))
@@ -165,18 +109,6 @@ func TestLiveCard_calibrationCardCoexistsWithAHeldNeedsYouCard(t *testing.T) {
 	require.NoError(t, log.AppendDispatch("d2", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "beta.go", Line: 9}, own))
 	require.NoError(t, log.AppendStatus(2, "done"))
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "beta.go", Line: 9, ReasonTag: "catch", Producer: "wo:2"})) // verified
-
-	registerSession("calibcoexist", LiveConfig{BaseRev: "own-b-calibcoexist", FixRev: "own-f", Anchor: anchorForCap()}, log)
-
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, defLog, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = defLog.Close() })
 
 	body := bodyOf(vt.NewClient(t, server, "/?key=calibcoexist").HTML())
 	require.Contains(t, body, "run failed", "the held card's own hold reason still renders")

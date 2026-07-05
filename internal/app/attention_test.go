@@ -1,9 +1,6 @@
-package app
+package app_test
 
 import (
-	"context"
-	"net/http/httptest"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -11,8 +8,7 @@ import (
 
 	"github.com/go-via/via/vt"
 
-	"github.com/joaomdsg/packets/internal/fabric"
-	"github.com/joaomdsg/packets/internal/ledger"
+	"github.com/joaomdsg/packets/internal/app"
 )
 
 // A fresh session has interrupted the Lead zero times this week — the KPI
@@ -21,15 +17,7 @@ import (
 // never omit the stat or invent a different cap. NOT parallel (shared
 // liveReg/liveFabric).
 func TestLiveCard_interruptKPIShowsHonestZeroOnAFreshSession(t *testing.T) {
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, log, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = log.Close() })
+	server, _ := bootDefaultServer(t, defaultBootCfg)
 
 	body := bodyOf(vt.NewClient(t, server, "/").HTML())
 	require.Contains(t, body, "0/10 interrupts", "a session that has raised no interrupts shows the honest zero against the fixed cap")
@@ -39,24 +27,10 @@ func TestLiveCard_interruptKPIShowsHonestZeroOnAFreshSession(t *testing.T) {
 // a fabricated number — it changes as real blocks are logged. NOT parallel
 // (shared liveReg/liveFabric).
 func TestLiveCard_interruptKPIReflectsRealLoggedInterrupts(t *testing.T) {
-	ctx := context.Background()
-	f, err := fabric.Start(ctx, t.TempDir())
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = f.Close() })
-	log := ledger.Bind(f, "interruptkpi", "i")
+	server, _ := bootDefaultServer(t, defaultBootCfg)
+	log := addFundedSession(t, "interruptkpi", app.LiveConfig{BaseRev: "own-b-interruptkpi", FixRev: "own-f", Anchor: anchorForCap()})
 	require.NoError(t, log.AppendBlock("q:1", time.Now()))
 	require.NoError(t, log.AppendBlock("q:2", time.Now()))
-	registerSession("interruptkpi", LiveConfig{BaseRev: "own-b-interruptkpi", FixRev: "own-f", Anchor: anchorForCap()}, log)
-
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, defLog, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = defLog.Close() })
 
 	body := bodyOf(vt.NewClient(t, server, "/?key=interruptkpi").HTML())
 	require.Contains(t, body, "2/10 interrupts", "the KPI counts the two real interrupts this session logged, against the fixed cap")
@@ -66,25 +40,11 @@ func TestLiveCard_interruptKPIReflectsRealLoggedInterrupts(t *testing.T) {
 // clamping would hide from the Lead exactly how far over budget they ran.
 // NOT parallel (shared liveReg/liveFabric).
 func TestLiveCard_interruptKPIShowsTheRealCountUncappedWhenOverBudget(t *testing.T) {
-	ctx := context.Background()
-	f, err := fabric.Start(ctx, t.TempDir())
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = f.Close() })
-	log := ledger.Bind(f, "interruptover", "i")
+	server, _ := bootDefaultServer(t, defaultBootCfg)
+	log := addFundedSession(t, "interruptover", app.LiveConfig{BaseRev: "own-b-interruptover", FixRev: "own-f", Anchor: anchorForCap()})
 	for i := 0; i < 11; i++ {
 		require.NoError(t, log.AppendBlock("q:"+string(rune('a'+i)), time.Now()))
 	}
-	registerSession("interruptover", LiveConfig{BaseRev: "own-b-interruptover", FixRev: "own-f", Anchor: anchorForCap()}, log)
-
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, defLog, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = defLog.Close() })
 
 	body := bodyOf(vt.NewClient(t, server, "/?key=interruptover").HTML())
 	require.Contains(t, body, "11/10 interrupts", "the real over-budget count is shown honestly, never clamped at the cap")
@@ -96,22 +56,8 @@ func TestLiveCard_interruptKPIShowsTheRealCountUncappedWhenOverBudget(t *testing
 // already proves for the hero stat's dispatch-tally signature. NOT parallel
 // (shared liveReg/liveFabric).
 func TestLiveCard_interruptKPIRefreshesLiveWhenANewInterruptIsRaised(t *testing.T) {
-	ctx := context.Background()
-	f, err := fabric.Start(ctx, t.TempDir())
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = f.Close() })
-	log := ledger.Bind(f, "interruptlive", "i")
-	registerSession("interruptlive", LiveConfig{BaseRev: "own-b-interruptlive", FixRev: "own-f", Anchor: anchorForCap()}, log)
-
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, defLog, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = defLog.Close() })
+	server, _ := bootDefaultServer(t, defaultBootCfg)
+	log := addFundedSession(t, "interruptlive", app.LiveConfig{BaseRev: "own-b-interruptlive", FixRev: "own-f", Anchor: anchorForCap()})
 
 	tc := vt.NewClient(t, server, "/?key=interruptlive")
 	frames, cancel := tc.SSE()

@@ -1,8 +1,6 @@
-package app
+package app_test
 
 import (
-	"net/http/httptest"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -10,6 +8,7 @@ import (
 
 	"github.com/go-via/via/vt"
 
+	"github.com/joaomdsg/packets/internal/app"
 	"github.com/joaomdsg/packets/internal/catch"
 	"github.com/joaomdsg/packets/internal/ledger"
 )
@@ -20,16 +19,7 @@ import (
 // board client's SSE stream must pick up a session created by a DIFFERENT client.
 // NOT parallel (shared liveReg).
 func TestBoardCard_liveRefreshesWhenTheFleetChanges(t *testing.T) {
-	resetConsumersForTest()
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, log, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = log.Close() })
+	server, _ := bootDefaultServer(t, defaultBootCfg)
 
 	watcher := vt.NewClient(t, server, "/board")
 	frames, cancel := watcher.SSE()
@@ -38,7 +28,7 @@ func TestBoardCard_liveRefreshesWhenTheFleetChanges(t *testing.T) {
 	// A different client creates a session — the watcher never reloads, so only a
 	// live SSE re-render can surface the new row.
 	creator := vt.NewClient(t, server, "/board")
-	require.Equal(t, 200, creator.Action((&BoardCard{}).CreateSession).
+	require.Equal(t, 200, creator.Action((&app.BoardCard{}).CreateSession).
 		WithSignal("newkey", "liverefresh").WithSignal("newrepo", ".").Fire())
 
 	frame := vt.AwaitFrame(t, frames, 10*time.Second, `data-key="liverefresh"`)
@@ -49,16 +39,7 @@ func TestBoardCard_liveRefreshesWhenTheFleetChanges(t *testing.T) {
 // new confirmed catch) must reach the watcher's board too — the cross-session "watch
 // the shop" value. NOT parallel (shared liveReg).
 func TestBoardCard_liveRefreshesWhenASessionsCountsMove(t *testing.T) {
-	resetConsumersForTest()
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, log, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = log.Close() })
+	server, log := bootDefaultServer(t, defaultBootCfg)
 
 	watcher := vt.NewClient(t, server, "/board")
 	frames, cancel := watcher.SSE()
@@ -74,16 +55,7 @@ func TestBoardCard_liveRefreshesWhenASessionsCountsMove(t *testing.T) {
 // tick writes nothing, so no re-render frame is pushed (the fingerprint skip branch).
 // NOT parallel (shared liveReg).
 func TestBoardCard_idleBoardDoesNotFloodFrames(t *testing.T) {
-	resetConsumersForTest()
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, log, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = log.Close() })
+	server, _ := bootDefaultServer(t, defaultBootCfg)
 
 	watcher := vt.NewClient(t, server, "/board")
 	frames, cancel := watcher.SSE()
@@ -91,7 +63,7 @@ func TestBoardCard_idleBoardDoesNotFloodFrames(t *testing.T) {
 
 	// Span several poll ticks with no fleet change; only the SSE handshake may arrive,
 	// never a board re-render frame.
-	deadline := time.After(4 * boardRefreshInterval)
+	deadline := time.After(4 * boardRefreshIntervalMirror)
 	for {
 		select {
 		case f, ok := <-frames:

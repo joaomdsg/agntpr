@@ -1,14 +1,13 @@
-package app
+package app_test
 
 import (
-	"net/http/httptest"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/go-via/via/vt"
 
+	"github.com/joaomdsg/packets/internal/app"
 	"github.com/joaomdsg/packets/internal/catch"
 	"github.com/joaomdsg/packets/internal/ledger"
 )
@@ -20,15 +19,7 @@ import (
 // that names the next action in the real flow (catch → mint → spend → reinvest).
 // NOT parallel (shared liveReg/liveFabric).
 func TestLiveCard_freshSessionShowsOnboardingAffordance(t *testing.T) {
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, log, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = log.Close() })
+	server, _ := bootDefaultServer(t, defaultBootCfg)
 
 	body := bodyOf(vt.NewClient(t, server, "/").HTML())
 	require.Contains(t, body, `data-state="empty"`,
@@ -55,16 +46,9 @@ func TestLiveCard_freshSessionShowsOnboardingAffordance(t *testing.T) {
 // load, must still make that promise.
 // NOT parallel (shared liveReg/liveFabric).
 func TestLiveCard_repoOnlySessionDoesNotPromiseAutomaticCatchCycle(t *testing.T) {
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
 	// Repo present, but NO BaseRev/Anchor: a usable prompt-authoring session with no
 	// catch cycle to run on connect.
-	viaApp, log, err := NewServer(LiveConfig{
-		RepoDir: ".", TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = log.Close() })
+	server, _ := bootDefaultServer(t, app.LiveConfig{RepoDir: ".", TestCmd: []string{"true"}})
 
 	body := bodyOf(vt.NewClient(t, server, "/").HTML())
 	require.Contains(t, body, `data-state="empty"`,
@@ -84,15 +68,7 @@ func TestLiveCard_repoOnlySessionDoesNotPromiseAutomaticCatchCycle(t *testing.T)
 // honest there and tells the Lead the loop is already turning.
 // NOT parallel (shared liveReg/liveFabric).
 func TestLiveCard_anchoredSessionPromisesAutomaticCatchCycle(t *testing.T) {
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, log, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = log.Close() })
+	server, _ := bootDefaultServer(t, defaultBootCfg)
 
 	body := bodyOf(vt.NewClient(t, server, "/").HTML())
 	require.Contains(t, body, "runs the gauntlet on load",
@@ -103,15 +79,7 @@ func TestLiveCard_anchoredSessionPromisesAutomaticCatchCycle(t *testing.T) {
 // activity it is noise that competes with the real economy rows. A session with a
 // confirmed catch (stock + balance > 0) must NOT render it.
 func TestLiveCard_activeSessionHidesOnboarding(t *testing.T) {
-	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
-	var server *httptest.Server
-	viaApp, log, err := NewServer(LiveConfig{
-		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-	})
-	require.NoError(t, err)
-	server = httptest.NewServer(viaApp)
-	t.Cleanup(func() { _ = log.Close() })
+	server, log := bootDefaultServer(t, defaultBootCfg)
 
 	// Mint one real confirmed catch into the served session's ledger — now the card
 	// has stock and a spendable balance, so it is no longer a fresh session.
