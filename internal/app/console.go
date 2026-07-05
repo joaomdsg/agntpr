@@ -13,7 +13,7 @@ import (
 )
 
 // consoleNeedsYouCap bounds the needs-you rail to a handful of full cards
-// (design/ui_kits/console/ConsoleScreen.jsx's paged queue) — the rest collapse
+// (the console's paged queue) — the rest collapse
 // into a single "and N more" line so a drowning session stays scannable.
 const consoleNeedsYouCap = 4
 
@@ -179,7 +179,7 @@ func renderNeedsYouCard(navKey string, p packet.Packet) h.H {
 // questions) — distinct from Delivered, which the settled rail names
 // separately once a real ACK exists. Beside it, the interrupt KPI names the
 // session's REAL weekly interrupt count against the locked cap
-// (design/ui_kits/console/ConsoleScreen.jsx's "N/10 interrupts"), never a
+// (the console's "N/10 interrupts" KPI), never a
 // fabricated number. The addr line is the honest repo identity
 // (packet.ParseAddr), never a fabricated owner.
 func renderHeroStat(navKey string, verifiedCount int, addr packet.Addr) h.H {

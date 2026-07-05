@@ -13,7 +13,7 @@ import (
 
 // A fresh session has interrupted the Lead zero times this week — the KPI
 // must show the honest zero against the LOCKED weekly cap of 10
-// (design/ui_kits/console/ConsoleScreen.jsx's "5/10 interrupts" header),
+// (the console's "N/10 interrupts" header),
 // never omit the stat or invent a different cap. NOT parallel (shared
 // liveReg/liveFabric).
 func TestLiveCard_interruptKPIShowsHonestZeroOnAFreshSession(t *testing.T) {

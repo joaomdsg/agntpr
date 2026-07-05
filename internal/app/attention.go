@@ -3,8 +3,8 @@ package app
 import "time"
 
 // weeklyInterruptCap is the LOCKED weekly interrupt budget the design spec
-// fixes (design/ui_kits/console/ConsoleScreen.jsx's "5/10 interrupts" header
-// KPI) — a fixed cap of 10, not configurable this slice.
+// fixes (the console's "N/10 interrupts" KPI) — a fixed cap of 10, not
+// configurable.
 const weeklyInterruptCap = 10
 
 // weeklyInterrupts reports key's session real interrupt count over the

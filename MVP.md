@@ -72,10 +72,10 @@ Every item ships as an honest working mechanic on a local repo:
    re-checkable command whose exit code must agree with the
    asserted verb — never an agent's self-report. Until a packet has
    a real ACK, its settled-rail cell never renders delivered.
-10. **Console + Inspector** — the only two primary surfaces
-    (design/ui_kits/console/ was the starting reference; the built
-    shape covers the same regions with an honest subset — no 24h
-    bars or digest, since neither has a real data source yet):
+10. **Console + Inspector** — the only two primary surfaces (the
+    design system's Console layout was the starting reference; the
+    built shape covers the same regions with an honest subset — no
+    24h bars or digest, since neither has a real data source yet):
     - Console `/` (360 | 1fr | 340): needs-you queue + calibration
       draw | `packets verified` hero stat, in-flight strip, lane
       health | settled rail (verified/held/delivered), the learning
@@ -234,7 +234,7 @@ Icons: unicode glyphs in Plex Mono only — ✎ ⚑ ● ◂ ▸ ⧉ ✱ ⇄ ＋ 
 The 15px rounded square with a letter (M/A/⚑) is the file-status
 glyph. Never an icon library, never hand-drawn SVG icons.
 
-Components (reference JSX in design/components/): Button
+Components (catalog in design/components/): Button
 (primary/secondary/outline/pager; one primary per screen), Chip
 (pill mono microtype, state color-mix 13–16% tint, border 40–45%
 mix; neutral = flat raised), Card (row/dashed/tile variants; accent =

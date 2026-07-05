@@ -674,7 +674,7 @@ body {
 .review__return, .review__up, .settings__return { margin: 0 0 var(--sp-3) 0; font-size: var(--fs-small); }
 
 /* ---- the Console shell — needs-you rail | preserved center
-   column | settled+watches rail, per design/ui_kits/console/ConsoleScreen.jsx.
+   column | settled+watches rail, per the Console layout.
    FINAL design-system class names (console, console__*); the pre-existing
    .pk-*/section classes nested inside .console__main are untouched. Every
    region is bounded by a 1px --hairline; cards never drop-shadow. ---- */
@@ -913,7 +913,7 @@ body {
 
 /* ---- the Inspector shell — identity strip | changed-files
    tree | Monaco island + answer form | annotation rail | timeline footer, per
-   design/ui_kits/console/InspectorScreen.jsx. FINAL design-system class names
+   the Inspector layout. FINAL design-system class names
    (inspector, inspector__*, annotation-card*); .review-thread/.review-answer/
    .review-adjust/.file-tree keep their own rules above (additive multi-class).
    Every region is hairline-bounded; cards never drop-shadow. ---- */

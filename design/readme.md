@@ -2,7 +2,7 @@
 
 Packets is a control plane for agent-written code changes. Agents compose, verify, and forward changes ("packets") at line rate against machine-checkable contracts ("handshakes"); the few with real blast radius are **held** for a human. The product borrows its entire mental model from networking: addrs (repos, `owner/repo` form), lanes (best-effort → standard → strict → irreversible), forwarding, inspection, ACK-on-delivery.
 
-**Source of truth:** this design system is itself the canonical spec — tokens, brand rules, voice, component references, and the Console + Inspector UI kits encode the settled designs verbatim. Exact values (colors, px, radii, tracking) live in `tokens/*.css`; port those first and never invent a new state color.
+**Source of truth:** this design system is itself the canonical spec — tokens, brand rules, voice, and a component catalog encode the settled designs verbatim. Exact values (colors, px, radii, tracking) live in `tokens/*.css`; port those first and never invent a new state color.
 
 ## The state grammar (the most important thing here)
 
@@ -58,10 +58,8 @@ No raster logo asset exists — the mark is constructed in code (see PacketMark 
 
 ## Index
 
-- `styles.css` → `tokens/` (colors, typography, spacing, effects, base, fonts)
-- `guidelines/` — foundation specimen cards + `voice.md`
-- `components/core/` — PacketCell, PacketMark, Chip, Button, Card, AnnotationCard, Titlebar, Timeline, Terminal
-- `ui_kits/console/` — Console + Inspector screen recreations
+- `styles.css` → `tokens/` (colors, typography, spacing, effects, base, fonts) — the visual-identity contract; port these values verbatim
+- `guidelines/` — the concept model (`concepts.md`), intellectual lineage (`lineage.md`), and copy voice (`voice.md`)
+- `components/` — a per-component catalog (`*.prompt.md`): purpose, variants, and usage for PacketCell, PacketMark, Chip, Button, Card, AnnotationCard, Titlebar, Timeline, Terminal
 - `assets/branding/` — footer badge SVGs
 - `SKILL.md` — agent skill entry point
-- `HANDOFF.md` — how to port this system into a codebase

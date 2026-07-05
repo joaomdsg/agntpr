@@ -52,10 +52,9 @@ copy. Concept → feature, all of them, against a local repo:
 8. **Delivery + ACK**: delivered means ACK'd healthy (`deployed` /
    `regressed`) — distinct from merged/landed; the mark's lifecycle
    (ghost outline → delivered fill) is the state machine.
-9. **Console + Inspector** as the two surfaces (per
-   `design/ui_kits/console/`), wearing the design system end to end:
-   tokens verbatim, the state grammar as the only state colors, mono
-   voice, networking vocabulary everywhere.
+9. **Console + Inspector** as the two surfaces, wearing the design
+   system end to end: tokens verbatim, the state grammar as the only
+   state colors, mono voice, networking vocabulary everywhere.
 
 Out of scope for the MVP: auth, multi-tenant, Postgres, egress
 allowlists, real prod-deploy integration (ACK state transitions may be
@@ -120,10 +119,10 @@ same tick.
    - inventory `internal/` + `cmd/`: per package, what is proven
      (tests), what it does, what depends on it;
    - map current surfaces (`/`, `/board`, `/review`, `/settings`,
-     `/stream`) against `design/ui_kits/console/` (Console + Inspector)
-     and `design/components/`;
+     `/stream`) against the design system's Console + Inspector
+     layouts and its `design/components/` catalog;
    - extract the design contract: `design/readme.md`,
-     `design/guidelines/concepts.md`, `design/HANDOFF.md`, tokens.
+     `design/guidelines/concepts.md`, `design/tokens/`.
 2. Convene the naming council (sonnet): settle the vocabulary map —
    the experiments say order/board/review/session/catch/bandwidth; the
    design system says packet/console/inspector/addr/gauntlet/interrupt
