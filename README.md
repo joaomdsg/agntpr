@@ -1,6 +1,10 @@
 # packets
 
-<p><img src="design/assets/branding/badge-experimental.svg" alt="status: experimental" height="28"></p>
+<p>
+  <a href="LICENSE"><img src="design/assets/branding/badge-license.svg" alt="license: MIT" height="20"></a>
+  <img src="design/assets/branding/badge-experimental.svg" alt="status: experimental" height="20">
+  <a href="https://github.com/joaomdsg/packets/actions/workflows/ci.yml"><img src="https://github.com/joaomdsg/packets/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" height="20"></a>
+</p>
 
 A control plane for agent-written code changes. Agents compose, verify, and
 forward changes ("packets") at line rate against machine-checkable contracts
@@ -188,8 +192,3 @@ serialized (`-p 1`) because both assert on a shared docker container label.
 ## License
 
 [MIT](LICENSE) © João Gonçalves
-
-<p>
-  <img src="design/assets/branding/badge-built-with-via.svg" alt="built with via" height="28">
-  <img src="design/assets/branding/badge-rights-joaomdsg.svg" alt="© joaomdsg" height="28">
-</p>
