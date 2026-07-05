@@ -321,8 +321,27 @@ func renderSettledRail(c *LiveCard, navKey string, packets []packet.Packet) h.H 
 
 	return h.Aside(h.Class("console__rail", "console__rail--settled"),
 		header, h.Div(body...),
+		renderLearningCard(packets),
 		renderWatchesRail(c, navKey, packets),
 	)
+}
+
+// renderLearningCard shows a repo's real learning progress (ROADMAP slice
+// 17): the honest running count of settled packets against
+// packet.LearningThreshold until it's reached, then "converged" — never a
+// fabricated verdict, and never a stale progress fraction once real history
+// clears the bar.
+func renderLearningCard(packets []packet.Packet) h.H {
+	settled := packet.SettledCount(packets)
+	state := "learning"
+	line := strconv.Itoa(settled) + "/" + strconv.Itoa(packet.LearningThreshold) + " settled"
+	if packet.Converged(packets) {
+		state = "converged"
+		line = "converged"
+	}
+	header := h.Div(h.Class("console__panel-header"), h.Text("learning"))
+	card := h.Div(h.Class("console__card"), h.Data("state", state), h.Text(line))
+	return h.Div(header, card)
 }
 
 // renderWatchesRail lists the three canonical standing watches (ROADMAP

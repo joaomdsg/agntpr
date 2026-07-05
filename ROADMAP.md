@@ -5,9 +5,11 @@ the spec). One slice per tick unless a slice says otherwise. Statuses:
 queued / in-flight / landed / dropped. Every landed slice carries one
 evidence line.
 
-NEXT: none — all 16 slices landed. MVP checklist complete (MVP.md);
-the autonomous loop stops scheduling further ticks per LOOP.md's
-Schedule rule. Any further work is the maintainer's call.
+NEXT: none — 17 slices landed (16 from the original MVP checklist,
+plus slice 17 added by maintainer directive after the autonomous
+loop stopped). MVP checklist complete (MVP.md); the autonomous loop
+stops scheduling further ticks per LOOP.md's Schedule rule. Any
+further work is the maintainer's call.
 
 ## Infra
 
@@ -295,3 +297,24 @@ Schedule rule. Any further work is the maintainer's call.
   steps are a printed browser walkthrough, since composing/
   inspecting is a genuine UI action). Evidence: full gate green;
   commit below.
+- [x] **17. Learning/convergence** — landed (maintainer directive,
+  post-MVP; scoped via an Opus consult after the user asked for
+  guidance on signal/process/UI/scope-unit tradeoffs). New MVP.md
+  concept 11: a repo new to Packets is "learning" until it
+  accumulates real settled history, then "converged" — never a
+  fabricated verdict. internal/packet/learning.go (pure, mirrors
+  watch.go's honest-history shape exactly): `LearningThreshold` (5,
+  same minimum-sample bar as IsNoisy), `SettledCount`
+  (verified/held/delivered — identical set to the console's existing
+  settled rail, cross-checked to never diverge), `Converged`
+  (SettledCount >= threshold). Wired into Console's settled rail as
+  a new `renderLearningCard`: honest "N/5 settled" running count,
+  flips to "converged" once real history clears the bar — no cache,
+  computed fresh from the same folded packets every render, matching
+  the settled rail's own live-computation pattern. No new
+  persistence/repo-identity layer; scoped per session like every
+  other cache (laneCache, watch fires). Full RYGBA (Explore Yellow +
+  general-purpose Blue) on both the pure unit and the app wiring;
+  Yellow caught a real test gap (a naive `len(packets)>=5` could
+  have slipped past the first draft of the convergence test) before
+  Green landed. Evidence: full gate green.

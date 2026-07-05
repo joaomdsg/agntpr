@@ -86,6 +86,15 @@ Every item ships as an honest working mechanic on a local repo:
     survives as the cross-repo fleet listing (a capability Console,
     scoped to one addr, doesn't provide) — vocabulary-clean per
     slice 15, not folded in; `/review` is the Inspector's route.
+11. **Learning/convergence** — a repo new to Packets has produced no
+    real judgment yet; the Console's "learning" card shows the
+    honest running count of settled packets (verified, held, OR
+    delivered — same set as the settled rail) against a real
+    minimum-sample threshold (5, mirroring watches' own
+    sampled≥5 bar), flipping to "converged" once real history
+    clears it. Scoped per session (matches every other per-session
+    cache) — never a fabricated verdict, never per-repo persistence
+    that doesn't exist elsewhere in the app.
 
 ## Vocabulary map (user-facing; binding)
 
