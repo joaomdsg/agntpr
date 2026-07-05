@@ -29,18 +29,18 @@ type Packet struct {
 	// is a pure data->data projection over ledger views, while a lane needs a
 	// `go list` exec against the repo (Measure, lane_measure.go) — so every
 	// folded Packet starts at the honest zero value, LaneUnmeasured, until
-	// the app layer measures and attaches one (ROADMAP slice 7's laneFor).
+	// the app layer measures and attaches one (laneFor).
 	Lane Lane
 	// Gauntlet is the packet's six-gate pipeline record (MVP.md concept 5).
 	// Fold NEVER populates it — G3/G4 need a catch outcome and a build/vet
 	// exec respectively, neither of which Fold has access to — so every
 	// folded Packet starts at the honest zero value (all six gates
 	// GateNotRun) until the app layer computes and attaches one per order at
-	// render time (ROADMAP slice 8's gauntletFor), the same division of
+	// render time (gauntletFor), the same division of
 	// labor as Lane above.
 	Gauntlet Gauntlet
 	// HandshakePath/HandshakeHash are copied straight from the order's
-	// ledger.Target (set at compose time, ROADMAP slice 9) — zero I/O, a
+	// ledger.Target (set at compose time) — zero I/O, a
 	// plain data carry. The app layer's gauntletFor uses them to run G2
 	// (RunHandshakeGate) and re-verify the handshake hasn't drifted
 	// (VerifyHandshake) at render time; empty means no handshake was

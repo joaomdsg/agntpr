@@ -25,8 +25,8 @@ var gauntletGateNames = []string{
 	"build · vet · lint", "test sensitivity", "independent check",
 }
 
-// ROADMAP slice 8: every gate row renders, including the ones with no real
-// mechanic yet (G2/G5/G6 stay NotRun this slice) — an absent gate is never
+// Every gate row renders, including the ones with no real
+// mechanic yet (G2/G5/G6 stay NotRun for now) — an absent gate is never
 // hidden. G4 is a REAL exec seam over the fixture's own clean build. NOT
 // parallel (shared liveReg/liveFabric).
 func TestReviewCard_orderScopedTimelineRendersAllSixGatesComputedOnRender(t *testing.T) {
@@ -63,7 +63,7 @@ func TestReviewCard_orderScopedTimelineRendersAllSixGatesComputedOnRender(t *tes
 	assert.Equal(t, packet.GateNotRun, g.HandshakeConformance.Status, "G2 has no handshake concept yet")
 	assert.Equal(t, packet.GateNotRun, g.HandshakeTightness.Status, "no catch cycle ran for this order — G3 must not fabricate a pass or fail")
 	assert.Equal(t, "not measured — no catch cycle run yet", g.HandshakeTightness.Detail)
-	assert.Equal(t, packet.GateNotRun, g.TestSensitivity.Status, "G5 needs slice 9's handshake/agent-test split")
+	assert.Equal(t, packet.GateNotRun, g.TestSensitivity.Status, "G5 needs the handshake/agent-test split before it can measure")
 	assert.Equal(t, packet.GateNotRun, g.IndependentCheck.Status, "G6 needs cage wired into local dispatch")
 }
 
@@ -175,7 +175,7 @@ func TestReviewCard_confirmIntentFidelityForASecondOrderDoesNotClobberTheFirst(t
 
 // The 100ms via.Stream poll (OnConnect) must NEVER exec git/go to compute a
 // gauntlet — only a render (View) may, scoped to the packet shown in detail.
-// Mirrors the lane poll-safety proof (lane_internal_test.go) exactly. NOT
+// Mirrors the lane poll-safety proof exactly. NOT
 // parallel (shared liveReg/liveFabric).
 func TestLiveCard_streamPollNeverComputesTheGauntletCacheForAnUnvisitedOrder(t *testing.T) {
 	resetConsumersForTest()

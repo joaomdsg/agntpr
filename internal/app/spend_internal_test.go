@@ -21,7 +21,7 @@ import (
 func TestLiveCard_spendVerbDrainsTheBalanceAndTheFundedOrderSurfacesOverSSE(t *testing.T) {
 	// Internal test (package app): swaps resolveCycle so the connect cycle mints
 	// NOTHING, isolating the drain to the Spend verb. NOT parallel (shared globals).
-	// The balance row is retired from the UI (ROADMAP slice 6), so the drain is
+	// The balance row is retired from the UI, so the drain is
 	// asserted on the ledger and the SSE-visible consequence is the funded order.
 	restore := resolveCycle
 	t.Cleanup(func() { resolveCycle = restore })

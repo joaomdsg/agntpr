@@ -10,7 +10,7 @@ import (
 	"github.com/go-via/via/vt"
 )
 
-// R53 lets a Lead create sessions at runtime, so experiment sessions accumulate on
+// A Lead can create sessions at runtime, so experiment sessions accumulate on
 // the fleet board with no way to clear them — the board becomes cluttered. Retiring
 // a session removes it from the fleet view, the honest completion of the create
 // affordance. NOT parallel (shared liveReg/liveFabric).

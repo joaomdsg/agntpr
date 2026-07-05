@@ -18,7 +18,7 @@ func TestLiveCard_refineChosenSharpensTheChosenBenchTarget(t *testing.T) {
 	// against the fundable set like FundChosen. NOT parallel (shared globals).
 	server, log := bootDefaultServer(t, app.LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"},
+		TestCmd:         []string{"true"},
 		DispatchBacklog: []ledger.Target{{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 88}},
 	})
 
@@ -44,7 +44,7 @@ func TestLiveCard_refineChosenRefusesAnOffBenchTarget(t *testing.T) {
 	// firing — not an unconditional no-op. NOT parallel.
 	server, log := bootDefaultServer(t, app.LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"},
+		TestCmd:         []string{"true"},
 		DispatchBacklog: []ledger.Target{{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 88}},
 	})
 
@@ -68,7 +68,7 @@ func TestLiveCard_refineChosenWithEmptyTextAppendsNothing(t *testing.T) {
 	// even on a perfectly valid bench target. NOT parallel.
 	server, log := bootDefaultServer(t, app.LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"},
+		TestCmd:         []string{"true"},
 		DispatchBacklog: []ledger.Target{{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 88}},
 	})
 

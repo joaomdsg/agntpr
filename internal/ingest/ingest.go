@@ -96,7 +96,7 @@ func safeProducerSegment(id string) bool {
 
 // PruneProducerObjects reclaims a producer's ingested objects once they are no
 // longer needed, WITHOUT ever orphaning a pending claim. The economy-safe
-// retention rule (council R39): a producer's ingested objects back its claims'
+// retention rule: a producer's ingested objects back its claims'
 // revisions, so they MUST survive while any of that producer's claims is in
 // flight; once none is (every claim resolved, or it only uploaded and never
 // claimed), the whole namespace is dead weight. hasInFlightClaims is the caller's

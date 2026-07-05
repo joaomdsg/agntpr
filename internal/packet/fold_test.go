@@ -172,7 +172,7 @@ func TestFold_returnsNoPacketsForNoViews(t *testing.T) {
 
 // Fold is a pure data->data projection over ledger views — it never shells
 // out to `go list`/git, so a folded Packet's Lane must stay Unmeasured until
-// something ELSE (the app's laneFor, ROADMAP slice 7) computes and attaches
+// something ELSE (the app's laneFor) computes and attaches
 // it. A Fold that guessed a lane would violate MVP.md's "never self-reported,
 // never vibes" invariant.
 func TestFold_leavesLaneUnmeasuredSinceFoldNeverShellsOutToMeasureIt(t *testing.T) {
@@ -188,7 +188,7 @@ func TestFold_leavesLaneUnmeasuredSinceFoldNeverShellsOutToMeasureIt(t *testing.
 
 // Fold never runs a catch cycle or execs go build/vet, so it must never
 // populate any of the six gauntlet gates itself — that happens at the app
-// layer, per order, at render time (ROADMAP slice 8's gauntletFor), the same
+// layer, per order, at render time (the app's gauntletFor), the same
 // division of labor as Lane above. A Fold that fabricated a gate result
 // would violate MVP.md's "no fabricated metrics" invariant.
 func TestFold_leavesEveryGauntletGateNotRunSinceFoldNeverRunsGatesItself(t *testing.T) {
@@ -202,7 +202,7 @@ func TestFold_leavesEveryGauntletGateNotRunSinceFoldNeverRunsGatesItself(t *test
 	assert.Equal(t, packet.Gauntlet{}, got[0].Gauntlet)
 }
 
-// A handshake authored at compose time (ROADMAP slice 9) must reach the app
+// A handshake authored at compose time must reach the app
 // layer's gauntletFor so it can run G2 — Fold's only job here is a plain
 // data carry off the Target, with zero I/O.
 func TestFold_copiesHandshakeFieldsStraightFromTheTarget(t *testing.T) {

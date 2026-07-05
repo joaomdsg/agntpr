@@ -42,9 +42,10 @@ func anchorForCap() reanchor.Anchor {
 }
 
 // bodyOf returns the <body> portion of a rendered page, dropping the <head> —
-// duplicated from board_inflight_internal_test.go (which stays internal). See
-// that copy's doc comment for why: the head's stylesheet class names would
-// otherwise be matched by a whole-page structural-index assertion.
+// duplicated for the external test package (the original helper stays in the
+// internal test package). See that copy's doc comment for why: the head's
+// stylesheet class names would otherwise be matched by a whole-page
+// structural-index assertion.
 func bodyOf(html string) string {
 	if i := strings.Index(html, "</head>"); i >= 0 {
 		return html[i:]
@@ -52,8 +53,8 @@ func bodyOf(html string) string {
 	return html
 }
 
-// renderHTML renders a standalone h node to a string — duplicated from
-// board_browse_internal_test.go (which stays internal).
+// renderHTML renders a standalone h node to a string — duplicated for the
+// external test package (the original helper stays in the internal test package).
 func renderHTML(t *testing.T, node h.H) string {
 	t.Helper()
 	if node == nil {
@@ -65,14 +66,16 @@ func renderHTML(t *testing.T, node h.H) string {
 }
 
 // woTargetN builds the Nth of a family of distinct, deterministic dispatch
-// targets — duplicated from backlog_internal_test.go (which stays internal).
+// targets — duplicated for the external test package (the original helper stays
+// in the internal test package).
 func woTargetN(i int) ledger.Target {
 	s := strconv.Itoa(i)
 	return ledger.Target{BaseRev: "wo-base-" + s, FixRev: "wo-fix-" + s, TipRev: "wo-fix-" + s, Path: "other.go", Line: 9 + i}
 }
 
 // woDispatchTarget is the single-target counterpart to woTargetN — duplicated
-// from dispatch_run_internal_test.go (which stays internal).
+// for the external test package (the original helper stays in the internal test
+// package).
 func woDispatchTarget() ledger.Target {
 	return ledger.Target{BaseRev: "wo-base", FixRev: "wo-fix", TipRev: "wo-fix", Path: "other.go", Line: 9}
 }
@@ -89,7 +92,8 @@ func ownTargetOf(cfg app.LiveConfig) ledger.Target {
 }
 
 // drainFramesFor collects every SSE frame that arrives within d, then returns the
-// concatenation — duplicated from spend_internal_test.go (which stays internal).
+// concatenation — duplicated for the external test package (the original helper
+// stays in the internal test package).
 // Used to assert the ABSENCE of an expected-not-to-happen frame.
 func drainFramesFor(frames <-chan string, d time.Duration) string {
 	deadline := time.After(d)
@@ -107,8 +111,9 @@ func drainFramesFor(frames <-chan string, d time.Duration) string {
 	}
 }
 
-// gitIn runs git in dir, failing the test on error — duplicated from
-// bundle_route_internal_test.go (which stays internal, blocked on resetBundleGuardsForTest).
+// gitIn runs git in dir, failing the test on error — duplicated for the external
+// test package (the original helper stays in the internal test package, blocked
+// on resetBundleGuardsForTest).
 func gitIn(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
@@ -118,7 +123,8 @@ func gitIn(t *testing.T, dir string, args ...string) string {
 	return strings.TrimSpace(string(out))
 }
 
-// freshGitRepo is an empty host git store — duplicated from bundle_route_internal_test.go.
+// freshGitRepo is an empty host git store — duplicated for the external test
+// package (the original helper stays in the internal test package).
 func freshGitRepo(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -127,7 +133,7 @@ func freshGitRepo(t *testing.T) string {
 }
 
 // gitOrder runs git in dir, failing the test on error — functionally identical to
-// resolve_test.go's runGit; kept as a separate name only where the migrated file's
+// the shared runGit helper; kept as a separate name only where the migrated file's
 // own call sites already read gitOrder(...), to keep each file's diff minimal.
 func gitOrder(t *testing.T, dir string, args ...string) string {
 	t.Helper()
@@ -139,7 +145,8 @@ func gitOrder(t *testing.T, dir string, args ...string) string {
 }
 
 // initGitRepoForOrder seeds a minimal one-commit repo for order-fulfillment tests —
-// duplicated from live_order_internal_test.go (which stays internal).
+// duplicated for the external test package (the original helper stays in the
+// internal test package).
 func initGitRepoForOrder(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -153,7 +160,8 @@ func initGitRepoForOrder(t *testing.T) string {
 }
 
 // statusOfOrder returns a dispatched order's current status ("" if unknown) —
-// duplicated from live_order_internal_test.go (which stays internal).
+// duplicated for the external test package (the original helper stays in the
+// internal test package).
 func statusOfOrder(t *testing.T, log *ledger.Log, id int) string {
 	t.Helper()
 	views, err := log.RecentDispatches(0)
@@ -167,8 +175,8 @@ func statusOfOrder(t *testing.T, log *ledger.Log, id int) string {
 }
 
 // orderRecordFor returns the dispatched work-order with the given id (zero value
-// when absent) — duplicated from live_place_order_internal_test.go (which stays
-// internal).
+// when absent) — duplicated for the external test package (the original helper
+// stays in the internal test package).
 func orderRecordFor(t *testing.T, log *ledger.Log, id int) ledger.DispatchView {
 	t.Helper()
 	views, err := log.RecentDispatches(0)
@@ -182,7 +190,8 @@ func orderRecordFor(t *testing.T, log *ledger.Log, id int) ledger.DispatchView {
 }
 
 // fundBandwidth gives a session's attention meter one earned interval (a fast-
-// cleared block) — duplicated from authoring_handshake_internal_test.go.
+// cleared block) — duplicated for the external test package (the original helper
+// stays in the internal test package).
 func fundBandwidth(t *testing.T, log *ledger.Log) {
 	t.Helper()
 	base := time.Unix(1_700_000_000, 0)
@@ -190,8 +199,9 @@ func fundBandwidth(t *testing.T, log *ledger.Log) {
 	require.NoError(t, log.AppendUnblock("q1", base.Add(30*time.Second))) // +3 bandwidth
 }
 
-// rowIndex, rowFor, requireBefore — duplicated from board_internal_test.go (which
-// stays internal, being the highest-risk fleet-wide enumerator). liveReg is a
+// rowIndex, rowFor, requireBefore — duplicated for the external test package (the
+// original helper stays in the internal test package, being the highest-risk
+// fleet-wide enumerator). liveReg is a
 // process-wide global shared by every test in this binary, so board assertions
 // filter to their OWN keys rather than assume a clean fleet.
 func rowIndex(rows []app.CardRow, key string) int {
@@ -260,9 +270,10 @@ func addFundedSession(t *testing.T, key string, cfg app.LiveConfig) *ledger.Log 
 }
 
 // boardSession funds a session with seedCatches confirmed catches and an optional
-// dispatch backlog, returning its log — duplicated/rewritten from board_internal_
-// test.go's boardSession (which stays internal as part of the highest-risk board
-// batch). Requires bootDefaultServer to have run first in the same test.
+// dispatch backlog, returning its log — duplicated/rewritten for the external test
+// package from the internal boardSession helper (which stays internal as part of
+// the highest-risk board batch). Requires bootDefaultServer to have run first in
+// the same test.
 func boardSession(t *testing.T, key string, seedCatches int, backlog []ledger.Target) *ledger.Log {
 	t.Helper()
 	log := addFundedSession(t, key, app.LiveConfig{BaseRev: "own-b-" + key, FixRev: "own-f", Anchor: anchorForCap(), DispatchBacklog: backlog})
@@ -275,7 +286,7 @@ func boardSession(t *testing.T, key string, seedCatches int, backlog []ledger.Ta
 // fundedAuthoringServer stands up the default session with a spendable balance
 // (one confirmed catch) and earned bandwidth (one fast-cleared block) — every
 // act-now affordance (spend, bench, authoring, place-order) renders. Rewritten
-// from authoring_internal_test.go's fundedAuthoringServer: the keyed session now
+// from the internal fundedAuthoringServer helper: the keyed session now
 // rides bootDefaultServer's own fabric via addFundedSession instead of a
 // standalone one, mirroring the boardSession rewrite above.
 func fundedAuthoringServer(t *testing.T, key string) (*ledger.Log, *httptest.Server) {
@@ -291,8 +302,8 @@ func fundedAuthoringServer(t *testing.T, key string) (*ledger.Log, *httptest.Ser
 }
 
 // actNowCardBody is fundedAuthoringServer's original single-purpose shape (a
-// dispatch backlog instead of a bare seed catch) — rewritten from card_sections_
-// internal_test.go's actNowCardBody the same way.
+// dispatch backlog instead of a bare seed catch) — rewritten from the internal
+// actNowCardBody helper the same way.
 func actNowCardBody(t *testing.T) string {
 	t.Helper()
 	server, _ := bootDefaultServer(t, app.LiveConfig{})

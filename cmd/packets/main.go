@@ -37,7 +37,7 @@ import (
 var verifyTestCmd = []string{"go", "test", "./..."}
 
 // producerGCInterval is how often the server sweeps idle producers' ingested git
-// objects (council R39 housekeeping). Generous — disk hygiene, not a hot path.
+// objects (retention housekeeping). Generous — disk hygiene, not a hot path.
 const producerGCInterval = 10 * time.Minute
 
 // runVerifyCatch is the `verify-catch` subcommand: it runs the SAME catch oracle

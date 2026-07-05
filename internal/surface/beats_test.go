@@ -37,7 +37,7 @@ func TestRenderBeats_emptyBeforeAnyBeatShowsNoTempo(t *testing.T) {
 }
 
 // The raw Kind values ("oracle-base", "land", …) are fine as the data-beat
-// attribute (an internal hook, per TestRenderBeats_listsStreamedKindsAsItsOwnRow)
+// attribute (an internal hook, asserted separately as its own row)
 // but must never leak into the VISIBLE text — MVP.md retires "oracle" and "land"
 // from every surface, and a beat row streaming live is real dynamic content a
 // static fixture sweep never exercises.

@@ -46,9 +46,9 @@ func TestSessionOf_returnsEmptyForAMalformedSubject(t *testing.T) {
 	t.Parallel()
 	for _, s := range []string{
 		"",
-		"packets.session",                            // too few tokens
-		"not.a.subject",                              // wrong arity + literals
-		"x.session.a.events.i.minted.catch",          // wrong root literal
+		"packets.session",                   // too few tokens
+		"not.a.subject",                     // wrong arity + literals
+		"x.session.a.events.i.minted.catch", // wrong root literal
 		"packets.notsession.a.events.i.minted.catch", // wrong "session" literal
 		"packets.session.a.NOTevents.i.minted.catch", // wrong "events" literal
 	} {

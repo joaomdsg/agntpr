@@ -16,7 +16,7 @@ func TestReviewSubmit_doesNotRedeclareTheFullBorderShorthand(t *testing.T) {
 		".review-answer__submit must not re-declare the hairline border that .pk-btn already owns")
 }
 
-// ROADMAP slice 1 (token port): the state grammar IS the product (MVP.md
+// Token port: the state grammar IS the product (MVP.md
 // "Brand pack") — a wrong hex silently breaks the honest-state legibility the
 // whole design depends on, so the exact values are pinned, not just presence.
 func TestBaseStylesheet_definesStateGrammarTokensWithExactHexValues(t *testing.T) {

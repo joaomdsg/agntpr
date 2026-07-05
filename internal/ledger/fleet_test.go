@@ -29,7 +29,7 @@ func TestFleetProjection_foldsEachSessionsEconomySeparately(t *testing.T) {
 	require.NoError(t, alpha.Append(distinctRecord(0)))
 	require.NoError(t, alpha.Append(distinctRecord(1))) // alpha: two distinct catches
 	require.NoError(t, beta.Append(distinctRecord(0)))  // beta: one catch
-	require.NoError(t, beta.AppendSpend(1, "fund"))      // beta: spent back to zero
+	require.NoError(t, beta.AppendSpend(1, "fund"))     // beta: spent back to zero
 
 	fleet, err := ledger.FleetProjection(context.Background(), f)
 	require.NoError(t, err)

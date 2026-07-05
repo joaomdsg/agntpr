@@ -19,7 +19,7 @@ import (
 	"github.com/joaomdsg/packets/internal/packet"
 )
 
-// ROADMAP slice 10: the needs-you rail must escalate a packet whose measured
+// The needs-you rail must escalate a packet whose measured
 // Lane outgrew its authored handshake — MVP.md concept 4's "radius buys a
 // STRONGER REQUIRED HANDSHAKE" has teeth only if a lane-floor breach actually
 // forces a hold, not just a data fact nobody looks at. This proves BOTH
@@ -100,8 +100,7 @@ func TestLiveCard_needsYouRailEscalatesOnceALaneFloorBreachIsMeasuredAndSortsAhe
 	// Caching a lane touches no dispatch status/caught/thread count, so the
 	// poll's own re-render signature (live.go's OnConnect) would otherwise
 	// stay unchanged and never push a fresh frame — a third order's status
-	// change is the observable trigger the SAME sibling tests
-	// (TestLiveCard_streamPollNeverComputesTheLaneCacheForAnUnvisitedOrder)
+	// change is the observable trigger the sibling poll-safety tests
 	// use to force the poll to notice and re-render over this connection.
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 102, ReasonTag: "catch"}))
 	require.NoError(t, log.AppendDispatch("d3", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "gamma.go", Line: 3}, own))

@@ -10,7 +10,7 @@ import (
 	"github.com/go-via/via/vt"
 )
 
-// Per-row blocked spans (R58) tell a Lead WHICH sessions can't land, but scanning a
+// Per-row blocked spans tell a Lead WHICH sessions can't land, but scanning a
 // large fleet to count them is work. A fleet-level merge-readiness summary answers
 // "how much of the fleet is blocked from merging?" at a glance — a calm roll-up of
 // the same honest per-session land verdicts, off the economy. NOT parallel (shared

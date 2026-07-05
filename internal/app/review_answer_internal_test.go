@@ -182,7 +182,7 @@ func TestReviewCard_offersAnEditableMonacoAnswerPane(t *testing.T) {
 	require.Contains(t, body, "monaco.editor.create", "a bootstrap mounts the editable editor")
 }
 
-// R63 settled that a killing answer makes the question VANISH. But the live card's
+// A killing answer makes the question VANISH. But the live card's
 // connect cycle ALSO writes the findings cache, and the reviewer's test isn't
 // committed to the repo — so a cycle re-running after an answer would re-surface the
 // survivor and visually undo the answer. An answered (killed) question must STAY

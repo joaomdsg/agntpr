@@ -269,9 +269,9 @@ type landResultKind int
 
 const (
 	landResultNone    landResultKind = iota // no result yet — render nothing
-	landResultOpened                         // a PR opened — the value is its URL
-	landResultBlocked                        // the land guard refused (open threads / red checks)
-	landResultError                          // the push/PR failed, or an unrecognized message
+	landResultOpened                        // a PR opened — the value is its URL
+	landResultBlocked                       // the land guard refused (open threads / red checks)
+	landResultError                         // the push/PR failed, or an unrecognized message
 )
 
 // classifyLandResult maps a cached land-result string (shapes fixed by setLandResult's

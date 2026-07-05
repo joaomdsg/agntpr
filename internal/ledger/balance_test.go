@@ -156,7 +156,7 @@ func TestBalance_aForgedNegativeSpendCannotMintCredit(t *testing.T) {
 	assert.Equal(t, 2, bal, "a spend can never mint credit — a non-positive amount on the stream contributes nothing")
 }
 
-// The positive-direction twin of TestBalance_aForgedNegativeSpendCannotMintCredit: a
+// The positive-direction twin of the forged-negative-spend guard: a
 // forged OVER-spend published straight to the subject (past the AppendSpend overdraft
 // gate) must not drive the balance negative. A legit balance can never go below zero (the
 // gate enforces spend <= balance), so a negative balance is always corrupt — the

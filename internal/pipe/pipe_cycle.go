@@ -55,11 +55,11 @@ type CycleResult struct {
 	// the oracle is silent — no mutable operator vs the anchor edited vs the file
 	// renamed — so the surface states a true cause instead of one overloaded
 	// token. It is ReasonNone for an Outcome that carries its own meaning.
-	Reason  Reason
-	Path    string
-	Line    int
-	Land    LandState
-	Trace   []TraceEvent
+	Reason Reason
+	Path   string
+	Line   int
+	Land   LandState
+	Trace  []TraceEvent
 	// Before and After are the anchored line's operator-inventory state at each
 	// revision, exposed so the surface presenter can tell the verified-strong
 	// "Tested" screen from blind no-signal, and the ledger can record the

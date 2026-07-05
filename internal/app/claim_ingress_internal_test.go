@@ -12,17 +12,15 @@ import (
 // validClaimTarget is the canonical in-flight claim the lifecycle tests submit
 // through the in-process ingress (the host-side equivalent of an authenticated
 // producer publishing the same encoded ClaimRecord over the NATS socket). Used by
-// claim_consumer_internal_test.go, claims_internal_test.go, gc_hook_internal_
-// test.go, producer_e2e_internal_test.go, and lazy_consumer_internal_test.go — all
-// of which stay internal (they swap/read unexported seams), so this helper stays
-// here rather than moving with the one test that no longer needs it
-// (TestPostClaim_isRetiredFromTheUnauthenticatedHTTPSurface, now in
-// claim_ingress_test.go).
+// the internal lifecycle tests (which swap/read unexported seams, so they stay in
+// the internal test package), so this helper stays here rather than moving with
+// the one test that no longer needs it (the test asserting the unauthenticated
+// HTTP claim edge is retired).
 var validClaimTarget = ledger.Target{BaseRev: "basesha", FixRev: "fixsha", TipRev: "fixsha", Path: "adult.go", Line: 4}
 
 // publishClaim submits a claim to key's grant-confined claim subtree via the
 // authenticated NATS ingress's in-process equivalent (ledger.PublishClaim on the
-// shared fabric). Claim submission is NATS-only since R82 — there is no HTTP
+// shared fabric). Claim submission is NATS-only — there is no HTTP
 // claim edge to post to — so tests publish here exactly as the host does.
 func publishClaim(t *testing.T, key string, tgt ledger.Target) {
 	t.Helper()

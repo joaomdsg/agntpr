@@ -23,8 +23,9 @@ type Lane int
 // The lanes, in ascending order of scrutiny bought by blast radius.
 // LaneIrreversible is UNREACHABLE from LaneFor today: irreversibility is
 // about consequences (data/money/prod side-effects), which no marker in this
-// repo declares yet — the same honesty pattern as Packet.Deliverable. See
-// TestLaneFor_neverProducesIrreversible, which pins this.
+// repo declares yet — the same honesty pattern as Packet.Deliverable. LaneFor
+// only ever emits the measured, reachable lanes; it never manufactures
+// LaneIrreversible.
 const (
 	LaneUnmeasured Lane = iota
 	LaneBestEffort

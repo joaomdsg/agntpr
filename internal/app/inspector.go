@@ -43,7 +43,7 @@ func shortRev(rev string) string {
 // packet's own Name beside it when the scope folds to one (packetName ""
 // omits it), a base→fix rev chip in short SHAs (omitted entirely when either
 // rev is unknown — the Inspector never fabricates a revision), a neutral lane
-// chip (ROADMAP slice 7 — lane is QoS, never a state color; LaneUnmeasured
+// chip (lane is QoS, never a state color; LaneUnmeasured
 // when the scope folds to no single packet or nothing has been measured yet,
 // rendered honestly rather than omitted), and the repo addr (packet.ParseAddr
 // — owner/name, or the honest local/<dir> fallback). navHeader already

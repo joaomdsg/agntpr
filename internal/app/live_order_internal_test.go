@@ -64,10 +64,10 @@ func TestDrainQueuedOrders_routesAPromptOrderToTheLiveHarnessNotThePrefundedCycl
 	repo := initGitRepoForOrder(t)
 	headBefore := gitOrder(t, repo, "rev-parse", "HEAD")
 
-	// The live path runs the catch cycle on the PRODUCED revision (slice 4b); stub
+	// The live path runs the catch cycle on the PRODUCED revision; stub
 	// it to a no-catch so this routing test mints nothing and stays fast. (That the
-	// cycle runs on the produced rev against the pre-specified anchor is covered by
-	// TestRunLiveOrder_mintsACatchFromTheProducedRevisionAgainstThePreSpecifiedAnchor.)
+	// cycle runs on the produced rev against the pre-specified anchor is covered
+	// separately.)
 	restoreCycle := resolveCycle
 	t.Cleanup(func() { resolveCycle = restoreCycle })
 	resolveCycle = func(_ context.Context, _, _, _, _ string, _ reanchor.Anchor, _ []string, _, _ bool, _ chan<- pipe.TraceEvent) (Resolution, error) {
@@ -113,7 +113,7 @@ func TestDrainQueuedOrders_routesAPromptOrderToTheLiveHarnessNotThePrefundedCycl
 
 	balAfter, err := log.Balance()
 	require.NoError(t, err)
-	assert.Equal(t, 0, balAfter, "firewall: the live run mints NO catch (the oracle/catch step is slice 4b)")
+	assert.Equal(t, 0, balAfter, "firewall: the live run mints NO catch (the gate/catch step comes later)")
 }
 
 // A live run that fails (the harness errored — e.g. the agent crashed) must

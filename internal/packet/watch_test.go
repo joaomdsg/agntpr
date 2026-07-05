@@ -33,7 +33,7 @@ func TestWatchKind_stringFailsSafeOnAnUnrecognizedKind(t *testing.T) {
 	assert.Equal(t, "unknown", packet.WatchKind(99).String())
 }
 
-// gatePassedGauntlet mirrors hold_test.go's helper: an all-GatePassed Gauntlet
+// gatePassedGauntlet mirrors the shared all-GatePassed Gauntlet helper: an all-GatePassed Gauntlet
 // so Forwardable reports true and only the case under test drives the result.
 func gatePassedGauntletForWatch() packet.Gauntlet {
 	passed := packet.Gate{Status: packet.GatePassed, Detail: "ok"}
@@ -165,7 +165,7 @@ func TestPrecision_scoresOnlyMarkedFiresOfTheRequestedKind(t *testing.T) {
 		{Kind: packet.WatchStrictLane, PacketID: 1, Useful: useful(true)},
 		{Kind: packet.WatchStrictLane, PacketID: 2, Useful: useful(true)},
 		{Kind: packet.WatchStrictLane, PacketID: 3, Useful: useful(false)},
-		{Kind: packet.WatchStrictLane, PacketID: 4, Useful: nil}, // unmarked — excluded from the sample
+		{Kind: packet.WatchStrictLane, PacketID: 4, Useful: nil},            // unmarked — excluded from the sample
 		{Kind: packet.WatchGateFailure, PacketID: 5, Useful: useful(false)}, // different kind — excluded
 	}
 

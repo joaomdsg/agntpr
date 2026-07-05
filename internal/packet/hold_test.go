@@ -84,8 +84,7 @@ func TestReconcileHold_escalatesToBlockingWhenAGateFailedNamingItsOwnDetail(t *t
 	assert.Equal(t, "gate failed · 3 survivors of 12", got.HoldReason, "reuses the failing gate's own Detail, never invented wording")
 }
 
-// TestReconcileHold_walksGatesInG1ThroughG6OrderToFindTheFirstFailure pins
-// which gate's Detail wins when more than one gate has failed — the FIRST
+// Pins which gate's Detail wins when more than one gate has failed — the FIRST
 // GateFailed found walking IntentFidelity..IndependentCheck in that order,
 // never the last, so the reported reason is deterministic.
 func TestReconcileHold_walksGatesInG1ThroughG6OrderToFindTheFirstFailure(t *testing.T) {
@@ -205,9 +204,9 @@ func TestReconcileHold_exemptsADeliveredPacketEvenWhenTheForcingRulesWouldOtherw
 		State:             packet.Delivered,
 		Hold:              packet.HoldNone,
 		HoldReason:        "",
-		Lane:              packet.LaneStrict,     // floor is StrengthProperties
-		HandshakeStrength: packet.StrengthNone,   // below floor — rule (b) would fire
-		Gauntlet:          failing,               // not forwardable — rule (c) would fire too
+		Lane:              packet.LaneStrict,   // floor is StrengthProperties
+		HandshakeStrength: packet.StrengthNone, // below floor — rule (b) would fire
+		Gauntlet:          failing,             // not forwardable — rule (c) would fire too
 	}
 
 	got := packet.ReconcileHold(p)
@@ -217,9 +216,9 @@ func TestReconcileHold_exemptsADeliveredPacketEvenWhenTheForcingRulesWouldOtherw
 	assert.Equal(t, "", got.HoldReason)
 }
 
-// A done+!caught advisory hold from Fold (slice 5) must survive untouched when
-// neither the lane-floor nor the gate-failure rule fires — this slice ADDS
-// blocking triggers, it never touches Fold's existing lifecycle-hold logic.
+// A done+!caught advisory hold from Fold must survive untouched when
+// neither the lane-floor nor the gate-failure rule fires — the blocking
+// rules here ADD triggers, they never touch Fold's existing lifecycle-hold logic.
 func TestReconcileHold_leavesFoldsAdvisoryHoldUntouchedWhenNeitherRuleFires(t *testing.T) {
 	t.Parallel()
 

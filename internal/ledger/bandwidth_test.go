@@ -119,7 +119,7 @@ func TestLog_negativeLatencyFloorsAtTheThroughputBase(t *testing.T) {
 }
 
 // The bandwidth meter must hold against forged data on the stream, exactly as
-// TestBalance_aForgedNegativeSpendCannotMintCredit guards the balance projection: the
+// the balance projection guards against a forged negative spend: the
 // stream is the authoritative substrate, so a forged bwspend published straight to the
 // subject (bypassing the AppendBandwidthSpend overdraft gate) must NOT drive the earned
 // meter negative — a negative meter is a corrupt projection the `< cost` gates and the

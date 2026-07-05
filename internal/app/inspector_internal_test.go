@@ -23,13 +23,13 @@ import (
 // gitInitNoRemote initializes a bare local repo with no origin remote, so
 // packet.ParseAddr on it deterministically falls back to the honest
 // "local/<dir>" identity instead of resolving a real remote. Duplicated in
-// console_test.go (app_test scope) for the tests that moved there.
+// the external test package, for the tests that moved there.
 func gitInitNoRemote(t testing.TB, dir string) {
 	t.Helper()
 	require.NoError(t, exec.Command("git", "init", "-q", dir).Run())
 }
 
-// ROADMAP slice 4: /review renders as the 3-column Inspector (252|1fr|312,
+// /review renders as the 3-column Inspector (252|1fr|312,
 // MVP.md) rather than a flat stack — the changed-files tree, the Monaco
 // island, and the annotation rail are three distinct, hairline-bounded
 // regions. NOT parallel (shared liveReg/liveFabric).
@@ -158,7 +158,7 @@ func TestReviewCard_identityStripOmitsRevChipWhenARevIsUnknown(t *testing.T) {
 		"an unresolved per-order review omits the rev chip rather than showing zero-value revs")
 }
 
-// ROADMAP slice 6: the identity strip's repo cell is the honest packet addr
+// The identity strip's repo cell is the honest packet addr
 // (packet.ParseAddr(cfg.RepoDir).String()), not a raw folder name — a
 // remote-less repo falls back to "local/<dir>", never a fabricated owner.
 // NOT parallel.
@@ -180,7 +180,7 @@ func TestReviewCard_identityStripShowsTheAddr(t *testing.T) {
 	require.Contains(t, body, "local/acme-widgets", "a remote-less repo renders the honest local/<dir> addr")
 }
 
-// ROADMAP slice 6: an order-scoped review that folds to a packet shows the
+// An order-scoped review that folds to a packet shows the
 // packet's own Name beside wo#<id> — the identity the packet model gives the
 // order, not just its raw numeric id. NOT parallel (shared liveReg + the
 // resolveCycle seam).
@@ -258,10 +258,10 @@ func TestReviewCard_annotationRailRendersACardWithChipsAndRetainsTheAnchor(t *te
 	require.Contains(t, body, "annotations · 1", "the rail kicker counts the open threads (label · N voice)")
 }
 
-// The timeline footer is ROADMAP slice 8's gauntlet record: the six gates,
+// The timeline footer is the gauntlet record: the six gates,
 // every one honestly NotRun for a session-scoped review with no single
-// packet to gauntlet — never faked. Supersedes slice 4's dashed-empty stub,
-// which this slice's footer content replaces. NOT parallel.
+// packet to gauntlet — never faked. Supersedes the earlier dashed-empty stub,
+// which this footer content replaces. NOT parallel.
 func TestReviewCard_timelineFooterRendersTheHonestlyUnmeasuredGauntlet(t *testing.T) {
 	resetConsumersForTest()
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")

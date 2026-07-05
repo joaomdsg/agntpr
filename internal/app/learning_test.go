@@ -13,7 +13,7 @@ import (
 	"github.com/joaomdsg/packets/internal/ledger"
 )
 
-// ROADMAP slice 17: a fresh repo has produced no real settled judgment yet —
+// A fresh repo has produced no real settled judgment yet —
 // the console's "learning" card must show the honest running count against
 // the real threshold, never a fabricated converged state. NOT parallel
 // (shared liveReg/liveFabric).

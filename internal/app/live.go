@@ -166,7 +166,7 @@ type liveEntry struct {
 	findingsMu sync.Mutex
 	findings   []mutation.Finding
 	// resolved holds the "file:line" of questions a reviewer ANSWERED (their test
-	// killed the mutant) this session. R63 settled that a killing answer makes the
+	// killed the mutant) this session. A killing answer makes the
 	// question vanish; since the reviewer's test isn't committed, a later connect
 	// cycle would re-find the survivor, so openFindings filters resolved lines out —
 	// the answer sticks for the session. Ephemeral, off the economy ledger (a
@@ -271,15 +271,15 @@ type liveEntry struct {
 	addr     packet.Addr
 	// laneMu guards laneCache: an order's measured Lane, computed via
 	// packet.Measure (an exec seam — `go list` + git) at most once per order
-	// id. A fixRev change mints a new order id (ROADMAP slice 5's identity
+	// id. A fixRev change mints a new order id (the identity
 	// model), so there is no staleness to invalidate for MVP. Separate from
 	// findingsMu since it guards an unrelated, exec-derived cache with a much
 	// higher per-entry cost — a lock a render might hold across a subprocess
 	// call must never also block the cheap off-ledger diagnostic reads above.
 	laneMu    sync.Mutex
 	laneCache map[int]packet.Lane
-	// gauntletMu guards gauntletCache: an order's computed Gauntlet record
-	// (ROADMAP slice 8), mirroring laneMu/laneCache's exec-derived-cache
+	// gauntletMu guards gauntletCache: an order's computed Gauntlet record,
+	// mirroring laneMu/laneCache's exec-derived-cache
 	// rationale exactly — G4 (packet.RunBuildVetGate) execs git+go, so this
 	// cache must stay off findingsMu (a render must never hold a lock across
 	// a subprocess call). intentFidelityConfirmed is guarded by the SAME
@@ -312,7 +312,7 @@ type liveEntry struct {
 	// together with orderFindings in settleCatch.
 	orderCatch map[int]orderCatchOutcome
 	// watchMu guards watchFires: this session's standing-watch history
-	// (ROADMAP slice 12, MVP.md concept 6). Pure in-memory bookkeeping — an
+	// (MVP.md concept 6). Pure in-memory bookkeeping — an
 	// append/read over a slice, no exec — so, like calibMu, there is no
 	// reason to share findingsMu/laneMu's own traffic. Off the ledger: no
 	// persisted event kind for a fire/mark exists yet (a deferral matching
@@ -448,7 +448,7 @@ func (e *liveEntry) markWatchFire(kind packet.WatchKind, packetID int, useful bo
 // notMeasuredNoHandshake is G5's honest default: G5 needs the handshake/
 // agent-test split (mutation vs the agent's own tests) that is explicitly
 // deferred past this slice — see gauntlet_handshake.go's doc. G2 (handshake
-// conformance) became a real gate in ROADMAP slice 9 (handshakeConformanceGate
+// conformance) became a real gate (handshakeConformanceGate
 // below); this sentinel is also G2's OWN answer for an order with no
 // handshake authored at all (p.HandshakePath == "").
 var notMeasuredNoHandshake = packet.Gate{Status: packet.GateNotRun, Detail: "not measured — no handshake yet"}
@@ -762,7 +762,7 @@ func (e *liveEntry) setFindings(fs []mutation.Finding) {
 // openFindings returns the session's latest cached open review questions, with any
 // the reviewer has ANSWERED (markResolved) this session filtered out — so a killing
 // answer stays vanished even when a later connect cycle re-finds the uncommitted
-// survivor (R63's "the question vanishes").
+// survivor (the answered question stays vanished for the session).
 func (e *liveEntry) openFindings() []mutation.Finding {
 	e.findingsMu.Lock()
 	defer e.findingsMu.Unlock()
@@ -852,7 +852,7 @@ func (e *liveEntry) orderQuestionCount(id int) int {
 }
 
 // sessionPackets folds a session's dispatches into packets — the Console and
-// Inspector's shared read model (ROADMAP slice 6). n<=0 folds every dispatch
+// Inspector's shared read model. n<=0 folds every dispatch
 // (an honest total for counts like the hero stat); a positive n caps the
 // underlying RecentDispatches read. Empty (nil) when the session or its
 // ledger is unknown — callers treat that as "nothing to show", never an
@@ -1108,8 +1108,8 @@ var liveReg sync.Map
 // registerSession stores one keyed session's wiring (its own cfg, ledger, and
 // admission sem) in the registry. Distinct keys get distinct entries with their
 // own *ledger.Log, so ≥2 cards served off the one "/" mount are ISOLATED
-// economies — a mint or spend on one key never touches another (the R18
-// farm-denial verdict, enforced per session: the faucet is the sole credit
+// economies — a mint or spend on one key never touches another (the
+// farm-denial rule, enforced per session: the faucet is the sole credit
 // source and a balance is non-transferable across keys).
 func registerSession(key string, cfg LiveConfig, log *ledger.Log) {
 	var sem chan struct{}
@@ -1118,7 +1118,7 @@ func registerSession(key string, cfg LiveConfig, log *ledger.Log) {
 	}
 	e := &liveEntry{cfg: cfg, log: log, sem: sem, useContainer: cfg.UseContainer, seq: int(atomic.AddInt64(&regSeq, 1))}
 	liveReg.Store(key, e)
-	// If claim consumers are already running, a session registered now (e.g. an R53
+	// If claim consumers are already running, a session registered now (e.g. a
 	// runtime-created session) gets its consumer immediately, not only those present
 	// at boot.
 	consumerSpawner.onRegister(key, e)
@@ -1130,7 +1130,7 @@ func setLiveState(cfg LiveConfig, log *ledger.Log) {
 
 // claimConsumerSpawner gives each session EXACTLY ONE durable claim consumer — for
 // the sessions present when consumers start AND for any session registered later
-// (R53 runtime-created sessions), so the create flow is not a dead end for the
+// (runtime-created sessions), so the create flow is not a dead end for the
 // producer path. Birth is guarded by `started` so a session is never double-
 // consumed. Once active, registerSession spawns a consumer for each new session
 // using the latest StartClaimConsumers parameters.
@@ -1196,7 +1196,7 @@ func (s *claimConsumerSpawner) spawnLocked(key string, e *liveEntry) {
 }
 
 // onRegister is called after a session is stored in liveReg. If consumers are
-// active, the new session gets one immediately — the R53 runtime-create path.
+// active, the new session gets one immediately — the runtime-create path.
 func (s *claimConsumerSpawner) onRegister(key string, e *liveEntry) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -1407,7 +1407,7 @@ type LiveCard struct {
 	// so the frame always fans out even when the fundable target list is unchanged.
 	Bench via.StateTabStr
 	// MarkWatchKind/MarkWatchWO/MarkUseful carry a standing watch's mark prompt
-	// (ROADMAP slice 12, MVP.md concept 6): which WatchKind (its int value, as a
+	// (MVP.md concept 6): which WatchKind (its int value, as a
 	// string), which packet id, and the human's usefulness judgment ("true"/
 	// "false"). Read by MarkWatchFire, which finds that (kind, packet)'s
 	// unmarked fire and records the judgment — Precision is computed from real
@@ -1558,9 +1558,9 @@ func (c *LiveCard) View(ctx *via.CtxR) h.H {
 		parts = append(parts, h.Section(append(section, actNow...)...))
 	}
 	// The economy meter rows (stock/balance/bandwidth/dispatch) are RETIRED from
-	// the UI (MVP.md vocabulary map, ROADMAP slice 6) — the underlying ledger
-	// reads above still feed renderFundWork/onboarding (their reframe is slice
-	// 11), but nothing renders them as a row here anymore.
+	// the UI (MVP.md vocabulary map) — the underlying ledger
+	// reads above still feed renderFundWork/onboarding (their reframe is a
+	// separate effort), but nothing renders them as a row here anymore.
 	state := []h.H{
 		h.Attr("aria-labelledby", "state-history-label"),
 		h.Span(h.Class("pk-section-label"), h.ID("state-history-label"), h.Text("state & history")),
@@ -1623,7 +1623,7 @@ func (c *LiveCard) View(ctx *via.CtxR) h.H {
 		state = append(state, surface.RenderLand(pipe.LandState(c.Land.Read(ctx))))
 	}
 	parts = append(parts, h.Section(state...))
-	// nav landmark first, then the Console grid (ROADMAP slice 6): a needs-you
+	// nav landmark first, then the Console grid: a needs-you
 	// rail of this session's HELD packets, the untouched center content (behind
 	// a hero stat + in-flight strip), and a settled+watches rail — every count
 	// folded from the SAME packet slice, never a second source of truth.
@@ -1638,8 +1638,8 @@ func (c *LiveCard) View(ctx *via.CtxR) h.H {
 
 // reconcileHolds attaches each packet's ALREADY-cached Lane/Gauntlet (pure
 // map reads — cachedLane/cachedGauntlet, never the exec'ing laneFor/
-// gauntletFor) and reconciles its hold via packet.ReconcileHold (ROADMAP
-// slice 10), in place. This is the ONE call site that hands a packets slice
+// gauntletFor) and reconciles its hold via packet.ReconcileHold,
+// in place. This is the ONE call site that hands a packets slice
 // into renderConsole, which is the only render path reading p.Hold/
 // p.HoldReason (the needs-you and settled rails) — so this is also the only
 // place that needs to run it. It must stay safe on the 100ms via.Stream poll
@@ -1723,7 +1723,7 @@ func (c *LiveCard) FundChosen(ctx *via.Ctx) {
 // composed at runtime instead of baked at boot. The base is the repo's CURRENT
 // HEAD, so the agent works the live tree. An empty prompt, an unconfigured repo, or
 // an over-budget balance is a silent no-op (never a funded order with no task, no
-// tree, or no catch to spend). ROADMAP slice 9: a live order additionally REQUIRES a
+// tree, or no catch to spend). A live order additionally REQUIRES a
 // handshake authored first (AuthorHandshake) — the contract is authored
 // independently of, and before, the agent's own code (MVP.md concept 3), so a live
 // order with none is refused (funding nothing) and leaves an honest inline message
@@ -1912,7 +1912,7 @@ func runLiveOrder(e *liveEntry, order ledger.WorkOrderRecord) {
 	e.startFill(order.ID)
 	defer e.endFill()
 	// Bound the agent run so a runaway harness can't burn the budget without limit
-	// (the cost-gate — the only token cap a live order has; council R69/R70).
+	// (the cost-gate — the only token cap a live order has).
 	hctx, cancel := context.WithTimeout(context.Background(), liveHarnessTimeout)
 	// Resume the session's WARM explored harness (forking a branch) so the fill works
 	// with the repo context the warm-up built — the remembered session, same as the
@@ -1934,7 +1934,8 @@ func runLiveOrder(e *liveEntry, order ledger.WorkOrderRecord) {
 	}
 	// Run the catch cycle on the agent-PRODUCED revision, against the order's
 	// PRE-SPECIFIED anchor (Target.Path/Line) — never an anchor derived from the
-	// agent's own diff, which would let it farm confirmed-catches (council R70).
+	// agent's own diff, which would let it farm confirmed-catches (the
+	// anti-farming firewall).
 	if liveHead, ok := lastMintedSHA(turns); ok {
 		beats := make(chan pipe.TraceEvent, 64)
 		go func() {
@@ -2112,7 +2113,7 @@ func (c *LiveCard) OnConnect(ctx *via.Ctx) error {
 			// Caught tally, and the open-thread count all derive from it without a
 			// second fold.
 			if views, err := log.RecentDispatches(0); err == nil {
-				// The needs-you rail's open-thread count (ROADMAP slice 3) has no cell of
+				// The needs-you rail's open-thread count has no cell of
 				// its own — findings can change off the connect-cycle path (a dispatched
 				// order's own findings, a /review answer resolving one) with nothing else
 				// to notice while this session's "/" stream is open. Folding it into the
@@ -2230,7 +2231,7 @@ func NewServer(cfg LiveConfig, opts ...via.Option) (*via.App, *ledger.Log, error
 		}
 		bridge.Handler(f, key, LedgerInstance)(w, r)
 	})
-	// Claim submission is RETIRED from the HTTP surface (council R82): a producer
+	// Claim submission is RETIRED from the HTTP surface: a producer
 	// submits a claim ONLY through the authenticated NATS ingress
 	// (fabric.StartListening + a ProducerGrant), publishing to its own grant-confined
 	// claim subtree. The host's claim consumer drains it there. This removes the
@@ -2241,7 +2242,7 @@ func NewServer(cfg LiveConfig, opts ...via.Option) (*via.App, *ledger.Log, error
 	// submitting a claim. The host validates + namespace-confines it OFFLINE
 	// (ingest unbundles only into refs/producers/<key>/* of the session's repo),
 	// so a later claim's SHAs resolve against that repo WITHOUT the host ever
-	// fetching a producer-controlled URL — no egress, no SSRF (council R38). The
+	// fetching a producer-controlled URL — no egress, no SSRF. The
 	// producer id is the session key (the producer identity per one-session-per-
 	// producer); a key that is not a safe ref segment is refused by ingest (400).
 	// Mirrors POST /claim's session-key gate + body cap (this is the live server's
@@ -2278,7 +2279,7 @@ func NewServer(cfg LiveConfig, opts ...via.Option) (*via.App, *ledger.Log, error
 			http.Error(w, "bundle: session has no repository", http.StatusBadRequest)
 			return
 		}
-		// Per-producer flood-defenses (R85): throttle the upload RATE so a producer
+		// Per-producer flood-defenses: throttle the upload RATE so a producer
 		// can't flood the ingest path, then (after reading) bound the aggregate bytes
 		// it RETAINS so it can't fill the host store. Both key off the authenticated
 		// producer identity (== session key) the boundary now guarantees.
@@ -2295,7 +2296,7 @@ func NewServer(cfg LiveConfig, opts ...via.Option) (*via.App, *ledger.Log, error
 		}
 		// Reserve this upload's bytes against the producer's quota AND the global
 		// ceiling BEFORE ingesting; an over-limit upload is refused without doing the
-		// work. GC-by-resolved (R84) frees both when the producer's objects are
+		// work. GC-by-resolved frees both when the producer's objects are
 		// reclaimed. A per-producer overflow is 413 (this producer's fault); a global
 		// overflow is 503 (the host is at capacity, not this producer's fault).
 		if ok, global := guard.reserve(int64(len(body))); !ok {

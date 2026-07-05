@@ -44,7 +44,7 @@ func TestLiveCard_actNowControlsRenderInsideTheActNowSection(t *testing.T) {
 
 // FLOW A (NotRegress): sectioning must NEST inside the live card's main landmark,
 // never move or duplicate it — the SSE live region the accessibility contract
-// depends on (R61) must survive untouched.
+// depends on must survive untouched.
 func TestLiveCard_sectioningKeepsTheMainLiveRegionIntact(t *testing.T) {
 	body := actNowCardBody(t)
 

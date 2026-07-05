@@ -2,7 +2,7 @@
 
 Packets is a control plane for agent-written code changes. Agents compose, verify, and forward changes ("packets") at line rate against machine-checkable contracts ("handshakes"); the few with real blast radius are **held** for a human. The product borrows its entire mental model from networking: addrs (repos, `owner/repo` form), lanes (best-effort → standard → strict → irreversible), forwarding, inspection, ACK-on-delivery.
 
-**Sources of truth:** the archived design files in `old_stale/` — chiefly `Console.dc.html`, `Inspector Rich Diff.dc.html`, `Landing Page.dc.html`, and the locked brand spec in `Brand Board v2.dc.html` + `TRACKING.md`. This system encodes those surfaces verbatim, with one agreed cleanup: DELIVERED chips use brand delivered `#2a7683` (the Console previously used slate).
+**Source of truth:** this design system is itself the canonical spec — tokens, brand rules, voice, component references, and the Console + Inspector UI kits encode the settled designs verbatim. Exact values (colors, px, radii, tracking) live in `tokens/*.css`; port those first and never invent a new state color.
 
 ## The state grammar (the most important thing here)
 
@@ -63,9 +63,5 @@ No raster logo asset exists — the mark is constructed in code (see PacketMark 
 - `components/core/` — PacketCell, PacketMark, Chip, Button, Card, AnnotationCard, Titlebar, Timeline, Terminal
 - `ui_kits/console/` — Console + Inspector screen recreations
 - `assets/branding/` — footer badge SVGs
-- `old_stale/` — the original design explorations (archived, still openable)
-- `TRACKING.md` — locked decisions + follow-ups
 - `SKILL.md` — agent skill entry point
-
-### Intentional additions
-None. Every component family exists on the archived surfaces.
+- `HANDOFF.md` — how to port this system into a codebase

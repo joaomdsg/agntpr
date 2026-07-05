@@ -54,8 +54,7 @@ type WatchFire struct {
 
 // EvaluateWatch reports whether kind's predicate matches p. An unrecognized
 // kind NEVER fires — fail closed, not open, even when p's own facts would
-// satisfy a different, real kind's predicate (see
-// TestEvaluateWatch_anUnrecognizedKindStaysFalseEvenWhenTheFactsWouldMatchARealKind).
+// satisfy a different, real kind's predicate.
 func EvaluateWatch(kind WatchKind, p Packet) bool {
 	switch kind {
 	case WatchStrictLane:

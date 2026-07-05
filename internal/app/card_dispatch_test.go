@@ -42,7 +42,7 @@ func TestLiveCard_showsThisSessionsDispatchRoundTripOutcomes(t *testing.T) {
 	require.Contains(t, body, "missed", "WO#2 ran but minted nothing → missed, shown on the card")
 	// Each resolved order carries a per-outcome hook so the calm palette can color
 	// caught vs missed — the round-trip outcome legible at a glance, not
-	// undifferentiated dim text (extends R45's per-state honesty to dispatches).
+	// undifferentiated dim text (extends the same per-state honesty to dispatches).
 	require.Contains(t, body, `data-outcome="caught"`, "the caught order carries a per-outcome hook")
 	require.Contains(t, body, `data-outcome="missed"`, "the missed order carries a per-outcome hook")
 	// The stylesheet colors both outcomes in the honest palette (selectors live in

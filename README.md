@@ -60,7 +60,8 @@ open http://localhost:3000
 ```
 
 - `/` — Console: the needs-you queue and calibration draw, the packets
-  hero stat and in-flight strip, the settled rail, your watches.
+  hero stat and in-flight strip, the settled rail, the learning card
+  (a repo's convergence progress), and your watches.
 - `/review` — Inspector: a packet's changed-file tree, diff, inline
   annotations, and gate timeline.
 - `/board` — the cross-repo fleet listing.

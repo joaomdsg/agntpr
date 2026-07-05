@@ -19,7 +19,7 @@ import (
 // to its grant-confined claim subtree, and the host's consumer drains, verifies,
 // and mints it — while a publish to the MINTED subtree (a forged catch) is denied
 // by the grant. This closes the "tested by contract, not end-to-end" gap left by
-// R81 (connect-only) and R82 (in-process publish). NOT parallel (shared globals).
+// the earlier connect-only and in-process-publish coverage. NOT parallel (shared globals).
 func TestProducer_authenticatedExternalClaimPublishMintsAndCannotForgeAMint(t *testing.T) {
 	resetConsumersForTest()
 	grant := NewProducerGrant(defaultSessionKey, "prodA", "pwA")

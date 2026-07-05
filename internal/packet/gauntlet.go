@@ -30,7 +30,7 @@ const (
 	GateFailed
 	// GateHeld: a mutation gate found a survivor that isn't yet a hard
 	// fail — the same nuance as catch.PartialCatch/NoCatch. A real
-	// blocking decision from a Held gate is Packet.Hold's job (slice 5);
+	// blocking decision from a Held gate is Packet.Hold's job (the lifecycle/hold mapping);
 	// this status is only the record of what the gate observed.
 	GateHeld
 )
@@ -76,7 +76,7 @@ type Gauntlet struct {
 // true unless some gate is GateFailed. GateNotRun and GateHeld do NOT block
 // by themselves — a gate that hasn't run yet or merely found a narrowing
 // survivor is not the same as a hard failure. A real hold/blocking DECISION
-// off a Held or NotRun gate is Packet.Hold's job (slice 5's lifecycle/hold
+// off a Held or NotRun gate is Packet.Hold's job (the lifecycle/hold
 // mapping); Forwardable only reports what this record itself rules out.
 func (g Gauntlet) Forwardable() bool {
 	for _, gate := range []Gate{

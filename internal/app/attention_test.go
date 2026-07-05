@@ -51,9 +51,8 @@ func TestLiveCard_interruptKPIShowsTheRealCountUncappedWhenOverBudget(t *testing
 }
 
 // A new interrupt raised while a tab is connected must update the KPI over
-// the LIVE SSE stream, not just on the next full reload — the same pattern
-// TestLiveCard_heroStatRefreshesLiveWhenACatchMintsWithoutAStatusOrQuestionChange
-// already proves for the hero stat's dispatch-tally signature. NOT parallel
+// the LIVE SSE stream, not just on the next full reload — the same live-refresh
+// pattern already proven for the hero stat's dispatch-tally signature. NOT parallel
 // (shared liveReg/liveFabric).
 func TestLiveCard_interruptKPIRefreshesLiveWhenANewInterruptIsRaised(t *testing.T) {
 	server, _ := bootDefaultServer(t, defaultBootCfg)

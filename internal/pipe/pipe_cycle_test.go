@@ -251,7 +251,7 @@ func TestRunCatchCycle_landsCleanOnNonConflictingTip(t *testing.T) {
 	write(t, dir, "adult_test.go", strongTest) // test-only fix → real Catch, adult.go untouched
 	fix := commitAll(t, dir, "fix: strengthen the test")
 
-	runGit(t, dir, "checkout", "-q", "-") // back to base branch
+	runGit(t, dir, "checkout", "-q", "-")                         // back to base branch
 	write(t, dir, "other.go", "package adult\n\nvar Other = 2\n") // trunk advances on a DISJOINT file
 	tip := commitAll(t, dir, "trunk: edit a disjoint file")
 

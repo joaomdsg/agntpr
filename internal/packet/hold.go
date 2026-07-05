@@ -3,7 +3,7 @@
 // Gauntlet into an escalated hold, layered on top of the lifecycle-hold
 // baseline Fold already sets (packet.go). This file is pure — no I/O, no
 // exec — because Lane and Gauntlet are populated OUTSIDE Fold, in the app
-// layer (ROADMAP slices 7/8's laneFor/gauntletFor), so ReconcileHold must be
+// layer (laneFor/gauntletFor), so ReconcileHold must be
 // a SEPARATE function the app calls after attaching both, never folded into
 // Fold itself.
 package packet

@@ -23,7 +23,7 @@ type Resolution struct {
 	// Land is the integration verdict (clean/conflict/checks-red) rendered as its
 	// own card row, orthogonal to Verdict — the catch is minted on the base, this
 	// answers whether it integrates onto trunk tip.
-	Land   pipe.LandState
+	Land pipe.LandState
 	// Trace is the ordered, typed, timestamped beats of the cycle, surfaced so the
 	// live card can stream each as its own SSE patch (the felt loop). Purely
 	// additive — it never alters the verdict, Land, or the ledger record.
@@ -39,7 +39,7 @@ type Resolution struct {
 	// raw outcomes into shared or split tokens: e.g. a fully-constrained
 	// NoCatch reads as the calm-win "Tested", and NoOracleSignal fans out
 	// into four different quiet tokens by Reason). packet.GateFromCatchOutcome
-	// (ROADMAP slice 8's G3) needs the untranslated enum, never the token, so
+	// needs the untranslated enum, never the token, so
 	// it is forwarded here as its own field rather than re-derived from the
 	// string.
 	Outcome catch.Outcome
@@ -77,7 +77,7 @@ func ResolveStreaming(ctx context.Context, repoDir, baseRev, fixRev, tipRev stri
 
 	record := ledger.NewCatchRecord(res.Outcome, res.Path, res.Line, baseRev, fixRev, res.Before.Inventory, res.After.Inventory, selfFlagged, wouldHaveShipped)
 	// Findings is a pass-through of the fix oracle's non-killed mutants (carried up
-	// by the cycle in slice 1) to the surface for the review-question badge/threads.
+	// by the cycle) to the surface for the review-question badge/threads.
 	return Resolution{
 		Verdict: verdict, Land: res.Land, Trace: res.Trace, Record: record, Findings: res.Findings,
 		Outcome: res.Outcome, AfterSurvivors: len(res.After.Survivors), AfterConsidered: len(res.After.Inventory),

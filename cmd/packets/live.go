@@ -27,7 +27,7 @@ func (l *liveFlag) Set(v string) error {
 
 // parseLiveSpec parses a "file=F,line=N,base=SHA[,tip=SHA],prompt=<task>" spec into
 // a PROMPT-BEARING live work-order Target — the Lead's task plus the PRE-SPECIFIED
-// anchor (file/line) the catch is checked against (the R70 anti-farming firewall:
+// anchor (file/line) the catch is checked against (the anti-farming firewall:
 // the trusted Lead names the target, never the agent's own diff). There is no
 // FixRev — a real Claude Code harness PRODUCES the fix at run time, so tip defaults
 // to base and runLiveOrder diffs against the live HEAD. The LineHash is left unset

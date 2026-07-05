@@ -58,9 +58,9 @@ func TestReanchorAdjustment_tellsTheLeadWhetherTheirLineSurvived(t *testing.T) {
 // anchor's own comment through — so the surface can show every adjustment's status, not
 // just the last. Order is preserved.
 func TestRelocateAdjustments_relocatesEachAnchorCarryingItsOwnComment(t *testing.T) {
-	const same = "package p\n\nfunc f() bool {\n\treturn a >= b\n}\n"      // "\treturn a >= b" at line 4
+	const same = "package p\n\nfunc f() bool {\n\treturn a >= b\n}\n"                      // "\treturn a >= b" at line 4
 	const moved = "// added\n// added\npackage p\n\nfunc f() bool {\n\treturn a >= b\n}\n" // shifted to line 6
-	const gone = "package p\n\nfunc f() bool {\n\treturn a > b\n}\n"        // the line was edited away
+	const gone = "package p\n\nfunc f() bool {\n\treturn a > b\n}\n"                       // the line was edited away
 	read := func(file string) string {
 		switch file {
 		case "same.go":

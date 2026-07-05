@@ -6,7 +6,7 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// Bundle flood-defense limits (council R85/R86). The auth boundary (R81–R83)
+// Bundle flood-defense limits. The auth boundary
 // makes a bundle upload attributable to a producer (== session key), so the host
 // can bound the upload RATE, the bytes a single producer RETAINS, AND the
 // aggregate bytes retained across ALL producers. These are vars (not consts) so
@@ -19,11 +19,11 @@ var (
 	bundleBurst      = 4
 	// bundleQuotaBytes caps the bytes a single producer may have RETAINED at once
 	// (deterministic — bytes accepted, never git's on-disk size). GC-by-resolved
-	// (R84) frees it: when a producer's namespace is pruned, its retained count
+	// frees it: when a producer's namespace is pruned, its retained count
 	// resets to zero.
 	bundleQuotaBytes int64 = 128 << 20 // 128 MiB retained per producer
-	// bundleGlobalCeilingBytes caps the SUM of retained bytes across all producers
-	// (R86): the per-producer quota bounds one flooder, this bounds many producers
+	// bundleGlobalCeilingBytes caps the SUM of retained bytes across all producers:
+	// the per-producer quota bounds one flooder, this bounds many producers
 	// collectively filling the host store. An upload that would push the aggregate
 	// over the ceiling is refused even when the producer is within its own quota.
 	bundleGlobalCeilingBytes int64 = 1 << 30 // 1 GiB across all producers
@@ -34,7 +34,7 @@ var (
 // mutually consistent. Uploads are infrequent, so one accounting mutex is ample
 // and avoids any per-guard/global lock-ordering hazard.
 var (
-	bundleAcctMu        sync.Mutex
+	bundleAcctMu         sync.Mutex
 	bundleGlobalRetained int64
 )
 
@@ -90,7 +90,7 @@ func (g *bundleGuard) release(n int64) {
 }
 
 // resetBundleRetained zeroes a producer's retained count and removes it from the
-// global aggregate — called when its namespace is pruned (GC-by-resolved, R84),
+// global aggregate — called when its namespace is pruned (GC-by-resolved),
 // so reclaimed objects free both the per-producer quota and the global ceiling.
 func resetBundleRetained(key string) {
 	if g, ok := bundleGuards.Load(key); ok {

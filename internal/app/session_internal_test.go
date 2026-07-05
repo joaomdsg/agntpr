@@ -22,7 +22,7 @@ func TestLiveCard_distinctSessionKeysHaveIsolatedBalances(t *testing.T) {
 	// registerSession, so it cannot be external. NOT parallel — shares liveReg +
 	// resolveCycle with the other live tests. The property: two session keys are
 	// ISOLATED economies — a mint into one never credits the other, a spend on one
-	// never debits the other (the R18 farm-denial verdict, per-session enforced).
+	// never debits the other (the farm-denial invariant, per-session enforced).
 	restore := resolveCycle
 	t.Cleanup(func() { resolveCycle = restore })
 	resolveCycle = func(_ context.Context, _, base, _, _ string, _ reanchor.Anchor, _ []string, _, _ bool, _ chan<- pipe.TraceEvent) (Resolution, error) {

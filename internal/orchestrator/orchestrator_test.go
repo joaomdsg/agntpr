@@ -150,8 +150,8 @@ func TestDiscardWorkingTree_rollsBackPartialEditsToTheRevision(t *testing.T) {
 	dir := initRepo(t)
 	base := runGit(t, dir, "rev-parse", "HEAD")
 
-	write(t, dir, "f.txt", "partial\n")  // tracked file modified
-	write(t, dir, "new.txt", "junk\n")   // untracked file created
+	write(t, dir, "f.txt", "partial\n") // tracked file modified
+	write(t, dir, "new.txt", "junk\n")  // untracked file created
 
 	require.NoError(t, orchestrator.DiscardWorkingTree(context.Background(), dir, base))
 

@@ -75,7 +75,7 @@ func TestBoardCard_drillHrefURLEscapesTheKey(t *testing.T) {
 		"the raw key must not leak unescaped into the query string")
 }
 
-// ROADMAP slice 2 (the mark + chrome): the nav's home link used to be bare
+// The mark + chrome: the nav's home link used to be bare
 // text ("packets") — the brand pack locks the mark + stacked lockup as the
 // in-app chrome instead. A regression back to plain text would silently drop
 // the brand from every page. NOT parallel (shared liveReg/liveFabric).

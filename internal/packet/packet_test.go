@@ -113,8 +113,8 @@ func TestPacket_isNeverDeliverableFromNonACKStatuses(t *testing.T) {
 	}
 }
 
-// "deployed" is the one status a real host-issued ACK command (ROADMAP slice
-// 13's `packets deployed`) produces — the only path that reaches Delivered.
+// "deployed" is the one status a real host-issued ACK command (the
+// `packets deployed` command) produces — the only path that reaches Delivered.
 func TestFold_deployedStatusReachesDeliveredAndIsDeliverable(t *testing.T) {
 	t.Parallel()
 

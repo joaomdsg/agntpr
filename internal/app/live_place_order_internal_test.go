@@ -20,7 +20,7 @@ import (
 
 // orderRecordFor returns the dispatched work-order with the given id (zero value
 // when absent), so a test can assert on the funded order's target/prompt.
-// Duplicated in apptest_support_test.go (app_test scope) for the tests that moved.
+// duplicated for the external test package (used by the tests that moved there).
 func orderRecordFor(t *testing.T, log *ledger.Log, id int) ledger.DispatchView {
 	t.Helper()
 	views, err := log.RecentDispatches(0)
@@ -36,10 +36,9 @@ func orderRecordFor(t *testing.T, log *ledger.Log, id int) ledger.DispatchView {
 // A Lead must be able to AUTHOR a live order from the card — type a task prompt and
 // place it — instead of only drawing a pre-baked target off the backlog. Placing an
 // order funds it against the balance (one catch, like any spend) and dispatches a
-// prompt-carrying target so the live harness runs the authored task. ROADMAP slice 9:
-// a handshake must be authored FIRST — placing without one is refused (see
-// TestLiveCard_placeOrderRefusesALiveOrderWithNoHandshakeAuthored, live_place_order_
-// test.go). NOT parallel (shared liveReg/liveFabric).
+// prompt-carrying target so the live harness runs the authored task.
+// A handshake must be authored FIRST — placing without one is refused
+// (proven separately). NOT parallel (shared liveReg/liveFabric).
 func TestLiveCard_placeOrderFundsAndDispatchesTheAuthoredPrompt(t *testing.T) {
 	resetConsumersForTest()
 	repo := initGitRepoForOrder(t)

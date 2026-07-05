@@ -41,5 +41,3 @@ Correlated failure can be reduced, never zeroed; a wrong-but-precise handshake s
 
 ## The one test for any feature
 A change should **forward** autonomously unless inspection must hold it. Maximise what forwards safely — push work *up* into the handshake or *down* into a standing check, keep agent tests as evidence only, and make pull-inspection cheap enough that operators drill in for fun.
-
-Fuller interactive derivation: `old_stale/Packets System Model.dc.html` (v5) in the source project.

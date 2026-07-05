@@ -35,7 +35,7 @@ func claimConcurrency() int { return max(1, min(4, runtime.NumCPU()/2)) }
 // runner (production passes sandbox.DockerRunner{}; tests fake it at this seam).
 // It applies the shared governor: a per-producer token bucket plus a process-wide
 // concurrency semaphore. Call this once after the boot sessions are registered; it
-// also arms registerSession so any session created later (an R53 runtime-created
+// also arms registerSession so any session created later (a runtime-created
 // session) gets its own cage consumer immediately.
 func StartCageClaimConsumers(ctx context.Context, image string, runner sandbox.Runner) {
 	adm := &ledger.Admission{
@@ -44,7 +44,7 @@ func StartCageClaimConsumers(ctx context.Context, image string, runner sandbox.R
 		Concurrency: make(chan struct{}, claimConcurrency()),
 		// Post-verdict GC: the instant a claim resolves, reclaim its producer's
 		// objects if it has no other claim in flight — prompt reclamation on top of
-		// the periodic StartProducerGC sweep (council R84). Uses the consumer ctx so
+		// the periodic StartProducerGC sweep. Uses the consumer ctx so
 		// a shutdown cancels an in-progress prune.
 		OnResolved: func(session string) { pruneProducerSession(ctx, session) },
 	}

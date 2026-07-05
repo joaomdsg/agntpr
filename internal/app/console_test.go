@@ -23,7 +23,7 @@ func gitInitNoRemote(t testing.TB, dir string) {
 	require.NoError(t, exec.Command("git", "init", "-q", dir).Run())
 }
 
-// ROADMAP slice 3: "/" grows a 3-column Console shell around the untouched
+// "/" grows a 3-column Console shell around the untouched
 // live-card content — a needs-you rail, the preserved center column, and a
 // settled+watches rail. Without the grid the Lead has nowhere honest to see
 // open questions or settled work at a glance. NOT parallel (shared
@@ -38,7 +38,7 @@ func TestLiveCard_rendersConsoleGridWithThreeRegions(t *testing.T) {
 	require.Contains(t, body, "console__rail--settled", "the right rail is the settled+watches region")
 }
 
-// ROADMAP slice 6 (packet 6.MVP): the needs-you rail is now driven by the
+// The needs-you rail is now driven by the
 // packet fold, not the session's raw connect-cycle findings — a HELD packet
 // (blocking or advisory) surfaces as a card the Lead can click straight into
 // its own /review?wo=<id>. NOT parallel (shared liveReg/liveFabric).
@@ -118,7 +118,7 @@ func TestLiveCard_needsYouRailShowsVictoryEmptyStateWhenNoOpenThreads(t *testing
 }
 
 // A session with no Verified (auto-forwarded) packets has nothing honest to
-// draw from — the calibration mechanic (slice 11) must show the "no draws
+// draw from — the calibration mechanic must show the "no draws
 // yet" empty state rather than a fabricated sample. NOT parallel (shared
 // liveReg/liveFabric).
 func TestLiveCard_calibrationRailShowsHonestEmptyStateBeforeItsMechanicExists(t *testing.T) {
@@ -129,7 +129,7 @@ func TestLiveCard_calibrationRailShowsHonestEmptyStateBeforeItsMechanicExists(t 
 	require.Contains(t, body, "no calibration draws yet", "no fake sample before the mechanic ships")
 }
 
-// ROADMAP slice 6: the settled rail now shows lifecycle-colored rows straight
+// The settled rail now shows lifecycle-colored rows straight
 // from the packet fold — verified, held-advisory, and held-blocking (a run
 // failure IS settled-red) all count; only composing/in-flight are excluded.
 // NOT parallel (shared liveReg/liveFabric).
@@ -176,8 +176,8 @@ func TestLiveCard_settledRailShowsDashedEmptyWhenNothingSettled(t *testing.T) {
 }
 
 // The watches region is always present, even before any watch has fired —
-// its per-kind "no history yet" content is now covered in depth by
-// watch_test.go (ROADMAP slice 12). NOT parallel (shared liveReg/liveFabric).
+// its per-kind "no history yet" content is covered in depth elsewhere.
+// NOT parallel (shared liveReg/liveFabric).
 func TestLiveCard_watchesRailIsPresentBeforeAnyWatchHasFired(t *testing.T) {
 	server, _ := bootDefaultServer(t, defaultBootCfg)
 
@@ -185,7 +185,7 @@ func TestLiveCard_watchesRailIsPresentBeforeAnyWatchHasFired(t *testing.T) {
 	require.Contains(t, body, "your watches", "the watches region is present")
 }
 
-// ROADMAP slice 6: the hero stat counts ONLY packets whose State is Verified
+// The hero stat counts ONLY packets whose State is Verified
 // (done AND the order's own catch minted AND no open questions) — a
 // done-but-missed order no longer counts, unlike the old raw Done tally.
 // NOT parallel (shared liveReg/liveFabric).
@@ -218,7 +218,7 @@ func TestLiveCard_heroStatShowsHonestZeroOnAFreshSession(t *testing.T) {
 	require.Contains(t, body, "packets verified", "the label is present even at zero")
 }
 
-// ROADMAP slice 6: the center column gains an "in flight · N" strip under the
+// The center column gains an "in flight · N" strip under the
 // hero — one pulsing signal cell per running order, one ghost-outline cell
 // per queued (composing) order. NOT parallel (shared liveReg/liveFabric).
 func TestLiveCard_inFlightStripShowsPulsingRunningAndGhostQueuedRows(t *testing.T) {
@@ -249,7 +249,7 @@ func TestLiveCard_inFlightStripAbsentWhenNothingInFlightOrComposing(t *testing.T
 	require.NotContains(t, body, "console__inflight", "the strip is omitted entirely, not shown empty")
 }
 
-// ROADMAP slice 6: the console hero region carries a mono addr line, using
+// The console hero region carries a mono addr line, using
 // the honest repo identity (packet.ParseAddr) rather than a raw folder name —
 // a remote-less repo falls back to "local/<dir>", never a fabricated owner.
 // NOT parallel (shared liveReg/liveFabric).
@@ -264,7 +264,7 @@ func TestLiveCard_addrLineRendersTheLocalFallbackForARemotelessRepo(t *testing.T
 	require.Contains(t, body, "addr local/"+filepath.Base(dir), "a remote-less repo falls back to the honest local/<dir> identity")
 }
 
-// ROADMAP slice 6: the four retired economy meter rows (stock/balance/
+// The four retired economy meter rows (stock/balance/
 // bandwidth/dispatch) must never render on the console — MVP.md retires them
 // from the UI outright. NOT parallel (shared liveReg/liveFabric).
 func TestLiveCard_economyMeterRowsAreGoneFromTheConsole(t *testing.T) {

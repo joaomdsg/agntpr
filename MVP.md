@@ -78,7 +78,8 @@ Every item ships as an honest working mechanic on a local repo:
     bars or digest, since neither has a real data source yet):
     - Console `/` (360 | 1fr | 340): needs-you queue + calibration
       draw | `packets verified` hero stat, in-flight strip, lane
-      health | settled rail (verified/held/delivered), your watches.
+      health | settled rail (verified/held/delivered), the learning
+      card (concept 11), your watches.
     - Inspector (252 | 1fr | 312): changed-files tree | rich diff +
       inline annotations | annotation rail; timeline footer (the six
       gates).

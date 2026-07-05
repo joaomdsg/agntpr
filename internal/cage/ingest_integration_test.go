@@ -58,7 +58,7 @@ func producerTwoCommitBundle(t *testing.T) (base, fix string, bundle []byte) {
 // host store; cage.Materialize then resolves the claim's SHAs against THAT store
 // (by content-address — the objects are present even though no branch in the
 // disposable clone points at them) and the oracle can check them out. This proves
-// the bundle-over-channel transport (council R38) actually delivers verifiable
+// the bundle-over-channel transport actually delivers verifiable
 // claims, end to end minus the wire.
 func TestIngestThenMaterialize_aProducersBundledCommitsAreVerifiableInTheCage(t *testing.T) {
 	t.Parallel()

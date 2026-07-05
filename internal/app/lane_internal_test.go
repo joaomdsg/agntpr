@@ -53,7 +53,7 @@ func fundDispatch(t *testing.T, log *ledger.Log, id string, target ledger.Target
 	require.NoError(t, log.AppendDispatch(id, target, own))
 }
 
-// ROADMAP slice 7: the Inspector's identity strip names a measured lane for
+// The Inspector's identity strip names a measured lane for
 // an order-scoped packet, computed ON RENDER (never self-reported) — the
 // single-package fixture's own change is a 100%-of-graph ripple, LaneStrict.
 // NOT parallel (shared liveReg/liveFabric).

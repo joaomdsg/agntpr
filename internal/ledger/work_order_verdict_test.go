@@ -70,7 +70,7 @@ func TestRecentDispatches_perOrderVerdictIsLastWriterWins(t *testing.T) {
 func TestAppendWorkOrderVerdict_isNeverACatchAndNeverMovesBalance(t *testing.T) {
 	t.Parallel()
 	l, _ := openLog(t)
-	require.NoError(t, l.Append(distinctRecord(0)))                              // balance 1 (one confirmed catch)
+	require.NoError(t, l.Append(distinctRecord(0)))                                 // balance 1 (one confirmed catch)
 	require.NoError(t, l.AppendDispatch("dispatch", distinctTarget(), ownTarget())) // spend → balance 0
 	require.NoError(t, l.AppendWorkOrderVerdict(1, "no-catch"))
 

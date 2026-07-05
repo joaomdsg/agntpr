@@ -22,14 +22,14 @@ const consoleNeedsYouCap = 4
 const consoleSettledCap = 5
 
 // consoleIntentWords bounds the in-flight strip's intent preview to a
-// scannable clause rather than a full paragraph (ROADMAP slice 6).
+// scannable clause rather than a full paragraph.
 const consoleIntentWords = 8
 
 // renderConsole assembles the "/" Console shell around the PRESERVED center
 // content: a needs-you rail of this session's HELD packets, the center column
 // (a hero stat + in-flight strip above the untouched act-now/state-history
 // sections), and a settled+watches rail. Every region folds from the SAME
-// packets slice (ROADMAP slice 6's packet aggregate) — one source of truth,
+// packets slice (the packet aggregate) — one source of truth,
 // never a fabricated placeholder.
 func renderConsole(c *LiveCard, navKey string, packets []packet.Packet, addr packet.Addr, center h.H) h.H {
 	verified := 0
@@ -79,7 +79,7 @@ const consoleDryAside = "✱ an empty queue is success, not idleness."
 // renderNeedsYouRail is the left rail: one card per held packet (capped at
 // consoleNeedsYouCap, "+N more" beyond that), each linking straight into the
 // packet's own review — or the victory empty state (plus the dry aside) when
-// nothing is held. A calibration draw (ROADMAP slice 11) sits below it: a
+// nothing is held. A calibration draw sits below it: a
 // real skim-worthy card when the auto-forwarded set has something to draw
 // from, otherwise the honest dashed "no calibration draws yet" placeholder.
 func renderNeedsYouRail(navKey string, packets []packet.Packet) h.H {
@@ -114,8 +114,8 @@ func renderNeedsYouRail(navKey string, packets []packet.Packet) h.H {
 	)
 }
 
-// renderCalibrationCard draws the Console's calibration sample (ROADMAP
-// slice 11, MVP.md concept 8): a real skim link into an auto-forwarded
+// renderCalibrationCard draws the Console's calibration sample
+// (MVP.md concept 8): a real skim link into an auto-forwarded
 // (Verified) packet when one exists — cached per-session (liveEntry.calibMu)
 // so the draw stays STABLE across the 100ms poll's re-renders rather than
 // re-rolling on every tick — or the honest dashed empty state when nothing
@@ -236,8 +236,8 @@ var laneHealthBuckets = []packet.Lane{
 	packet.LaneBestEffort, packet.LaneStandard, packet.LaneStrict, packet.LaneUnmeasured,
 }
 
-// renderLaneHealthGrid is the center column's "lane health" section (ROADMAP
-// slice 7): one kicker+count card per lane bucket, tallied ONLY from lanes
+// renderLaneHealthGrid is the center column's "lane health" section:
+// one kicker+count card per lane bucket, tallied ONLY from lanes
 // ALREADY in the session's lane cache (liveEntry.cachedLane — a pure map
 // read). An order never opened in the Inspector has no cached lane yet and
 // counts as unmeasured; this NEVER computes a lane itself, since it renders
@@ -286,11 +286,11 @@ func firstWords(s string, n int) string {
 }
 
 // renderSettledRail is the right rail: the honest replacement for a fake
-// "recently delivered" (delivered isn't real until ACK — slice 13). It lists
+// "recently delivered" (delivered isn't real until ACK). It lists
 // verified, held, and delivered packets — a run failure IS settled-red, only
 // composing/in-flight packets are excluded — each a lifecycle-colored state
 // square + Name + one-word state, or the dashed empty state when nothing has
-// settled. Below it, "your watches" (ROADMAP slice 12, MVP.md concept 6): the
+// settled. Below it, "your watches" (MVP.md concept 6): the
 // three canonical standing triggers, each with a real precision score folded
 // from human fired-vs-useful marks — "no history yet" until one exists,
 // never a fabricated score.
@@ -326,8 +326,8 @@ func renderSettledRail(c *LiveCard, navKey string, packets []packet.Packet) h.H 
 	)
 }
 
-// renderLearningCard shows a repo's real learning progress (ROADMAP slice
-// 17): the honest running count of settled packets against
+// renderLearningCard shows a repo's real learning progress: the
+// honest running count of settled packets against
 // packet.LearningThreshold until it's reached, then "converged" — never a
 // fabricated verdict, and never a stale progress fraction once real history
 // clears the bar.
@@ -344,8 +344,8 @@ func renderLearningCard(packets []packet.Packet) h.H {
 	return h.Div(header, card)
 }
 
-// renderWatchesRail lists the three canonical standing watches (ROADMAP
-// slice 12): each card names the watch, its real precision (or the honest
+// renderWatchesRail lists the three canonical standing watches:
+// each card names the watch, its real precision (or the honest
 // "no history yet" before any fire has been marked), and — for a kind's
 // unmarked fire, only while that kind hasn't lost the right to
 // interrupt — a mark prompt naming the packet that tripped it.

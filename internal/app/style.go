@@ -383,7 +383,7 @@ body {
 .board-row__questions { color: var(--text-muted); text-decoration: none; border-bottom: 1px dotted var(--signal); }
 .board-row__questions:hover { color: var(--ink); }
 /* a session's integration verdict, surfaced on the board only when it BLOCKS a
-   merge — honest color (R45 palette): conflict = muted warn, checks-red = muted
+   merge — honest color (the honest state palette): conflict = muted warn, checks-red = muted
    loss. Never an alarm. */
 .board-row__land { font-size: var(--fs-small); }
 .board-row__land[data-state="land-conflict"] { color: var(--signal); }
@@ -416,7 +416,7 @@ body {
 .board-row__rejected { color: var(--risk); }
 .board-row__dispatch { color: var(--text-muted); }  /* font-family/font-size now on .pk-chip; KEEP color + the [data-outcome] hue rules */
 /* a resolved order's outcome, legible at a glance in the honest palette (extends
-   the per-state color of R45 to the dispatch round-trip): caught is a calm
+   the honest per-state palette to the dispatch round-trip): caught is a calm
    confirmed, missed a muted loss — never an alarm red/green. A queued/running
    order has no data-outcome, so it stays neutral dim. */
 .board-row__dispatch[data-outcome="caught"] { color: var(--verified); }
@@ -453,7 +453,7 @@ body {
 /* box CSS (padding + surface + border + radius) now on .pk-card (multi-class);
    these keep only the shared bottom margin between stacked cards. The
    stock/balance/bandwidth/dispatch meter rows are RETIRED from the UI
-   (MVP.md vocabulary map, ROADMAP slice 6) — their render helpers are gone,
+   (MVP.md vocabulary map) — their render helpers are gone,
    so no rule for them lives here anymore. */
 .beat-row, .review-card, .land-row, .onboarding {
   margin-bottom: var(--sp-3);
@@ -673,7 +673,7 @@ body {
    Only the surrounding paragraph needs spacing. ---- */
 .review__return, .review__up, .settings__return { margin: 0 0 var(--sp-3) 0; font-size: var(--fs-small); }
 
-/* ---- ROADMAP slice 3: the Console shell — needs-you rail | preserved center
+/* ---- the Console shell — needs-you rail | preserved center
    column | settled+watches rail, per design/ui_kits/console/ConsoleScreen.jsx.
    FINAL design-system class names (console, console__*); the pre-existing
    .pk-*/section classes nested inside .console__main are untouched. Every
@@ -841,7 +841,7 @@ body {
 .console__inflight-name { font-family: var(--font-mono); font-size: var(--fs-tiny); color: var(--ink); }
 .console__inflight-intent { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--text-muted); }
 
-/* ---- ROADMAP slice 7: lane health — 4 kicker+count cards, tallied ONLY
+/* ---- lane health — 4 kicker+count cards, tallied ONLY
    from the session's lane cache. Neutral hairline cards, no state colors
    (lane is QoS, not a lifecycle state), no shadows. ---- */
 .console__lane-health {
@@ -880,7 +880,7 @@ body {
   color: var(--ink);
 }
 
-/* ROADMAP slice 12: "your watches" — three canonical standing triggers, each
+/* "your watches" — three canonical standing triggers, each
    a neutral card (lanes are QoS, not states; watches are the same — no
    state-grammar color belongs here, only text tokens). */
 .console__watch-name {
@@ -911,7 +911,7 @@ body {
   padding: 1px var(--sp-3);
 }
 
-/* ---- ROADMAP slice 4: the Inspector shell — identity strip | changed-files
+/* ---- the Inspector shell — identity strip | changed-files
    tree | Monaco island + answer form | annotation rail | timeline footer, per
    design/ui_kits/console/InspectorScreen.jsx. FINAL design-system class names
    (inspector, inspector__*, annotation-card*); .review-thread/.review-answer/
@@ -929,7 +929,7 @@ body {
 .inspector__name { color: var(--ink); font-weight: 600; font-size: var(--fs-body-mono); }
 .inspector__packet-name { color: var(--text-muted); font-size: var(--fs-tiny); }
 .inspector__rev { color: var(--text-muted); font-size: var(--fs-tiny); }
-/* ROADMAP slice 7: a NEUTRAL pill — lane is a QoS class, never a lifecycle
+/* a NEUTRAL pill — lane is a QoS class, never a lifecycle
    state, so it never borrows the state-grammar colors (--held/--risk/etc).
    Same flat-raised idiom as the annotation card's neutral chips. */
 .inspector__lane {
@@ -1006,7 +1006,7 @@ body {
   color: var(--text-faint);
   margin-bottom: var(--sp-1);
 }
-/* ROADMAP slice 8: the gauntlet's six-gate record — one row per gate, a
+/* the gauntlet's six-gate record — one row per gate, a
    neutral name label, a status pill (color-mix idiom, same shape as the
    annotation card's chips), and an honest detail note. Status colors are
    the SAME state-grammar colors used everywhere else (--verified/--held/

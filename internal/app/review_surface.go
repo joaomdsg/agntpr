@@ -233,8 +233,8 @@ func (c *ReviewCard) AnswerQuestion(ctx *via.Ctx) {
 	}
 	// If the answered line is GONE from the re-run findings, the reviewer's test
 	// killed the mutant — mark it resolved so it stays vanished for the session even
-	// when a later connect cycle re-finds the (uncommitted) survivor (R63's "the
-	// question vanishes"). A still-surviving line is NOT resolved (honest: try again).
+	// when a later connect cycle re-finds the (uncommitted) survivor (so the
+	// question stays vanished). A still-surviving line is NOT resolved (honest: try again).
 	if !findingsHaveLine(newFindings, file, line) {
 		e.markResolved(file, line)
 		e.recordQuestionUnblock(file, line) // a killing answer clears the block — earns attention bandwidth
@@ -256,7 +256,7 @@ func findingsHaveLine(fs []mutation.Finding, file string, line int) bool {
 	return false
 }
 
-// View renders the Inspector shell (ROADMAP slice 4): the identity strip, the
+// View renders the Inspector shell: the identity strip, the
 // 3-column grid (changed-files tree | Monaco island + answer form | annotation
 // rail), and a timeline footer. The session's open question-threads (or a
 // funded work-order's own) render as annotation cards on the rail; a calm
@@ -493,7 +493,7 @@ const monacoLoaderURL = "https://cdn.jsdelivr.net/npm/monaco-editor@" + monacoVe
 // each surviving-mutant line with the "question:" body as a glyph-margin hover. It
 // is deliberately defensive — every step guards and the JSON parse is wrapped — so
 // any failure (loader blocked, parse error, no source) simply leaves the
-// server-rendered text threads as the fallback. Read-only per council R62 (editable
+// server-rendered text threads as the fallback. Read-only (editable
 // answering is a deferred, maintainer-gated fork).
 const monacoBootstrapJS = `(function(){
   if (typeof require === 'undefined') return;

@@ -10,7 +10,7 @@ import (
 	"github.com/joaomdsg/packets/internal/ledger"
 )
 
-// R53 lets a Lead create a session at runtime, but claim consumers were spawned
+// A Lead can create a session at runtime, but claim consumers were spawned
 // only once at boot (a liveReg snapshot), so a runtime-created session got NO
 // consumer — its producer claims would publish and never verify. A session
 // registered AFTER the consumers start must still get a consumer, so the create
@@ -23,7 +23,7 @@ func TestClaimConsumers_aRuntimeCreatedSessionStillGetsAConsumer(t *testing.T) {
 	// Consumers start with only the boot (default) session registered.
 	StartClaimConsumers(ctx, func(LiveConfig) ledger.Verifier { return confirmingVerifier }, 30*time.Second, nil)
 
-	// A session created AFTER consumers started — the case R53 introduced.
+	// A session created AFTER consumers started — the runtime-create case.
 	newLog, err := AddSession("runtimesess", LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"},

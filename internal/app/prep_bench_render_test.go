@@ -17,7 +17,7 @@ import (
 func TestLiveCard_benchItemRendersAsACardWithFundAndSharpenAffordances(t *testing.T) {
 	server, _ := bootDefaultServer(t, app.LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"},
+		TestCmd:         []string{"true"},
 		DispatchBacklog: []ledger.Target{{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 88}},
 	})
 
@@ -40,7 +40,7 @@ func TestLiveCard_benchItemRendersAsACardWithFundAndSharpenAffordances(t *testin
 func TestLiveCard_benchCardShowsAnAttachedCriterion(t *testing.T) {
 	server, log := bootDefaultServer(t, app.LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"},
+		TestCmd:         []string{"true"},
 		DispatchBacklog: []ledger.Target{{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 88}},
 	})
 	require.NoError(t, log.AppendRefine(ledger.RefinedOrderRecord{
@@ -58,7 +58,7 @@ func TestLiveCard_benchCardShowsAnAttachedCriterion(t *testing.T) {
 func TestLiveCard_benchCardShowsAnAttachedConvention(t *testing.T) {
 	server, log := bootDefaultServer(t, app.LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"},
+		TestCmd:         []string{"true"},
 		DispatchBacklog: []ledger.Target{{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 88}},
 	})
 	require.NoError(t, log.AppendRefine(ledger.RefinedOrderRecord{

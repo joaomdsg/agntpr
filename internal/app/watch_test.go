@@ -17,9 +17,9 @@ import (
 )
 
 // failedDispatch mints a catch to cover the dispatch's cost (AppendDispatch
-// refuses a zero balance — mirrors calibration_console_test.go's fixture),
+// refuses a zero balance — mirrors the calibration fixture),
 // funds one work order, and fails it — a "failed" status folds to a
-// HoldBlocking packet (ROADMAP slice 5), the cheapest real trigger for
+// HoldBlocking packet, the cheapest real trigger for
 // WatchBlockingHold without needing a real mutation/build cycle. Returns the
 // new order's id.
 func failedDispatch(t *testing.T, log *ledger.Log, name string) int {

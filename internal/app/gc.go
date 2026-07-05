@@ -11,10 +11,10 @@ import (
 // each idle producer's ingested git objects without ever orphaning a pending
 // claim. Per session it asks ingest.PruneProducerObjects to delete the producer's
 // refs/producers/<key>/* namespace ONLY when that session has no claims in flight
-// (the economy-safe retention rule, council R39): a producer's ingested objects
+// (the economy-safe retention rule): a producer's ingested objects
 // back its claims' revisions, so they must survive while any verify is pending.
 //
-// TOCTOU (council R39, accepted): the ClaimsInFlight read and the ref-delete are
+// TOCTOU (accepted): the ClaimsInFlight read and the ref-delete are
 // not atomic against concurrent ingest/claim/verify on the same session. The
 // economy stays safe regardless — pruning can only ever make a revision
 // unresolvable, never mint a wrong catch:
@@ -58,7 +58,7 @@ func pruneProducerIfIdle(ctx context.Context, key string, e *liveEntry) {
 	}
 	_, _ = ingest.PruneProducerObjects(ctx, e.cfg.RepoDir, key, inFlight > 0)
 	// When the producer is idle the namespace was pruned, so its retained bytes
-	// are reclaimed — free the quota that backed them (R85). A still-in-flight
+	// are reclaimed — free the quota that backed them. A still-in-flight
 	// producer kept its objects, so its quota is untouched.
 	if inFlight == 0 {
 		resetBundleRetained(key)

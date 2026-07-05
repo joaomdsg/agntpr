@@ -9,8 +9,8 @@ import (
 	"github.com/joaomdsg/packets/internal/ledger"
 )
 
-// boardSession, rowIndex, rowFor, requireBefore are duplicated in board_test.go
-// (app_test scope, via addFundedSession) for the tests that moved there — kept
+// boardSession, rowIndex, rowFor, requireBefore are duplicated for the external
+// test package (via addFundedSession) for the tests that moved there — kept
 // here too since board_activity/board_inflight/board_scout/board_land/
 // board_land_summary/board_questions/board_lifecycle stay internal (each needs
 // an unexported liveEntry setter or hitRateLabel with no public equivalent).

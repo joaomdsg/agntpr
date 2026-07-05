@@ -22,7 +22,7 @@ const notFoundDetail = "handshake test package not found at this revision"
 // handshake exists, it materializes fixRev into a THROWAWAY git worktree
 // (mirroring RunBuildVetGate's worktree pattern exactly) and runs
 // `go test ./handshake/...` inside it. handshakePath=="" means no handshake
-// has been authored yet — the honest GateNotRun default, matching slice 8's
+// has been authored yet — the honest GateNotRun default, matching the gauntlet's
 // placeholder. A missing or uncompileable handshake package at fixRev is
 // distinguished from a genuine test failure by whether `go test` ever got as
 // far as running an individual test (a "--- FAIL:" line in its output): no

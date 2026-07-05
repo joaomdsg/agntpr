@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// The unauthenticated HTTP POST /claim is RETIRED (R82): claims arrive ONLY
+// The unauthenticated HTTP POST /claim is RETIRED: claims arrive ONLY
 // through the authenticated NATS ingress, so anyone who can merely reach the port
 // can no longer inject a claim. The route must be gone (not 202).
 func TestPostClaim_isRetiredFromTheUnauthenticatedHTTPSurface(t *testing.T) {

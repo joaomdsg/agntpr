@@ -14,7 +14,7 @@ import (
 
 // A missed order today reads only "missed" — the Lead can't tell a no-catch (the
 // oracle ran, nothing to catch) from a lost-via-rename (the anchor moved) from a
-// no-oracle-signal. R51 persists the oracle's per-order verdict; this surfaces it
+// no-oracle-signal. The oracle's persisted per-order verdict is surfaced here
 // so the miss is DIAGNOSABLE on the surface, not just a bare outcome. NOT parallel
 // (shared liveReg/liveFabric).
 func TestLiveCard_showsThePerOrderVerdictSoAMissIsDiagnosable(t *testing.T) {

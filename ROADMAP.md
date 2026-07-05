@@ -55,8 +55,8 @@ further work is the maintainer's call.
 
 ## Slices
 
-- [x] **0. Bootstrap** — landed. Reorg committed (old docs →
-  old_stale/, design/ added); LOOP.md + MVP.md + ROADMAP.md;
+- [x] **0. Bootstrap** — landed. Reorg committed (superseded docs
+  archived out of tree, design/ added); LOOP.md + MVP.md + ROADMAP.md;
   `internal/refactor` deleted; gate baseline green.
   Evidence: 479d04d; gate-flake fix (real-cage test deadlines
   30s→180s, this machine runs a caged cycle in ~28s) landed after,
@@ -65,14 +65,14 @@ further work is the maintainer's call.
   design-system names (state grammar verbatim, IBM Plex, 3
   keyframes, marketing tokens excluded); ~300 usages rewired, zero
   layout/selector changes; tests pin exact hexes + no `--pk-`
-  survivors. Evidence: full gate green; commit below.
+  survivors. Evidence: full gate green.
 - [x] **2. Mark + chrome** — landed. packetMark/packetMarkHeld/
   packetLockup helpers (internal/app/mark.go) per the locked spec —
   ghost TR at ≥14px cells, solid --delivered-mid below, --mark-cell
   parameterized CSS; nav home link now mark + stacked lockup with
   per-surface sub (console/inspect/settings). Full Titlebar pattern
   deferred to the Inspector shell (slice 4), where it lives.
-  Evidence: full gate green; commit below.
+  Evidence: full gate green.
 - [x] **3. Console shell** — landed. `/` is the 3-column Console
   (360|1fr|340, internal/app/console.go): needs-you rail (open
   threads, capped, victory empty state), hero `packets verified`
@@ -82,7 +82,7 @@ further work is the maintainer's call.
   thread count folded into the existing SSE poll signature.
   Follow-up noted: settled-row "missed" renders amber (--held) —
   revisit the color semantics when hold states become real (slice
-  10). Evidence: full gate green; commit below.
+  10). Evidence: full gate green.
 - [x] **4. Inspector shell** — landed. /review renders the 3-column
   Inspector (252|1fr|312, internal/app/inspector.go): identity
   strip (wo#/key, short base→fix rev chip omitted when unknown,
@@ -92,7 +92,7 @@ further work is the maintainer's call.
   review-thread classes + data anchors; adjustment ✎ zone below),
   honest timeline footer. Zero pre-existing test edits needed.
   Route rename + owner/repo addr deferred (slices 15 / 5).
-  Evidence: full gate green; commit below.
+  Evidence: full gate green.
 - [x] **5. Packet aggregate** — landed. internal/packet: Addr
   (owner/repo from git origin, ssh+https parsing, honest
   local/<dir> fallback), Lifecycle+HoldKind state machine, Packet
@@ -101,7 +101,7 @@ further work is the maintainer's call.
   done+caught+0q→verified, done+(!caught|q>0)→held advisory (one-
   clause reasons), failed→held blocking, unknown→held blocking
   (fail-toward-attention); Delivered pinned unreachable until ACK
-  (slice 13). 93 subtests. Evidence: full gate green; commit below.
+  (slice 13). 93 subtests. Evidence: full gate green.
 - [x] **6. Wire surfaces to packets** — landed. Console reads the
   fold: needs-you = held packets (blocking-first, reasons, pulse),
   in-flight strip (pulsing + ghost composing cells), hero counts
@@ -112,7 +112,7 @@ further work is the maintainer's call.
   (Caught-flip-only transitions fan out, pinned). Poll stays one
   ledger projection per tick; addr cached per session (sync.Once).
   Fund/bench/land controls untouched (slice 11). Evidence: full
-  gate green; commit below.
+  gate green.
 - [x] **7. Lanes from blast radius** — landed. internal/packet: pure
   core (`Lane`, `ImportGraph`, `BlastRadius`, `LaneFor` — ≤10%
   best-effort, ≤40% standard, else strict, irreversible unreachable);
@@ -154,8 +154,7 @@ further work is the maintainer's call.
   mirrors slice 7's lanes exactly (compute+cache on render, poll
   reads cache only, proven by test). Inspector timeline now lists
   all six gates (previously a stub). Console gate-health summary
-  deferred (out of scope this slice). Evidence: full gate green;
-  commit below.
+  deferred (out of scope this slice). Evidence: full gate green.
 - [x] **9. Handshake mechanics** — landed. Protected `handshake/**`
   path-deny in settle (scanStagedPaths, blocks add/modify/delete —
   distinct from the added-line secret scan, both checked, either
@@ -171,7 +170,7 @@ further work is the maintainer's call.
   orders; legacy pre-funded orders unaffected. DEFERRED (explicit,
   next slice or later): splitting mutation into a handshake-scoped
   run (G3) vs an agent-test-scoped run (G5) — both remain exactly
-  as slice 8 left them. Evidence: full gate green; commit below.
+  as slice 8 left them. Evidence: full gate green.
 - [x] **10. Hold/forward** — landed. internal/packet/hold.go:
   LaneFloor (lane→minimum required HandshakeStrength) +
   ReconcileHold — a pure, escalate-only composition (called by the
@@ -187,8 +186,7 @@ further work is the maintainer's call.
   matches MVP.md's own sequencing): advisory-hold SAMPLING/
   calibration draws are slice 11; "guardrail" is not modeled as a
   separate concept from gate-failure — gate-failure IS the
-  guardrail trip for MVP purposes. Evidence: full gate green;
-  commit below.
+  guardrail trip for MVP purposes. Evidence: full gate green.
 - [x] **11. Attention economics** — landed. Reused the existing
   block/unblock timestamps (real interrupt ground truth, no new
   schema) via `ledger.InterruptsSince` — Console KPI renders the
@@ -200,7 +198,7 @@ further work is the maintainer's call.
   /settings /inspect untouched. Noted, not fixed: the SSE poll's
   composite-int signature assumes each folded count stays <1000 —
   pre-existing pattern, extended one digit deeper, immaterial at
-  MVP session scale. Evidence: full gate green; commit below.
+  MVP session scale. Evidence: full gate green.
 - [x] **12. Watches + precision** — landed (built directly by the
   coordinator, per the 2026-07-04 model-discipline revision — no
   Sonnet builder subagent). internal/packet/watch.go: 3 canonical
@@ -215,7 +213,7 @@ further work is the maintainer's call.
   suppressed once a watch turns noisy. Full RYGBA (Explore Yellow +
   general-purpose Blue) on both the pure unit and the app wiring;
   Blue caught only a doc-comment overclaim. Evidence: full gate
-  green; commit below.
+  green.
 - [x] **13. ACK/deliver** — landed (built directly by the
   coordinator). `internal/packet`: lifecycleFor gains "deployed"→
   Delivered/no-hold and "regressed"→Held/blocking/"deployment
@@ -232,7 +230,7 @@ further work is the maintainer's call.
   it just observed); reopens the same durable ledger a running
   server uses. Manually smoke-tested end to end (bare assert,
   confirming check, contradicting check → refusal). Evidence: full
-  gate green; commit below.
+  gate green.
 - [x] **14. Adversarial probes** — landed (built directly by the
   coordinator). internal/packet/probe.go: RunAdversarialProbe
   materializes its own throwaway git repo with a deliberate syntax
@@ -243,7 +241,7 @@ further work is the maintainer's call.
   distinguishes "caught" from "ESCAPED". New `packets probe` CLI
   subcommand prints the report and exits non-zero on an escape,
   doubling as a gate-health check. Manually smoke-tested (real run:
-  caught, exit 0). Evidence: full gate green; commit below.
+  caught, exit 0). Evidence: full gate green.
 - [x] **15. Vocabulary sweep + retirement** — landed (built directly
   by the coordinator). Renamed ~35 rendered-copy violations found by
   an exhaustive scan: land/PR/merge → forward/held (land_action.go,
@@ -264,7 +262,7 @@ further work is the maintainer's call.
   fixture can't drive) and, through that gap, a live "merge" bug in
   `internal/surface/land.go` no test had ever exercised — both
   fixed. Routes/flags checked: none dead, nothing to retire.
-  Evidence: full gate green; commit below.
+  Evidence: full gate green.
 - [x] **16. Final gauntlet sweep** — landed. Adversarial review of
   slices 1–15 (app-layer + gauntlet-layer) surfaced four real gaps,
   all fixed: (1) a stale-cached Lane/Gauntlet could force a
@@ -295,8 +293,7 @@ further work is the maintainer's call.
   (the fully scriptable gate/adversarial mechanics run automatically
   via `verify-catch`/`probe`; the interactive Console/Inspector
   steps are a printed browser walkthrough, since composing/
-  inspecting is a genuine UI action). Evidence: full gate green;
-  commit below.
+  inspecting is a genuine UI action). Evidence: full gate green.
 - [x] **17. Learning/convergence** — landed (maintainer directive,
   post-MVP; scoped via an Opus consult after the user asked for
   guidance on signal/process/UI/scope-unit tradeoffs). New MVP.md

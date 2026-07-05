@@ -556,7 +556,7 @@ func (c *BoardCard) View(ctx *via.CtxR) h.H {
 		// Integration verdict — surfaced ONLY when it BLOCKS a merge (conflict /
 		// checks-red), so a session that can't land stands out across the fleet
 		// ("Landed ≠ Merged"). A clean or not-yet-resolved verdict shows nothing
-		// (the board stays calm). Honest color via the data-state hook (R45 palette).
+		// (the board stays calm). Honest color via the data-state hook (the honest state palette).
 		if state, label, blocked := boardLand(r.Land); blocked {
 			row = append(row, h.Span(
 				h.Class("board-row__land"),
@@ -604,7 +604,7 @@ func (c *BoardCard) View(ctx *via.CtxR) h.H {
 // boardLand maps a session's raw integration verdict to the board's (data-state,
 // label, blocked) — blocked is true only for verdicts that STOP a merge (conflict /
 // checks-red), so the board surfaces them and stays silent on clean/pending. The
-// data-state mirrors the surface land-states so R45's honest palette colors it.
+// data-state mirrors the surface land-states so the honest state palette colors it.
 func boardLand(land string) (state, label string, blocked bool) {
 	switch pipe.LandState(land) {
 	case pipe.LandConflict:
@@ -620,7 +620,7 @@ func boardLand(land string) (state, label string, blocked bool) {
 // board's (data-state, label, show). It surfaces only TERMINAL outcomes — merged or
 // bounced — so the fleet view flags a finished (or closed-unmerged) PR while staying calm
 // on the routine "landed, not yet merged" transient and on anything unrecognized. The
-// data-state hooks R45's honest palette (confirmed-green merged / miss-hue bounced).
+// data-state hooks the honest state palette (confirmed-green merged / miss-hue bounced).
 func boardLifecycle(lc string) (state, label string, show bool) {
 	switch landLifecycle(lc) {
 	case lifecycleMerged:

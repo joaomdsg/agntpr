@@ -49,8 +49,8 @@ func initHandshakeRepo(t *testing.T, passing bool) (dir, base, fix, handshakeCon
 	return dir, base, fix, handshakeContent
 }
 
-// ROADMAP slice 9: once an order's ledger.Target carries a HandshakePath/Hash,
-// G2 becomes a REAL exec seam (RunHandshakeGate), not the slice-8 placeholder.
+// Once an order's ledger.Target carries a HandshakePath/Hash,
+// G2 becomes a REAL exec seam (RunHandshakeGate), not the earlier placeholder.
 // NOT parallel (shared liveReg/liveFabric).
 func TestReviewCard_gauntletRunsARealG2WhenTheOrderHasAnAuthoredPassingHandshake(t *testing.T) {
 	resetConsumersForTest()
@@ -302,7 +302,7 @@ func TestReviewCard_gauntletFallsBackToTheTestRunResultWhenTheLiveHandshakeFileI
 }
 
 // The 100ms Stream poll must never exec go test to compute G2, exactly like
-// G3/G4 (slice 8) — proven here with an order that DOES carry a real,
+// G3/G4 — proven here with an order that DOES carry a real,
 // runnable handshake, so an errant poll-time computation would be caught.
 // NOT parallel (shared liveReg/liveFabric).
 func TestLiveCard_streamPollNeverComputesG2ForAnOrderWithARealHandshake(t *testing.T) {

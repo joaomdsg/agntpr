@@ -133,7 +133,7 @@ func TestContainerArgs_neverMountsTheDockerSocket(t *testing.T) {
 }
 
 // The container runs the real harness command: `claude` with the headless
-// streaming flags (slice 4c-i's ClaudeArgs), so the supervisor reduces the same
+// streaming flags (ClaudeArgs), so the supervisor reduces the same
 // stream-json whether the agent runs host-side or in a box.
 func TestContainerArgs_runsClaudeWithTheHeadlessStreamingFlags(t *testing.T) {
 	t.Parallel()

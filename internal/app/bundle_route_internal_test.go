@@ -71,7 +71,7 @@ func bundleServer(t *testing.T) (*httptest.Server, string) {
 // The wire that makes a cross-process producer's commits reachable to the cage: a
 // producer uploads a git bundle, the host ingests it into the session repo, and
 // the producer's commit SHA is then held by that repo — the precondition for the
-// cage to verify a claim naming those revisions (no host egress, council R38).
+// cage to verify a claim naming those revisions (no host egress).
 func TestPostBundle_ingestsAProducerBundleSoItsCommitsResolveInTheSessionRepo(t *testing.T) {
 	server, repoDir := bundleServer(t)
 	bundle, sha := producerCommitBundle(t)
