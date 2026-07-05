@@ -2,6 +2,7 @@ package packet_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,6 +13,35 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// A command killed by the context deadline must report NotRun ("timed out"),
+// never a fabricated Failed claim — a kill is not proof the command would
+// have failed given more time, and this package's whole "never fabricate a
+// metric" invariant forbids dressing up "we don't know" as "it failed".
+func TestGateForExecError_reportsATimeoutAsNotRunNeverAFabricatedFailure(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // deterministic: the context IS done, no timing race
+
+	gate := packet.GateForExecError(ctx, "go build", "some output that happened to be captured before the kill", errors.New("signal: killed"))
+
+	assert.Equal(t, packet.GateNotRun, gate.Status)
+	assert.Contains(t, gate.Detail, "timed out", "naming which command timed out is honest — the DETAIL must say so")
+	assert.NotContains(t, gate.Detail, "some output that happened to be captured before the kill",
+		"a timeout's pre-kill output is not evidence of failure — it must never be quoted as if it were")
+}
+
+// A real (non-timeout) command failure still reports Failed, naming the
+// command and a truncated tail of its output — the existing, honest path.
+func TestGateForExecError_reportsARealFailureWhenTheContextIsNotDone(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	gate := packet.GateForExecError(ctx, "go build", "main.go:3: syntax error", errors.New("exit status 1"))
+
+	assert.Equal(t, packet.GateFailed, gate.Status)
+	assert.Equal(t, "go build: main.go:3: syntax error", gate.Detail)
+}
 
 func runGauntletGit(t *testing.T, dir string, args ...string) string {
 	t.Helper()

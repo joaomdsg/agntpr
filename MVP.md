@@ -58,28 +58,34 @@ Every item ships as an honest working mechanic on a local repo:
    - STANDING: the gauntlet + watches — triggers carrying PRECISION
      SCORES counted from real fired-vs-useful history; a watch with
      no history shows "no history yet", never a fake number.
-   - ADVERSARIAL: seeded probe packets (known-bad changes) run
-     through the real gates via a scratch ledger session (never the
-     real economy); the gates must catch them; results reported
-     honestly.
+   - ADVERSARIAL: `packets probe` seeds a known-bad revision in a
+     self-contained throwaway git repo (never touching any session's
+     ledger or repo) and runs it through the real gates; the gates
+     must catch it; results reported honestly (caught/escaped).
 8. **Attention economics** — a real interrupt budget (n/week,
    counted down as holds interrupt), calibration draws (a random
    sample of auto-forwarded packets surfaced for skim), and
    empty-queue-is-success framing.
 9. **Delivery + ACK** — delivered = ACK'd healthy, distinct from
-   merged. Driven by an explicit host-invoked signal
-   (`packets deployed` / `packets regressed`) backed by a re-checkable
-   exit code — never an agent's self-report. Until a packet has a
-   real ACK, its delivered cell NEVER fills.
-10. **Console + Inspector** — the only two primary surfaces, per
-    `design/ui_kits/console/`:
+   merged. Driven by an explicit host-invoked CLI command
+   (`packets deployed` / `packets regressed`) backed by an optional
+   re-checkable command whose exit code must agree with the
+   asserted verb — never an agent's self-report. Until a packet has
+   a real ACK, its settled-rail cell never renders delivered.
+10. **Console + Inspector** — the only two primary surfaces
+    (design/ui_kits/console/ was the starting reference; the built
+    shape covers the same regions with an honest subset — no 24h
+    bars or digest, since neither has a real data source yet):
     - Console `/` (360 | 1fr | 340): needs-you queue + calibration
-      draw | forwarded hero stat, 24h bars, in-flight, lane health |
-      watches, digest, recently delivered.
+      draw | `packets verified` hero stat, in-flight strip, lane
+      health | settled rail (verified/held/delivered), your watches.
     - Inspector (252 | 1fr | 312): changed-files tree | rich diff +
-      inline annotations | annotation rail; timeline footer.
+      inline annotations | annotation rail; timeline footer (the six
+      gates).
     `/settings` survives as a plain utility page (API key). `/board`
-    and `/review` fold in and die.
+    survives as the cross-repo fleet listing (a capability Console,
+    scoped to one addr, doesn't provide) — vocabulary-clean per
+    slice 15, not folded in; `/review` is the Inspector's route.
 
 ## Vocabulary map (user-facing; binding)
 
@@ -87,19 +93,22 @@ Every item ships as an honest working mechanic on a local repo:
 |---|---|
 | order / work-order | packet |
 | session / card | addr (the repo identity); "packet" in-flow |
-| board | Console (in-flight + delivered rails) |
-| review (surface) | Inspector; "inspect" as the verb |
-| oracle | never user-facing (gauntlet G3/G5 machinery) |
+| board (as a surface concept) | Console (`/`); the `/board` ROUTE itself survives unchanged as the cross-repo fleet listing (a capability Console doesn't provide), vocabulary-clean |
+| review (surface) | Inspector; "inspect" as the verb; `/review` is its route |
+| oracle | gate (e.g. "recheck the gate", "Gate running…", "Gate incomplete") |
 | catch / no-catch / partial | gate output: tightened / gap found |
 | verdict | gate results / packet state |
 | land (clean/conflict/checks_red) | forward → verify → deliver; red/conflict = held (blocking) |
-| merged / bounced | retired; delivered = ACK'd only; bounced = held |
-| spend/stock/balance/bets/reinvested/confirmed | RETIRED from UI |
+| PR / Approve & open PR / merged / merge blocked | forward / "forward →" / forwarded / held: \<reason\> |
+| bounced | held |
+| spend a catch / Place order | compose a packet |
+| balance / stock | catches (a real count, never a currency word) |
+| bets | claims (in-flight producer claims) |
+| draft | intent (Analyze/Update intent) |
+| bench | "queued targets:" |
 | bandwidth | interrupt budget (a countdown, not a wallet) |
 | dispatch | forward |
 | question threads | annotations (Inspector rail) |
-| draft | compose (the ghost-outline state) |
-| bench | retired from UI |
 | hit-rate | substrate for precision scores; never shown as-is |
 
 Banned on any surface (add a render test): PR, merge, approve, review

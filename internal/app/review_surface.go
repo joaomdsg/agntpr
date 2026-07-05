@@ -94,12 +94,14 @@ func packetForOrder(key string, orderID int) (packet.Packet, bool) {
 }
 
 // orderTarget finds a funded work-order's Target (its base/fix revs + anchored path)
-// by ID from the session's recent dispatches — the revs whose diff IS the edits.
+// by ID from the session's dispatches — the revs whose diff IS the edits. Folds ALL
+// dispatches (mirroring packetForOrder's sessionPackets(key, 0)) so a session's oldest
+// packet stays inspectable no matter how many later orders it has dispatched since.
 func orderTarget(log *ledger.Log, orderID int) (ledger.Target, bool) {
 	if log == nil {
 		return ledger.Target{}, false
 	}
-	views, err := log.RecentDispatches(50)
+	views, err := log.RecentDispatches(0)
 	if err != nil {
 		return ledger.Target{}, false
 	}

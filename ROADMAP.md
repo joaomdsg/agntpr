@@ -5,7 +5,9 @@ the spec). One slice per tick unless a slice says otherwise. Statuses:
 queued / in-flight / landed / dropped. Every landed slice carries one
 evidence line.
 
-NEXT: slice 16.
+NEXT: none — all 16 slices landed. MVP checklist complete (MVP.md);
+the autonomous loop stops scheduling further ticks per LOOP.md's
+Schedule rule. Any further work is the maintainer's call.
 
 ## Infra
 
@@ -261,7 +263,35 @@ NEXT: slice 16.
   `internal/surface/land.go` no test had ever exercised — both
   fixed. Routes/flags checked: none dead, nothing to retire.
   Evidence: full gate green; commit below.
-- [ ] **16. Final gauntlet sweep** — queued. Adversarial review of
-  slices 1–15 (Sonnet reviewers), doc freshness (MVP.md, README),
-  demo script: compose → forward → hold → inspect → deliver on a
-  real local repo end to end.
+- [x] **16. Final gauntlet sweep** — landed. Adversarial review of
+  slices 1–15 (app-layer + gauntlet-layer) surfaced four real gaps,
+  all fixed: (1) a stale-cached Lane/Gauntlet could force a
+  Verified packet's State to Held without flipping State itself —
+  `ReconcileHold` now forces State=Held whenever either escalation
+  rule fires, closing a settled-rail/needs-you contradiction. (2) a
+  timed-out `go build`/`go vet`/handshake-test exec was reported as
+  a fabricated GateFailed instead of an honest GateNotRun — added
+  `packet.GateForExecError` (extract-first, tested via a pre-
+  cancelled context, no real-timing flakiness) and wired it into
+  both `RunBuildVetGate` and `RunHandshakeGate`, including their
+  worktree-checkout and handshake-test-output paths. (3) `Approve`
+  had no concurrency guard, unlike every sibling mutating flow — two
+  concurrent lands could race the shared repo's push/PR ops and
+  corrupt the cached result; added `beginLand`/`endLand` mirroring
+  `beginAnswer`/`endAnswer` (same `findingsMu`), proven by a test
+  that holds one `Approve` in flight and confirms a concurrent
+  second is dropped while a later one still runs once the slot
+  frees. (4) `orderTarget` capped dispatch reads at 50 while
+  `packetForOrder` folded ALL of them — a session's oldest packet
+  became a named-but-uninspectable ghost past 50 later orders;
+  unified both to read unbounded. Doc freshness: MVP.md's Console
+  layout/adversarial-probe/vocabulary-map fixed to match what
+  actually shipped; wrote README.md (previously absent) documenting
+  the built MVP, its concepts, CLI surface, and architecture; added
+  `scripts/demo.sh`, a real runnable walkthrough building a scratch
+  repo and driving compose → forward → hold → inspect → deliver
+  (the fully scriptable gate/adversarial mechanics run automatically
+  via `verify-catch`/`probe`; the interactive Console/Inspector
+  steps are a printed browser walkthrough, since composing/
+  inspecting is a genuine UI action). Evidence: full gate green;
+  commit below.

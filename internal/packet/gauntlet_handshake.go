@@ -48,6 +48,9 @@ func RunHandshakeGate(ctx context.Context, repoDir, fixRev, handshakePath string
 
 	worktree := filepath.Join(tmpDir, "wt")
 	if _, err := runIn(ctx, repoDir, "git", "worktree", "add", "--detach", "--quiet", worktree, fixRev); err != nil {
+		if ctx.Err() != nil {
+			return Gate{Status: GateNotRun, Detail: "timed out checking out fix revision"}
+		}
 		return Gate{Status: GateNotRun, Detail: "could not check out fix revision"}
 	}
 	defer func() {
@@ -57,6 +60,12 @@ func RunHandshakeGate(ctx context.Context, repoDir, fixRev, handshakePath string
 	out, err := runIn(ctx, worktree, "go", "test", "./handshake/...")
 	if err == nil {
 		return Gate{Status: GatePassed, Detail: "handshake tests pass"}
+	}
+	if ctx.Err() != nil {
+		// A kill mid-run is indistinguishable from "package missing" by output
+		// alone (neither ever prints "--- FAIL:") — check the timeout FIRST so a
+		// merely-slow handshake is never mistaken for one that doesn't exist.
+		return Gate{Status: GateNotRun, Detail: "go test: timed out before finishing"}
 	}
 	if !strings.Contains(out, "--- FAIL:") {
 		return Gate{Status: GateFailed, Detail: notFoundDetail}

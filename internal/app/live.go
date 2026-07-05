@@ -243,6 +243,12 @@ type liveEntry struct {
 	// oracle run, so two concurrent re-runs (a double-clicked submit) would race the
 	// shared repo's worktree operations. Guarded by findingsMu.
 	answering bool
+	// landing is true while an Approve (land) call is in flight for this session. It
+	// serializes lands (one at a time): a land pushes to the session's shared branch
+	// and opens a PR, so two concurrent Approve calls (a double-clicked "forward →",
+	// or two tabs) would race the shared repo's push/PR operations. Guarded by
+	// findingsMu, mirroring answering/beginAnswer/endAnswer.
+	landing bool
 	// fillMu + fillingOrder/fillBeats: the live-fill buffer (see startFill). Guarded
 	// separately from findingsMu since beats accrue rapidly during a fill.
 	fillMu       sync.Mutex
@@ -722,6 +728,26 @@ func (e *liveEntry) beginAnswer() bool {
 func (e *liveEntry) endAnswer() {
 	e.findingsMu.Lock()
 	e.answering = false
+	e.findingsMu.Unlock()
+}
+
+// beginLand claims the single in-flight land slot for the session, returning false
+// if an Approve is already running (so the caller drops the duplicate). Pair every
+// true with endLand.
+func (e *liveEntry) beginLand() bool {
+	e.findingsMu.Lock()
+	defer e.findingsMu.Unlock()
+	if e.landing {
+		return false
+	}
+	e.landing = true
+	return true
+}
+
+// endLand releases the in-flight land slot.
+func (e *liveEntry) endLand() {
+	e.findingsMu.Lock()
+	e.landing = false
 	e.findingsMu.Unlock()
 }
 

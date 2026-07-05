@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net/http/httptest"
 	"path/filepath"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -151,6 +153,51 @@ func TestApprove_pushFailureSurfacesCalmly(t *testing.T) {
 	assert.Contains(t, body, "push rejected", "the failure reason surfaces calmly on the card")
 	assert.Equal(t, "", lookupLiveEntry("appfail").lastPushedSHASnapshot(),
 		"a PRE-push failure pushed nothing, so there is no SHA to cache")
+}
+
+// Two concurrent Approve calls (a double-clicked "forward →", or two tabs) both spawn a
+// git push + gh pr create against the SAME session repo — a second call must be dropped
+// as a calm no-op while the first is in flight, never race the shared worktree/branch
+// ops (the same class of race beginAnswer/endAnswer already closes for answer re-runs).
+// NOT parallel (shared globals + openPR seam).
+func TestApprove_dropsAConcurrentReLandRatherThanRacingTheSharedWorktree(t *testing.T) {
+	restore := openPR
+	t.Cleanup(func() { openPR = restore })
+	started := make(chan struct{})
+	var startedOnce sync.Once
+	release := make(chan struct{})
+	var calls int32
+	openPR = func(_ context.Context, _, _, _, _, _, _ string) (string, string, error) {
+		atomic.AddInt32(&calls, 1)
+		startedOnce.Do(func() { close(started) })
+		<-release
+		return "https://example/pr/1", "sha1", nil
+	}
+
+	log, server := approveServer(t, "applock")
+	require.NoError(t, log.AppendLiveDispatch("liveorder", ledger.Target{BaseRev: "h", Prompt: "Do it."}, ledger.Target{}))
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		vt.NewClient(t, server, "/?key=applock").Action((&LiveCard{Key: "applock"}).Approve).Fire()
+	}()
+	<-started // the first call is in flight, holding the land slot
+
+	require.Equal(t, 200, vt.NewClient(t, server, "/?key=applock").Action((&LiveCard{Key: "applock"}).Approve).Fire(),
+		"a dropped duplicate is still a calm 200, never an error")
+
+	close(release)
+	<-done
+
+	assert.Equal(t, int32(1), atomic.LoadInt32(&calls),
+		"a concurrent Approve must never invoke openPR a second time while one is already in flight")
+
+	// The slot must release once the in-flight call finishes — a LATER, non-concurrent
+	// Approve is not a duplicate and must run normally.
+	require.Equal(t, 200, vt.NewClient(t, server, "/?key=applock").Action((&LiveCard{Key: "applock"}).Approve).Fire())
+	assert.Equal(t, int32(2), atomic.LoadInt32(&calls),
+		"once the guard releases, a later Approve is a fresh call, not a dropped duplicate")
 }
 
 // "Landed ≠ Merged" (DESIGN §29.2): an opened PR is NOT a merge. classifyLandLifecycle

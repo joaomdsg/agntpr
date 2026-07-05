@@ -93,17 +93,29 @@ func firstFailedGate(g Gauntlet) (detail string, ok bool) {
 //     re-measured after delivery) could force a Delivered packet's Hold to
 //     blocking, rendering as self-contradictory in the UI: "delivered" and
 //     "needs you" at once.
+//
+// Whenever rule 2 or 3 fires, State is ALSO forced to Held (never left at
+// whatever Fold set it to). This closes an adversarially-found gap: Lane and
+// Gauntlet are render-time caches that can populate LONG after a packet
+// already reached State==Verified (e.g. a human opens the Inspector on a
+// verified packet days later, measuring a lane-floor breach nobody had
+// computed before) — leaving State untouched let the SAME packet render as
+// "verified, safe to draw for calibration" in the settled rail/hero
+// stat/calibration draw AND "blocking, needs you" in the needs-you rail at
+// once. Held is the honest state once a forcing rule has fired, full stop.
 func ReconcileHold(p Packet) Packet {
 	if p.State == Delivered {
 		return p
 	}
 	if belowFloor(p.HandshakeStrength, LaneFloor(p.Lane)) {
+		p.State = Held
 		p.Hold = HoldBlocking
 		p.HoldReason = "handshake below lane floor"
 		return p
 	}
 	if !p.Gauntlet.Forwardable() {
 		if detail, ok := firstFailedGate(p.Gauntlet); ok {
+			p.State = Held
 			p.Hold = HoldBlocking
 			p.HoldReason = "gate failed · " + detail
 		}

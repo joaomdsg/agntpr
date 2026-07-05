@@ -168,10 +168,18 @@ func (c *LiveCard) Approve(ctx *via.Ctx) {
 	if log == nil {
 		return
 	}
-	land := pipe.LandState("")
-	if e := lookupLiveEntry(key); e != nil {
-		land = pipe.LandState(e.landState())
+	e := lookupLiveEntry(key)
+	if e == nil {
+		return
 	}
+	// One land at a time per session: a land pushes to the session's shared branch
+	// and opens a PR, so a double-clicked "forward →" would race those operations.
+	// Drop the duplicate (the in-flight one is already landing).
+	if !e.beginLand() {
+		return
+	}
+	defer e.endLand()
+	land := pipe.LandState(e.landState())
 	override := landOverridden(c.LandOverride.Read(ctx))
 	if blocked, reason := landBlocked(len(sessionOpenThreads(key)), land); blocked && !override {
 		setLandResult(key, "blocked — "+reason)
@@ -182,10 +190,7 @@ func (c *LiveCard) Approve(ctx *via.Ctx) {
 	title, body := prTitleAndBody(key, latestDispatchPrompt(log))
 	// Lease the push against the SHA we last pushed for this session (""=first land →
 	// must-not-exist), so a re-land updates the branch only if nothing else moved it.
-	expected := ""
-	if e := lookupLiveEntry(key); e != nil {
-		expected = e.lastPushedSHASnapshot()
-	}
+	expected := e.lastPushedSHASnapshot()
 	// A prompt-first session has no configured base; derive its origin from the order
 	// history so the squash parents onto where the work actually started (not "").
 	orders, _ := log.WorkOrders()
@@ -196,9 +201,7 @@ func (c *LiveCard) Approve(ctx *via.Ctx) {
 	// would leave the cache stale while the remote branch advanced, wedging the next
 	// re-land's lease (it would name the old SHA against a branch that moved).
 	if pushedSHA != "" {
-		if e := lookupLiveEntry(key); e != nil {
-			e.setLastPushedSHA(pushedSHA)
-		}
+		e.setLastPushedSHA(pushedSHA)
 	}
 	if err != nil {
 		setLandResult(key, "forward failed — "+err.Error())

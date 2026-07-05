@@ -65,6 +65,9 @@ func RunBuildVetGate(ctx context.Context, repoDir, fixRev string) Gate {
 
 	worktree := filepath.Join(tmpDir, "wt")
 	if _, err := runIn(ctx, repoDir, "git", "worktree", "add", "--detach", "--quiet", worktree, fixRev); err != nil {
+		if ctx.Err() != nil {
+			return Gate{Status: GateNotRun, Detail: "timed out checking out fix revision"}
+		}
 		return Gate{Status: GateNotRun, Detail: "could not check out fix revision"}
 	}
 	defer func() {
@@ -74,12 +77,27 @@ func RunBuildVetGate(ctx context.Context, repoDir, fixRev string) Gate {
 	}()
 
 	if out, err := runIn(ctx, worktree, "go", "build", "./..."); err != nil {
-		return Gate{Status: GateFailed, Detail: "go build: " + truncateTail(out, detailTailLimit)}
+		return GateForExecError(ctx, "go build", out, err)
 	}
 	if out, err := runIn(ctx, worktree, "go", "vet", "./..."); err != nil {
-		return Gate{Status: GateFailed, Detail: "go vet: " + truncateTail(out, detailTailLimit)}
+		return GateForExecError(ctx, "go vet", out, err)
 	}
 	return Gate{Status: GatePassed, Detail: "go build and go vet both clean"}
+}
+
+// GateForExecError decides a Gate from a failed exec call: if ctx is already
+// done, the process was KILLED by the deadline, not proven to have failed on
+// its own merits — reporting Failed here would fabricate a specific failure
+// claim about a command that may well have succeeded given more time, which
+// violates this package's "never fabricate a metric" invariant. Only a real
+// (non-timeout) exit reports Failed, naming cmdName plus a truncated tail of
+// its combined output. Shared by every exec-based gate (RunBuildVetGate,
+// RunHandshakeGate) so the timeout-honesty rule lives in exactly one place.
+func GateForExecError(ctx context.Context, cmdName, out string, err error) Gate {
+	if ctx.Err() != nil {
+		return Gate{Status: GateNotRun, Detail: cmdName + ": timed out before finishing"}
+	}
+	return Gate{Status: GateFailed, Detail: cmdName + ": " + truncateTail(out, detailTailLimit)}
 }
 
 // isGitRepo reports whether dir is inside a git working tree — the cheapest

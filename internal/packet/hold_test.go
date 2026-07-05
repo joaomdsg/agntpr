@@ -289,6 +289,73 @@ func TestReconcileHold_treatsAnUnrecognizedHandshakeStrengthAsTheWeakestPossible
 	assert.Equal(t, "handshake below lane floor", got.HoldReason)
 }
 
+// A Verified packet that a LATER lane-floor breach or gate failure forces
+// into a hold must ALSO flip to State=Held — never left as Verified+held at
+// once. Two independent adversarial reviews confirmed this exact
+// self-contradiction was reachable: heldPackets (needs-you rail) filters on
+// Hold alone, renderSettledRail/renderHeroStat/drawCalibration filter or
+// count on State alone, so an unescalated State let the SAME packet render
+// as both "blocking, needs you" and "verified, nothing to see here, safe to
+// draw for calibration" simultaneously.
+func TestReconcileHold_flipsAnEscalatedVerifiedPacketToHeldSoNoRailShowsItAsSafe(t *testing.T) {
+	t.Parallel()
+
+	p := packet.Packet{
+		State:             packet.Verified,
+		Hold:              packet.HoldNone,
+		Lane:              packet.LaneStrict,
+		HandshakeStrength: packet.StrengthNone, // below strict's properties floor
+		Gauntlet:          gatePassedGauntlet(),
+	}
+
+	got := packet.ReconcileHold(p)
+
+	assert.Equal(t, packet.Held, got.State, "an escalated hold must be reflected in State too, never left Verified")
+	assert.Equal(t, packet.HoldBlocking, got.Hold)
+	assert.Equal(t, "handshake below lane floor", got.HoldReason)
+}
+
+// The same flip applies when a hard GATE failure (not a lane-floor breach)
+// is what forces the hold on an otherwise-Verified packet.
+func TestReconcileHold_flipsToHeldOnAGateFailureEvenWhenStateWasVerified(t *testing.T) {
+	t.Parallel()
+
+	failing := gatePassedGauntlet()
+	failing.BuildVetLint = packet.Gate{Status: packet.GateFailed, Detail: "go vet: 2 issues"}
+
+	p := packet.Packet{
+		State:    packet.Verified,
+		Hold:     packet.HoldNone,
+		Lane:     packet.LaneBestEffort, // floor is StrengthNone — rule (b) can't fire
+		Gauntlet: failing,
+	}
+
+	got := packet.ReconcileHold(p)
+
+	assert.Equal(t, packet.Held, got.State)
+	assert.Equal(t, packet.HoldBlocking, got.Hold)
+	assert.Equal(t, "gate failed · go vet: 2 issues", got.HoldReason)
+}
+
+// Delivered stays the ONE exemption — its own rule (checked first) must
+// still win even though Verified is no longer a safe harbor.
+func TestReconcileHold_deliveredStaysExemptEvenThoughVerifiedNoLongerIs(t *testing.T) {
+	t.Parallel()
+
+	p := packet.Packet{
+		State:             packet.Delivered,
+		Hold:              packet.HoldNone,
+		Lane:              packet.LaneStrict,
+		HandshakeStrength: packet.StrengthNone,
+		Gauntlet:          gatePassedGauntlet(),
+	}
+
+	got := packet.ReconcileHold(p)
+
+	assert.Equal(t, packet.Delivered, got.State, "Delivered's exemption must still hold")
+	assert.Equal(t, packet.HoldNone, got.Hold)
+}
+
 func TestReconcileHold_leavesAFreshComposingPacketAloneSinceNothingIsMeasuredYet(t *testing.T) {
 	t.Parallel()
 
