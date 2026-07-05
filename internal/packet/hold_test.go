@@ -167,6 +167,56 @@ func TestReconcileHold_leavesAVerifiedPacketUntouchedWhenNeitherRuleFires(t *tes
 	assert.Equal(t, "", got.HoldReason)
 }
 
+// A Delivered packet (a real ACK) must survive ReconcileHold untouched —
+// neither forcing rule may un-deliver it. Escalate-only means escalate,
+// never revert a real ACK back to held.
+func TestReconcileHold_leavesADeliveredPacketUntouchedWhenNeitherRuleFires(t *testing.T) {
+	t.Parallel()
+
+	p := packet.Packet{
+		State:             packet.Delivered,
+		Hold:              packet.HoldNone,
+		HoldReason:        "",
+		Lane:              packet.LaneStandard,
+		HandshakeStrength: packet.StrengthExamples,
+		Gauntlet:          gatePassedGauntlet(),
+	}
+
+	got := packet.ReconcileHold(p)
+
+	assert.Equal(t, packet.Delivered, got.State, "ReconcileHold must never change State, only Hold/HoldReason")
+	assert.Equal(t, packet.HoldNone, got.Hold)
+	assert.Equal(t, "", got.HoldReason)
+}
+
+// A Delivered packet is EXEMPT from both forcing rules, even when their
+// triggering conditions are true — surveillance ends at real ACK. Without
+// this exemption a Delivered packet could render as blocking-held (a stale
+// cached Lane/Gauntlet, or a lane/handshake mismatch nobody re-checked after
+// delivery), which reads as self-contradictory in the UI: "delivered" and
+// "needs you" at once.
+func TestReconcileHold_exemptsADeliveredPacketEvenWhenTheForcingRulesWouldOtherwiseFire(t *testing.T) {
+	t.Parallel()
+
+	failing := gatePassedGauntlet()
+	failing.BuildVetLint = packet.Gate{Status: packet.GateFailed, Detail: "go vet: 2 issues"}
+
+	p := packet.Packet{
+		State:             packet.Delivered,
+		Hold:              packet.HoldNone,
+		HoldReason:        "",
+		Lane:              packet.LaneStrict,     // floor is StrengthProperties
+		HandshakeStrength: packet.StrengthNone,   // below floor — rule (b) would fire
+		Gauntlet:          failing,               // not forwardable — rule (c) would fire too
+	}
+
+	got := packet.ReconcileHold(p)
+
+	assert.Equal(t, packet.Delivered, got.State)
+	assert.Equal(t, packet.HoldNone, got.Hold, "delivered is exempt from lane-floor/gate-failure escalation")
+	assert.Equal(t, "", got.HoldReason)
+}
+
 // A done+!caught advisory hold from Fold (slice 5) must survive untouched when
 // neither the lane-floor nor the gate-failure rule fires — this slice ADDS
 // blocking triggers, it never touches Fold's existing lifecycle-hold logic.

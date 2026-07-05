@@ -169,6 +169,13 @@ func main() {
 		}
 		return
 	}
+	if len(os.Args) > 1 && (os.Args[1] == "deployed" || os.Args[1] == "regressed") {
+		verb := os.Args[1]
+		if err := runDeploy(verb, os.Args[2:], os.Stdout); err != nil {
+			log.Fatalf("packets %s: %v", verb, err)
+		}
+		return
+	}
 
 	repo := flag.String("repo", ".", "git repo directory")
 	base := flag.String("base", "", "base (pre-fix) revision")

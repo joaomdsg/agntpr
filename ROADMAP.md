@@ -5,7 +5,7 @@ the spec). One slice per tick unless a slice says otherwise. Statuses:
 queued / in-flight / landed / dropped. Every landed slice carries one
 evidence line.
 
-NEXT: slice 13.
+NEXT: slice 14.
 
 ## Infra
 
@@ -212,10 +212,23 @@ NEXT: slice 13.
   general-purpose Blue) on both the pure unit and the app wiring;
   Blue caught only a doc-comment overclaim. Evidence: full gate
   green; commit below.
-- [ ] **13. ACK/deliver** — queued. `packets deployed|regressed`
-  host command backed by a re-checkable check run; delivered state
-  reachable; the mark's BR cell fills only on real ACK; regressed
-  routes back to held.
+- [x] **13. ACK/deliver** — landed (built directly by the
+  coordinator). `internal/packet`: lifecycleFor gains "deployed"→
+  Delivered/no-hold and "regressed"→Held/blocking/"deployment
+  regression"; Deliverable() is now real (State==Delivered);
+  ReconcileHold exempts Delivered from lane-floor/gate-failure
+  escalation (a real gap the Blue audit caught: those rules were
+  state-agnostic and could have shown a delivered packet as
+  blocking-held). Console's settled rail + per-packet state cell
+  render "delivered" (--delivered fill) only on a real ACK — never
+  counted as "verified" in the hero stat. New `packets deployed`/
+  `packets regressed` CLI subcommand (cmd/packets): an optional
+  --check command's exit code must AGREE with the asserted verb or
+  the command refuses (never appends a status that contradicts what
+  it just observed); reopens the same durable ledger a running
+  server uses. Manually smoke-tested end to end (bare assert,
+  confirming check, contradicting check → refusal). Evidence: full
+  gate green; commit below.
 - [ ] **14. Adversarial probes** — queued. Seeded known-bad packet
   through the REAL gates via a scratch ledger session (never the
   real economy); probe report (caught/escaped) surfaced honestly.

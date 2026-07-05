@@ -805,6 +805,10 @@ body {
 }
 .console__cell[data-state="verified"] { background: var(--verified); }
 .console__cell[data-state="held"] { background: var(--held); }
+/* delivered = ACK'd healthy — the same dark-cyan fill as the mark's BR
+   delivered cell, since the story is "outline → delivered fill = promised
+   → landed" and this IS that fill, per-packet, on a real ACK. */
+.console__cell[data-state="delivered"] { background: var(--delivered); }
 /* the blocking hold's matte hue — the same red the needs-you rail pulses,
    but settled rows are retrospective ("live pulses; settled is matte"). */
 .console__cell[data-state="held-blocking"] { background: var(--risk); }

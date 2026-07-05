@@ -57,12 +57,12 @@ type Packet struct {
 	HandshakeStrength HandshakeStrength
 }
 
-// Deliverable always reports false: delivered is UNREACHABLE until a real
-// ACK mechanic exists (slice 13, "packets deployed"/"packets regressed").
-// Nothing in Fold can produce State==Delivered today — see the never-Delivered
-// test pinning that invariant.
+// Deliverable reports whether this packet has a real ACK: State==Delivered,
+// which Fold produces ONLY from a "deployed" dispatch status — the host-
+// issued `packets deployed` command's own evidence, never an agent's
+// self-report. Every other status is pinned unreachable.
 func (p Packet) Deliverable() bool {
-	return false
+	return p.State == Delivered
 }
 
 // slugName derives a packet's Name from the order's own prompt, never
@@ -115,6 +115,12 @@ func slugName(prompt string, id int) string {
 //	done, !Caught or open questions > 0      → Held, advisory
 //	  (open-questions reason wins over the gap reason when both apply)
 //	failed                                  → Held, blocking, "run failed"
+//	deployed                                → Delivered, no hold (the ONLY
+//	                                           path to Delivered — set by the
+//	                                           host-issued `packets deployed`
+//	                                           command, never self-reported)
+//	regressed                               → Held, blocking,
+//	                                           "deployment regression"
 //	anything else (unknown/future status)   → Held, blocking,
 //	                                           "unknown state · <status>"
 func Fold(views []ledger.DispatchView, addr Addr, openQuestions func(orderID int) int) []Packet {
@@ -162,6 +168,10 @@ func lifecycleFor(status string, caught bool, openQuestions int) (Lifecycle, Hol
 		return Held, HoldAdvisory, "gap found · handshake not tightened"
 	case "failed":
 		return Held, HoldBlocking, "run failed"
+	case "deployed":
+		return Delivered, HoldNone, ""
+	case "regressed":
+		return Held, HoldBlocking, "deployment regression"
 	default:
 		return Held, HoldBlocking, fmt.Sprintf("unknown state · %s", status)
 	}

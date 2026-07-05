@@ -77,7 +77,10 @@ func TestFold_copiesOrderFactsThroughUnchanged(t *testing.T) {
 	assert.Equal(t, 5, p.OpenQuestions)
 }
 
-func TestPacket_isNeverDeliverableUntilARealAckMechanicExists(t *testing.T) {
+// None of these statuses is a real ACK signal — delivered must stay
+// unreachable for all of them, regardless of caught/questions, since none
+// carries the host-issued deploy evidence a real ACK requires.
+func TestPacket_isNeverDeliverableFromNonACKStatuses(t *testing.T) {
 	t.Parallel()
 
 	statuses := []string{"queued", "running", "done", "failed", "cancelled"}
@@ -101,13 +104,54 @@ func TestPacket_isNeverDeliverableUntilARealAckMechanicExists(t *testing.T) {
 
 					require.Len(t, got, 1)
 					assert.NotEqual(t, packet.Delivered, got[0].State,
-						"delivered must never be reachable from Fold — it requires real ACK evidence")
+						"delivered must never be reachable from a non-ACK status")
 					assert.False(t, got[0].Deliverable(),
-						"Deliverable() is hard-wired false until slice 13's ACK mechanic exists")
+						"Deliverable() stays false without real ACK evidence")
 				})
 			}
 		}
 	}
+}
+
+// "deployed" is the one status a real host-issued ACK command (ROADMAP slice
+// 13's `packets deployed`) produces — the only path that reaches Delivered.
+func TestFold_deployedStatusReachesDeliveredAndIsDeliverable(t *testing.T) {
+	t.Parallel()
+
+	views := []ledger.DispatchView{{
+		ID:     1,
+		Target: ledger.Target{Prompt: "ship the thing"},
+		Status: "deployed",
+		Caught: true,
+	}}
+	got := packet.Fold(views, packet.Addr{}, zeroQuestions)
+
+	require.Len(t, got, 1)
+	assert.Equal(t, packet.Delivered, got[0].State)
+	assert.Equal(t, packet.HoldNone, got[0].Hold, "a delivered packet is not held")
+	assert.True(t, got[0].Deliverable(), "State==Delivered is exactly what Deliverable() reports")
+}
+
+// "regressed" (`packets regressed`) routes a packet back to a blocking hold —
+// a deploy that broke in prod demands the same attention as any other hard
+// stop, never a silent Delivered.
+func TestFold_regressedStatusRoutesBackToHeldBlocking(t *testing.T) {
+	t.Parallel()
+
+	views := []ledger.DispatchView{{
+		ID:     1,
+		Target: ledger.Target{Prompt: "ship the thing"},
+		Status: "regressed",
+		Caught: true,
+	}}
+	got := packet.Fold(views, packet.Addr{}, zeroQuestions)
+
+	require.Len(t, got, 1)
+	assert.Equal(t, packet.Held, got[0].State)
+	assert.Equal(t, packet.HoldBlocking, got[0].Hold)
+	assert.Equal(t, "deployment regression", got[0].HoldReason,
+		"a real 'regressed' case, not the generic unknown-state catch-all (which would say \"unknown state · regressed\")")
+	assert.False(t, got[0].Deliverable())
 }
 
 func zeroQuestions(int) int { return 0 }

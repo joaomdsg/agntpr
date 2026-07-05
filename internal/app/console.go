@@ -176,10 +176,9 @@ func renderNeedsYouCard(navKey string, p packet.Packet) h.H {
 
 // renderHeroStat is the center column's header strip: the count of packets
 // whose State is Verified (done, the order's own catch minted, no open
-// questions) — the only forward state the gauntlet actually proves today
-// (MVP.md vocabulary map: "forwarded"/"delivered" aren't mechanized yet, so
-// neither word belongs here). Beside it, the interrupt KPI (ROADMAP slice 11)
-// names the session's REAL weekly interrupt count against the locked cap
+// questions) — distinct from Delivered, which the settled rail names
+// separately once a real ACK exists. Beside it, the interrupt KPI names the
+// session's REAL weekly interrupt count against the locked cap
 // (design/ui_kits/console/ConsoleScreen.jsx's "N/10 interrupts"), never a
 // fabricated number. The addr line is the honest repo identity
 // (packet.ParseAddr), never a fabricated owner.
@@ -288,7 +287,7 @@ func firstWords(s string, n int) string {
 
 // renderSettledRail is the right rail: the honest replacement for a fake
 // "recently delivered" (delivered isn't real until ACK — slice 13). It lists
-// verified and held packets — a run failure IS settled-red, only
+// verified, held, and delivered packets — a run failure IS settled-red, only
 // composing/in-flight packets are excluded — each a lifecycle-colored state
 // square + Name + one-word state, or the dashed empty state when nothing has
 // settled. Below it, "your watches" (ROADMAP slice 12, MVP.md concept 6): the
@@ -298,7 +297,7 @@ func firstWords(s string, n int) string {
 func renderSettledRail(c *LiveCard, navKey string, packets []packet.Packet) h.H {
 	var settled []packet.Packet
 	for _, p := range packets {
-		if p.State == packet.Verified || p.State == packet.Held {
+		if p.State == packet.Verified || p.State == packet.Held || p.State == packet.Delivered {
 			settled = append(settled, p)
 		}
 	}
@@ -421,13 +420,17 @@ func renderWatchCard(c *LiveCard, packets []packet.Packet, kind packet.WatchKind
 }
 
 // renderSettledRow renders one settled packet: a state square colored by
-// State/Hold (verified solid, held advisory amber, held blocking red), its
-// Name, and its lifecycle State.String() ("verified" or "held") — the same
-// one-word vocabulary the needs-you rail and the packet aggregate already use,
-// never a second name for the same fact.
+// State/Hold (verified solid, held advisory amber, held blocking red,
+// delivered dark-cyan — fills ONLY on a real ACK), its Name, and its
+// lifecycle State.String() ("verified"/"held"/"delivered") — the same
+// one-word vocabulary the needs-you rail and the packet aggregate already
+// use, never a second name for the same fact.
 func renderSettledRow(p packet.Packet) h.H {
 	state := "verified"
-	if p.State == packet.Held {
+	switch {
+	case p.State == packet.Delivered:
+		state = "delivered"
+	case p.State == packet.Held:
 		state = "held"
 		if p.Hold == packet.HoldBlocking {
 			state = "held-blocking"

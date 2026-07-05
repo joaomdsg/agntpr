@@ -225,6 +225,10 @@ func TestLiveCard_settledRailShowsLifecycleColoredRows(t *testing.T) {
 	require.NoError(t, log.AppendDispatch("d3", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "gamma.go", Line: 11}, own))
 	require.NoError(t, log.AppendStatus(3, "failed")) // a run failure — settled, blocking
 
+	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 103, ReasonTag: "catch"}))
+	require.NoError(t, log.AppendDispatch("d4", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "delta.go", Line: 13}, own))
+	require.NoError(t, log.AppendStatus(4, "deployed")) // a real ACK — settled, delivered
+
 	registerSession("settledc", LiveConfig{BaseRev: "own-b-settledc", FixRev: "own-f", Anchor: anchorForCap()}, log)
 
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
@@ -238,10 +242,12 @@ func TestLiveCard_settledRailShowsLifecycleColoredRows(t *testing.T) {
 	t.Cleanup(func() { _ = defLog.Close() })
 
 	body := bodyOf(vt.NewClient(t, server, "/?key=settledc").HTML())
-	require.Contains(t, body, "settled · 3", "verified, held-advisory, and held-blocking orders all count as settled")
+	require.Contains(t, body, "settled · 4", "verified, held-advisory, held-blocking, AND delivered orders all count as settled")
 	require.Contains(t, body, `data-state="verified"`, "the caught order's state square is verified")
 	require.Contains(t, body, `data-state="held-blocking"`, "the failed order's state square is the blocking-red hue")
 	require.Contains(t, body, `data-state="held"`, "the missed order's state square is the advisory-amber hue")
+	require.Contains(t, body, `data-state="delivered"`, "the deployed order's state square fills only on a real ACK")
+	require.Contains(t, body, "delivered", "the row names its lifecycle state, matching the vocabulary elsewhere")
 }
 
 // A session with nothing settled yet must show the honest dashed empty state,

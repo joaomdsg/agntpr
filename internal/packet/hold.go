@@ -87,7 +87,16 @@ func firstFailedGate(g Gauntlet) (detail string, ok bool) {
 //     (LaneUnmeasured's floor is StrengthNone, so rule 2 never fires; an
 //     all-not-run Gauntlet IS Forwardable()==true, so rule 3 never fires) —
 //     no special-case branch is needed for that to behave correctly.
+//  0. Delivered is EXEMPT from both forcing rules (checked before either) —
+//     a real ACK ends standing surveillance. Without this, a stale cached
+//     Lane/Gauntlet (both are render-time exec-derived caches, never
+//     re-measured after delivery) could force a Delivered packet's Hold to
+//     blocking, rendering as self-contradictory in the UI: "delivered" and
+//     "needs you" at once.
 func ReconcileHold(p Packet) Packet {
+	if p.State == Delivered {
+		return p
+	}
 	if belowFloor(p.HandshakeStrength, LaneFloor(p.Lane)) {
 		p.Hold = HoldBlocking
 		p.HoldReason = "handshake below lane floor"

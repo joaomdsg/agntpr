@@ -193,6 +193,11 @@ debugged.
 - CONVENTIONS.md is binding: test names as behavioral claims,
   test-first, outside-in through the public API, real > stub > mock,
   table-driven, `t.Parallel()`, testify, comments explain why.
+- Doc comments in implementation and test code must not cite a
+  ROADMAP slice number or name another test function — both go
+  stale (slices get renumbered/renamed, tests get renamed/deleted).
+  Explain the WHY in terms of the code's own behavior/invariants
+  instead (user directive, 2026-07-05).
 - Stack is settled — do not relitigate: server-rendered Go via
   `go-via/via` `h.*` builders + Datastar SSE; ONE hand-rolled CSS
   system; NO Tailwind/React/shadcn/WebSockets; Monaco stays a JS
