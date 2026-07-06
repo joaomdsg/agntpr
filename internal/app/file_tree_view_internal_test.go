@@ -31,7 +31,7 @@ func TestRenderFileTree_highlightsOnlyChangedFilesAndLinksEachLeaf(t *testing.T)
 		diff.Diff{Files: []diff.FileDiff{{Path: "internal/app/live.go", Added: 5, Deleted: 2}}},
 	)
 	tgt := ledger.Target{BaseRev: "b", FixRev: "f", Path: "internal/app/live.go"}
-	body := renderHTML(t, renderFileTree(LiveConfig{RepoDir: "."}, tgt, 7, ""))
+	body := renderHTML(t, renderFileTree(LiveConfig{RepoDir: "."}, tgt, 7, "", nil))
 
 	assert.Contains(t, body, "file-tree", "the tree container renders")
 	assert.Contains(t, body, "live.go")
@@ -66,7 +66,7 @@ func TestRenderFileTree_changedAndSelectedLeafCarriesBothAndLinks(t *testing.T) 
 		diff.Diff{Files: []diff.FileDiff{{Path: "pkg/x.go", Added: 4, Deleted: 1}}},
 	)
 	tgt := ledger.Target{BaseRev: "b", FixRev: "f", Path: "pkg/x.go"}
-	body := renderHTML(t, renderFileTree(LiveConfig{RepoDir: "."}, tgt, 9, "pkg/x.go"))
+	body := renderHTML(t, renderFileTree(LiveConfig{RepoDir: "."}, tgt, 9, "pkg/x.go", nil))
 
 	assert.Equal(t, 1, strings.Count(body, "file-tree__file--changed"))
 	assert.Equal(t, 1, strings.Count(body, "file-tree__file--selected"))
@@ -83,7 +83,7 @@ func TestRenderFileTree_surfacesADeletedFileFlaggedDeleted(t *testing.T) {
 		diff.Diff{Files: []diff.FileDiff{{Path: "internal/old/gone.go", Deleted: 9}}},
 	)
 	tgt := ledger.Target{BaseRev: "b", FixRev: "f", Path: "a.go"}
-	body := renderHTML(t, renderFileTree(LiveConfig{RepoDir: "."}, tgt, 1, ""))
+	body := renderHTML(t, renderFileTree(LiveConfig{RepoDir: "."}, tgt, 1, "", nil))
 
 	assert.Contains(t, body, "gone.go")
 	assert.Equal(t, 1, strings.Count(body, "file-tree__file--deleted"))
@@ -99,7 +99,7 @@ func TestRenderFileTree_marksTheSelectedFile(t *testing.T) {
 		diff.Diff{},
 	)
 	tgt := ledger.Target{BaseRev: "b", FixRev: "f", Path: "internal/app/live.go"}
-	body := renderHTML(t, renderFileTree(LiveConfig{RepoDir: "."}, tgt, 1, "internal/app/board.go"))
+	body := renderHTML(t, renderFileTree(LiveConfig{RepoDir: "."}, tgt, 1, "internal/app/board.go", nil))
 
 	assert.Equal(t, 1, strings.Count(body, "file-tree__file--selected"),
 		"exactly the open file is marked selected")
@@ -116,7 +116,7 @@ func TestRenderFileTree_degradesToChangedNotDeletedWhenListerFails(t *testing.T)
 		diff.Diff{Files: []diff.FileDiff{{Path: "a.go", Added: 3}}},
 	)
 	tgt := ledger.Target{BaseRev: "b", FixRev: "f", Path: "a.go"}
-	body := renderHTML(t, renderFileTree(LiveConfig{RepoDir: "."}, tgt, 1, ""))
+	body := renderHTML(t, renderFileTree(LiveConfig{RepoDir: "."}, tgt, 1, "", nil))
 
 	assert.Contains(t, body, "a.go")
 	assert.Equal(t, 1, strings.Count(body, "file-tree__file--changed"))
@@ -132,7 +132,7 @@ func TestRenderFileTree_carriesNoAlarmColorsOrGauges(t *testing.T) {
 		diff.Diff{Files: []diff.FileDiff{{Path: "a.go", Added: 1, Deleted: 1}}},
 	)
 	tgt := ledger.Target{BaseRev: "b", FixRev: "f", Path: "a.go"}
-	body := renderHTML(t, renderFileTree(LiveConfig{RepoDir: "."}, tgt, 1, ""))
+	body := renderHTML(t, renderFileTree(LiveConfig{RepoDir: "."}, tgt, 1, "", nil))
 
 	for _, banned := range []string{"#ff0000", "#00ff00", "progress-bar", "<progress", "<meter", "role=\"progressbar\""} {
 		assert.NotContains(t, body, banned)

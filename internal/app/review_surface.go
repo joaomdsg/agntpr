@@ -304,6 +304,11 @@ func (c *ReviewCard) View(_ *via.CtxR) h.H {
 		}
 		parts = append(parts, renderInspectorTitlebar("wo#"+strconv.Itoa(woID), tgt.BaseRev, tgt.FixRev, sessionAddr(navKey), pktName, lane))
 
+		// The open threads drive both the annotation rail (below) and the per-file
+		// badges in the tree, so fetch them once here and tally by file.
+		orderThreads := orderOpenThreads(navKey, woID)
+		annCounts := annotationCountsByFile(orderThreads)
+
 		left := renderInspectorEmptyTree()
 		var main []h.H
 		if hasTarget {
@@ -314,7 +319,7 @@ func (c *ReviewCard) View(_ *via.CtxR) h.H {
 			left = h.Div(
 				h.P(h.Class("review__lead"),
 					h.Text("Changed files — WO#"+strconv.Itoa(woID)+" (pick one to inspect):")),
-				renderFileTree(cfg, tgt, woID, selected),
+				renderFileTree(cfg, tgt, woID, selected, annCounts),
 			)
 			main = append(main,
 				h.P(h.Class("review__lead"),
@@ -323,7 +328,6 @@ func (c *ReviewCard) View(_ *via.CtxR) h.H {
 			)
 		}
 
-		orderThreads := orderOpenThreads(navKey, woID)
 		parts = append(parts, h.P(h.Class("review__lead"),
 			h.Text("Inspecting WO#"+strconv.Itoa(woID)+" — the packet's surviving mutants:")))
 
