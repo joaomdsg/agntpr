@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"github.com/go-via/via/h"
+	"github.com/go-via/via/on"
 
 	"github.com/joaomdsg/packets/internal/ledger"
 )
@@ -82,8 +83,9 @@ func annotationAnchor(r ledger.AnnotationRecord) string {
 // real author, anchor, and body, with every reply nested beneath it in order —
 // the threaded conversation the rail shows alongside the oracle findings. The
 // author chip shows who actually wrote each line (human or agent), never a
-// hardcoded label.
-func renderAnnotationThreads(threads []annotationThread) []h.H {
+// hardcoded label. Each card ends with a reply form wired to ReplyToAnnotation,
+// keyed to that card's root id, so the Lead can answer in place.
+func renderAnnotationThreads(c *ReviewCard, threads []annotationThread) []h.H {
 	var out []h.H
 	for _, th := range threads {
 		parts := []h.H{
@@ -102,6 +104,17 @@ func renderAnnotationThreads(threads []annotationThread) []h.H {
 				h.Span(h.Class("annotation-card__body"), h.Text(rep.Body)),
 			))
 		}
+		// The reply affordance: the button sets replyparent to THIS card's root id,
+		// then posts — the shared per-tab reply signals carry the right target
+		// regardless of which card is answered.
+		parts = append(parts, h.Div(h.Class("annotation-card__reply-form"),
+			h.Input(h.Type("text"), c.ReplyText.Bind(), h.Class("pk-input annotation-card__reply-input"), h.Placeholder("reply…")),
+			h.Button(
+				on.Click(c.ReplyToAnnotation, on.SetSignal(&c.ReplyParent.Signal, th.Root.ID)),
+				h.Class("pk-btn annotation-card__reply-btn"),
+				h.Text("reply"),
+			),
+		))
 		out = append(out, h.Div(parts...))
 	}
 	return out

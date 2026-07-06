@@ -70,6 +70,12 @@ type ReviewCard struct {
 	// ConfirmWO carries the order id ConfirmIntentFidelity confirms (G1's
 	// human residual) — set inline by the confirm button's datastar expr.
 	ConfirmWO via.SignalStr `via:"confirmwo"`
+	// ReplyParent/ReplyText carry a reply to an existing annotation: the id of the
+	// annotation being answered (set inline by the reply form's datastar expr) and
+	// the reply text (bound to the form input). Read by ReplyToAnnotation, which
+	// persists the reply under its parent and re-triggers the harness. Per-tab.
+	ReplyParent via.SignalStr `via:"replyparent"`
+	ReplyText   via.SignalStr `via:"replytext"`
 }
 
 // orderOpenThreads converts a filled work-order's cached findings into review
@@ -360,7 +366,7 @@ func (c *ReviewCard) View(_ *via.CtxR) h.H {
 				main = append(main, renderAnswerForm(orderThreads[0], woID))
 			}
 			// Durable human annotations + replies render beneath the oracle findings.
-			rail = append(rail, renderAnnotationThreads(annThreads)...)
+			rail = append(rail, renderAnnotationThreads(c, annThreads)...)
 		}
 		// The adjustment entry point (DESIGN §12.3, the ✎ you-authored zone): leave an
 		// anchored comment and the live harness re-edits in place. Present on every

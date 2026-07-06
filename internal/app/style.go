@@ -1087,4 +1087,7 @@ body {
 .annotation-card__where { margin-left: auto; color: var(--text-faint); font-size: var(--fs-tiny); }
 .annotation-card__reply { margin-top: var(--sp-2); padding-left: var(--sp-2); border-left: 1px solid var(--hairline); display: flex; flex-direction: column; gap: var(--sp-1); }
 .annotation-card__reply .annotation-card__chip--author { align-self: flex-start; }
+.annotation-card__reply-form { margin-top: var(--sp-2); display: flex; gap: var(--sp-1); }
+.annotation-card__reply-input { flex: 1; font-size: var(--fs-small); }
+.annotation-card__reply-btn { flex: none; }
 `

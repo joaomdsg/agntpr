@@ -52,7 +52,12 @@ func TestReviewSurface_durableAnnotationAndItsReplyShowInTheRail(t *testing.T) {
 	body := bodyOf(vt.NewClient(t, server, "/review?key=annrail&wo=1").HTML())
 	assert.Contains(t, body, "guard the negative amount", "the durable annotation renders in the rail")
 	assert.Contains(t, body, "added the guard", "its reply renders nested beneath it")
-	assert.Contains(t, body, "annotation-card__reply", "the reply is a nested reply row, not a top-level card")
+	assert.Contains(t, body, `annotation-card__reply"`, "the reply is a nested reply row, not a top-level card")
+	// The reply form is present and its input is bound (signals framework-initialized
+	// on the real render), so the Lead can answer the thread in place.
+	assert.Contains(t, body, "annotation-card__reply-form", "the card offers a reply form")
+	assert.Contains(t, body, `data-bind="replytext"`, "the reply input is bound to the reply signal")
+	assert.Contains(t, body, "ReplyToAnnotation", "wired to the reply action")
 }
 
 // An annotation on a file this packet did NOT change must not leak onto its
