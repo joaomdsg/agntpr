@@ -60,6 +60,22 @@ func PublishRefine(ctx context.Context, f *fabric.Fabric, session, instance stri
 	return publish(ctx, f, session, instance, kindWORefine, r)
 }
 
+// PublishAnnotation emits a durable annotation (or reply) on the canonical
+// minted subtree, returning its stream sequence. Like the refine/status lines it
+// is not an economic event — it never touches a catch subject.
+func PublishAnnotation(ctx context.Context, f *fabric.Fabric, session, instance string, r AnnotationRecord) (uint64, error) {
+	return publish(ctx, f, session, instance, kindAnnotation, r)
+}
+
+// DecodeAnnotation reverses PublishAnnotation for the fold.
+func DecodeAnnotation(data []byte) (AnnotationRecord, error) {
+	var r AnnotationRecord
+	if err := json.Unmarshal(data, &r); err != nil {
+		return AnnotationRecord{}, fmt.Errorf("ledger: decode annotation: %v", err)
+	}
+	return r, nil
+}
+
 func publish(ctx context.Context, f *fabric.Fabric, session, instance, kind string, rec any) (uint64, error) {
 	data, err := json.Marshal(rec)
 	if err != nil {
