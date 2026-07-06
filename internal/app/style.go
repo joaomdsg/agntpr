@@ -1053,9 +1053,10 @@ body {
 .gauntlet-gate__detail { color: var(--text-faint); font-size: var(--fs-tiny); }
 .gauntlet-gate__confirm { margin-left: var(--sp-2); }
 /* the annotation card (the design system's AnnotationCard spec): authorship is the 3px
-   left border — --agent, since every open thread on the rail is oracle-
-   authored. Overrides .review-thread's own thinner signal-hue accent
-   (later in the stylesheet wins at equal specificity). */
+   left border — --agent for the oracle findings that dominate the rail.
+   Durable human annotations reuse the same card with their own author chip.
+   Overrides .review-thread's own thinner signal-hue accent (later in the
+   stylesheet wins at equal specificity). */
 .annotation-card {
   border-left: 3px solid var(--agent);
   background: var(--surface-raised);
@@ -1084,4 +1085,6 @@ body {
   background: color-mix(in srgb, var(--held) 14%, transparent);
 }
 .annotation-card__where { margin-left: auto; color: var(--text-faint); font-size: var(--fs-tiny); }
+.annotation-card__reply { margin-top: var(--sp-2); padding-left: var(--sp-2); border-left: 1px solid var(--hairline); display: flex; flex-direction: column; gap: var(--sp-1); }
+.annotation-card__reply .annotation-card__chip--author { align-self: flex-start; }
 `
