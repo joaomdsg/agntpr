@@ -77,6 +77,14 @@ func (c *ReviewCard) AddAdjustment(ctx *via.Ctx) {
 			e.addAdjAnchor(file, line, codeLine, text)
 		}
 	}
+	// A multi-line selection (the Monaco diff sets adjendline) anchors the comment
+	// to the whole span; an end at/below the start — or absent/non-numeric — is a
+	// single line, so EndLine stays 0 rather than a bogus/inverted range.
+	endLine, _ := strconv.Atoi(strings.TrimSpace(c.AdjEndLine.Read(ctx)))
+	if endLine <= line {
+		endLine = 0
+	}
+
 	// Persist the anchored comment as a DURABLE annotation before the dispatch, so
 	// the comment is recorded on the log (and folds into the review rail) even when
 	// the re-trigger below is refused for budget — the human said it, so it stays.
@@ -87,6 +95,7 @@ func (c *ReviewCard) AddAdjustment(ctx *via.Ctx) {
 		ID:        fmt.Sprintf("ann-%d", len(existing)+1),
 		File:      file,
 		StartLine: line,
+		EndLine:   endLine,
 		Author:    "lead",
 		Body:      text,
 		AtUnixMs:  time.Now().UnixMilli(),

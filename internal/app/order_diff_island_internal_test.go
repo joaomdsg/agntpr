@@ -20,6 +20,24 @@ func swapFileReader(t *testing.T) {
 	t.Cleanup(func() { reviewFileReader = orig })
 }
 
+// The diff island wires the selection→annotation bridge: a data-on:viaannotate
+// handler that fills the adjustment anchor signals, and the editor JS that
+// dispatches the CustomEvent from the modified editor's selection. (The JS's
+// runtime behavior is browser-verified; this pins that the wiring is emitted so
+// it can't silently disappear.)
+func TestOrderDiffIsland_wiresTheSelectionToAnnotationBridge(t *testing.T) {
+	swapFileReader(t)
+	tgt := ledger.Target{BaseRev: "base", FixRev: "fix", Path: "a.go"}
+	body := renderHTML(t, orderDiffIsland(LiveConfig{RepoDir: "."}, tgt, "a.go"))
+
+	assert.Contains(t, body, "on:viaannotate", "the island carries the selection→signal handler")
+	assert.Contains(t, body, "$adjfile=evt.detail.file", "selection fills the adjustment file signal")
+	assert.Contains(t, body, "$adjline=evt.detail.start", "and the start line")
+	assert.Contains(t, body, "$adjendline=evt.detail.end", "and the end line (a range)")
+	assert.Contains(t, body, "onDidChangeCursorSelection", "the editor listens for a line selection")
+	assert.Contains(t, body, "viaannotate", "and dispatches the annotate CustomEvent")
+}
+
 // Clicking a tree leaf must re-point the diff editor at THAT file, not stay on
 // the order's anchored path — otherwise the tree selector is inert.
 func TestOrderDiffIsland_embedsTheSelectedFileNotTheAnchor(t *testing.T) {

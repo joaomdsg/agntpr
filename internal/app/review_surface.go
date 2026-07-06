@@ -67,6 +67,11 @@ type ReviewCard struct {
 	AdjFile via.SignalStr `via:"adjfile"`
 	AdjLine via.SignalStr `via:"adjline"`
 	AdjText via.SignalStr `via:"adjtext"`
+	// AdjEndLine is the optional END of a multi-line selection (set by the Monaco
+	// diff's selection bridge); empty/0 or equal to AdjLine means a single line.
+	// AddAdjustment records it as the annotation's EndLine so a range anchors as
+	// the span it covers.
+	AdjEndLine via.SignalStr `via:"adjendline"`
 	// ConfirmWO carries the order id ConfirmIntentFidelity confirms (G1's
 	// human residual) — set inline by the confirm button's datastar expr.
 	ConfirmWO via.SignalStr `via:"confirmwo"`
@@ -158,6 +163,12 @@ func orderDiffIsland(cfg LiveConfig, tgt ledger.Target, selected string) h.H {
 	return h.Div(
 		h.Class("order-diff-island"),
 		h.DataIgnoreMorph(),
+		// Selecting line(s) in the diff dispatches a viaannotate CustomEvent whose
+		// detail fills the adjustment anchor signals — so the rail's "leave an
+		// adjustment" form pre-fills from the selection (click = one line, drag = a
+		// range) instead of the Lead typing file:line by hand. The mirror of the
+		// answer editor's viaanswer bridge.
+		h.Data("on:viaannotate", "$adjfile=evt.detail.file;$adjline=evt.detail.start;$adjendline=evt.detail.end"),
 		h.Script(h.Type("application/json"), h.ID("order-diff-data"), h.Raw(string(payload))),
 		h.Div(h.ID("order-diff-editor"), h.Class("order-diff-editor")),
 		h.Script(h.Src(monacoLoaderURL)),
@@ -182,6 +193,23 @@ const orderDiffBootstrapJS = `(function(){
     var mod = monaco.editor.createModel(d.fix || '', 'go', monaco.Uri.file('fix/' + (d.path || 'file.go')));
     var de = monaco.editor.createDiffEditor(el, { readOnly: true, automaticLayout: true, theme: 'vs-dark', renderSideBySide: false, minimap: { enabled: false }, scrollBeyondLastLine: false });
     de.setModel({ original: orig, modified: mod });
+    // Selection → adjustment anchor: a click (start==end line) or a click-drag
+    // (a span) on the modified side dispatches viaannotate on the island wrapper,
+    // whose data-on handler fills $adjfile/$adjline/$adjendline. A zero-length
+    // selection sends end==start; the server collapses that to a single line.
+    try {
+      var wrap = el.closest('.order-diff-island');
+      var mEd = de.getModifiedEditor();
+      mEd.onDidChangeCursorSelection(function(ev){
+        if (!wrap) return;
+        var s = ev.selection;
+        wrap.dispatchEvent(new CustomEvent('viaannotate', { detail: {
+          file: d.path || '',
+          start: String(s.startLineNumber),
+          end: String(s.endLineNumber)
+        }}));
+      });
+    } catch (e) {}
   });
 })();`
 
