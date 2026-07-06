@@ -62,4 +62,3 @@ No raster logo asset exists — the mark is constructed in code (see PacketMark 
 - `guidelines/` — the concept model (`concepts.md`), intellectual lineage (`lineage.md`), and copy voice (`voice.md`)
 - `components/` — a per-component catalog (`*.prompt.md`): purpose, variants, and usage for PacketCell, PacketMark, Chip, Button, Card, AnnotationCard, Titlebar, Timeline, Terminal
 - `assets/branding/` — the "built with via" footer badge SVG
-- `SKILL.md` — agent skill entry point
