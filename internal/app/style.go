@@ -515,6 +515,7 @@ body {
 .file-tree__file--deleted { color: var(--risk); text-decoration: line-through; }
 .file-tree__file--selected { background: var(--surface-raised); outline: 1px solid var(--signal); }
 .file-tree__counts { margin-left: auto; color: var(--text-muted); font-size: var(--fs-micro); }
+.file-tree__badge { margin-left: var(--sp-1); min-width: 15px; height: 15px; padding: 0 4px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: color-mix(in srgb, var(--signal) 16%, var(--surface-card)); color: var(--signal); font-size: var(--fs-micro); font-weight: 700; }
 .review-editor:empty { height: 0; border: 0; } /* no editor mounted → no empty box */
 /* the answer affordance: write a killing test + submit. Calm, in the surface idiom —
    a monospace input area + a quiet submit; the reward is the question vanishing, so

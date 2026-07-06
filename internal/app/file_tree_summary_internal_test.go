@@ -70,7 +70,7 @@ func TestRenderFileTree_headerSummarizesTheChangedFilesAndLineCounts(t *testing.
 		}},
 	)
 	tgt := ledger.Target{BaseRev: "b", FixRev: "f", Path: "a.go"}
-	body := renderHTML(t, renderFileTree(LiveConfig{RepoDir: "."}, tgt, 7, ""))
+	body := renderHTML(t, renderFileTree(LiveConfig{RepoDir: "."}, tgt, 7, "", nil))
 	assert.Contains(t, body, "file-tree__summary", "the summary header renders")
 	assert.Contains(t, body, "2 files · +8 −3", "the header totals the real diff, reusing the tree's own diff")
 }
@@ -85,7 +85,7 @@ func TestRenderFileTree_headerReflectsWhicheverDiffIsRendered(t *testing.T) {
 		diff.Diff{Files: []diff.FileDiff{{Path: "only.go", Added: 9, Deleted: 0}}},
 	)
 	tgt := ledger.Target{BaseRev: "b", FixRev: "f", Path: "only.go"}
-	body := renderHTML(t, renderFileTree(LiveConfig{RepoDir: "."}, tgt, 3, ""))
+	body := renderHTML(t, renderFileTree(LiveConfig{RepoDir: "."}, tgt, 3, "", nil))
 	assert.Contains(t, body, "1 file · +9 −0", "the header reflects this diff's real totals")
 	assert.NotContains(t, body, "2 files", "no other fixture's total leaks in")
 }
@@ -96,7 +96,7 @@ func TestRenderFileTree_headerReflectsWhicheverDiffIsRendered(t *testing.T) {
 func TestRenderFileTree_headerSaysNoChangesForAnEmptyDiff(t *testing.T) {
 	swapTreeSeams(t, nil, nil, diff.Diff{})
 	tgt := ledger.Target{BaseRev: "b", FixRev: "f"}
-	body := renderHTML(t, renderFileTree(LiveConfig{RepoDir: "."}, tgt, 1, ""))
+	body := renderHTML(t, renderFileTree(LiveConfig{RepoDir: "."}, tgt, 1, "", nil))
 	assert.Contains(t, body, "file-tree__summary", "the summary header renders even with nothing changed")
 	assert.Contains(t, body, "no changes")
 }
