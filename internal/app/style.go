@@ -506,6 +506,7 @@ body {
    the bronze accent, deletions the muted-mauve loss hue (both existing
    honest-state tokens — no new color), the open file a quiet raised background. */
 .file-tree { display: flex; flex-direction: column; gap: 2px; font-family: var(--font-mono); font-size: var(--fs-small); }
+.file-tree__summary { color: var(--text-muted); font-size: var(--fs-micro); padding: 0 var(--sp-1) var(--sp-1); margin-bottom: var(--sp-1); border-bottom: 1px solid var(--hairline); }
 .file-tree__dir { cursor: pointer; color: var(--text-muted); padding: 2px 0; }
 .file-tree__children { padding-left: var(--sp-3); border-left: 1px solid var(--hairline); margin-left: var(--sp-1); }
 .file-tree__file { display: flex; align-items: baseline; gap: var(--sp-1); padding: 1px var(--sp-1); color: var(--ink); text-decoration: none; border-radius: var(--r-glyph); }
