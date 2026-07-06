@@ -1,15 +1,6 @@
-<div align="center">
+# packets
 
-<img src="design/assets/branding/logo.svg" alt="packets" height="72">
-
-<p>
-  <a href="LICENSE"><img src="design/assets/branding/badge-license.svg" alt="license: MIT" height="20"></a>
-  <img src="design/assets/branding/badge-experimental.svg" alt="status: experimental" height="20">
-  <a href="https://github.com/joaomdsg/packets/actions/workflows/ci.yml"><img src="https://github.com/joaomdsg/packets/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" height="20"></a>
-  <a href="https://go-via.github.io/via"><img src="design/assets/branding/badge-built-with-via.svg" alt="built with via" height="20"></a>
-</p>
-
-</div>
+![status: research preview](https://img.shields.io/badge/status-research_preview-e6b23e)
 
 A control plane for agent-written code changes. Agents compose, verify, and
 forward changes ("packets") at line rate against machine-checkable contracts
@@ -90,7 +81,7 @@ signal path:
 - **read-models** (folded from the ledger) — `packet` (lane · handshake · gauntlet · hold), `review`, `reanchor`
 - **the gauntlet** — `diff`, `mutation`, `catch`, `cage` (the no-egress G6 sandbox), `sandbox`
 - **producing a packet** — `harness`, `translate`, `settle`, `orchestrator`, `pipe`, `ingest`, `assist`
-- **surfaces** — `surface` (view models), `app` (the console/inspector server + fleet board), `tokenstore`, `cmd/packets`
+- **surfaces** — `surface` (view models), `app` (the console/inspector server + fleet board), `tokenstore`, `cli` (flag parsing + subcommand dispatch), `cmd/packets` (the thin entrypoint shell)
 
 ## Testing
 
