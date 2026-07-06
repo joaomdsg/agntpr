@@ -52,7 +52,7 @@ Rules: outline → fill = promised → landed (same color at both ends = same ad
 
 ## ICONOGRAPHY
 
-No icon font, no SVG icon set. The brand's icons are **unicode glyphs set in Plex Mono**: ✎ (you/annotate), ⚑ (flag/guardrail), ● (live state), ◂ ▸ (pagers), ⧉ (scoped), ✱ (aside), ⇄ (split), ＋ (new), ✕ (clear), → (links, always trailing), ⌁ (held), ✓ (verified). Dots and 8px squares (border-radius 2px) are the packet-state markers. **The 15px rounded square with a letter (M/A/⚑) is the file-status glyph.** Never import an icon library; never draw SVG icons. The only SVG in the project is the "built with via" footer badge in `assets/branding/`.
+No icon font, no SVG icon set. The brand's icons are **unicode glyphs set in Plex Mono**: ✎ (you/annotate), ⚑ (flag/guardrail), ● (live state), ◂ ▸ (pagers), ⧉ (scoped), ✱ (aside), ⇄ (split), ＋ (new), ✕ (clear), → (links, always trailing), ⌁ (held), ✓ (verified). Dots and 8px squares (border-radius 2px) are the packet-state markers. **The 15px rounded square with a letter (M/A/⚑) is the file-status glyph.** Never import an icon library; never draw SVG icons. The project ships no SVG assets at all — the mark is constructed in code, never rasterized.
 
 No raster logo asset exists — the mark is constructed in code (see PacketMark component). This is deliberate: the mark is generative/stateful.
 
@@ -61,4 +61,3 @@ No raster logo asset exists — the mark is constructed in code (see PacketMark 
 - `styles.css` → `tokens/` (colors, typography, spacing, effects, base, fonts) — the visual-identity contract; port these values verbatim
 - `guidelines/` — the concept model (`concepts.md`), intellectual lineage (`lineage.md`), and copy voice (`voice.md`)
 - `components/` — a per-component catalog (`*.prompt.md`): purpose, variants, and usage for PacketCell, PacketMark, Chip, Button, Card, AnnotationCard, Titlebar, Timeline, Terminal
-- `assets/branding/` — the "built with via" footer badge SVG
