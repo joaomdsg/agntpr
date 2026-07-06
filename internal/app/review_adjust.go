@@ -1,10 +1,12 @@
 package app
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-via/via"
 	"github.com/go-via/via/h"
@@ -75,9 +77,24 @@ func (c *ReviewCard) AddAdjustment(ctx *via.Ctx) {
 			e.addAdjAnchor(file, line, codeLine, text)
 		}
 	}
+	// Persist the anchored comment as a DURABLE annotation before the dispatch, so
+	// the comment is recorded on the log (and folds into the review rail) even when
+	// the re-trigger below is refused for budget — the human said it, so it stays.
+	// The id is sequential over the session's existing annotations, giving each a
+	// stable handle a reply can target.
+	existing, _ := log.Annotations()
+	_ = log.AppendAnnotation(ledger.AnnotationRecord{
+		ID:        fmt.Sprintf("ann-%d", len(existing)+1),
+		File:      file,
+		StartLine: line,
+		Author:    "lead",
+		Body:      text,
+		AtUnixMs:  time.Now().UnixMilli(),
+	})
+
 	tgt := ledger.Target{BaseRev: head, Prompt: assist.ReviewTurnPrompt(file, line, codeLine, text)}
 	// Funded by attention bandwidth like any UI-authored live order; an over-budget
-	// meter is refused by the ledger and is a silent no-op.
+	// meter is refused by the ledger and is a silent no-op for the re-trigger.
 	if err := log.AppendLiveDispatch("liveorder", tgt, ownTargetOf(cfg)); err != nil {
 		return
 	}
