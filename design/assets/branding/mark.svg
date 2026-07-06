@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="73" height="73" viewBox="0 0 73 73" role="img" aria-label="packets">
+<title>packets</title>
+<!-- The locked 2x2 mark: TL/BL signal, TR ghost (composing), BR delivered -->
+<rect x="0" y="0" width="32" height="32" rx="7" fill="#4cc4d4"></rect>
+<rect x="0" y="41" width="32" height="32" rx="7" fill="#4cc4d4"></rect>
+<rect x="41" y="41" width="32" height="32" rx="7" fill="#2a7683"></rect>
+<rect x="43.5" y="2.5" width="27" height="27" rx="6" fill="rgba(42,118,131,0.08)" stroke="#2a7683" stroke-width="5"></rect>
+</svg>
