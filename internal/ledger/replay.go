@@ -29,6 +29,7 @@ type Projection struct {
 	unblocks    map[string]int64
 	bwSpent     int                  // total bandwidth debited (the meter's sink)
 	refinements []RefinedOrderRecord // dead-air sharpenings the backlog folds on read
+	annotations []AnnotationRecord   // durable comments+replies the Inspector folds into threads
 }
 
 // Bandwidth is the earned attention bandwidth: the sum of awards across every
@@ -98,6 +99,11 @@ func (p Projection) WorkOrders() []WorkOrderRecord { return p.orders }
 // Refinements is the refined-work-order ledger in append order — the sharpening
 // facts (split/criteria/convention) the backlog projection folds on read.
 func (p Projection) Refinements() []RefinedOrderRecord { return p.refinements }
+
+// Annotations is the durable annotation+reply ledger in append order — the
+// comments the Inspector's read model folds into threads (nesting replies under
+// their ParentID) on read.
+func (p Projection) Annotations() []AnnotationRecord { return p.annotations }
 
 // DispatchStatusCounts tallies the orders by CURRENT status (last status line
 // per id wins; an unknown status counts as queued), mirroring Log.
@@ -371,6 +377,12 @@ func foldEvents(events []fabric.Event) (Projection, error) {
 				return Projection{}, err
 			}
 			p.refinements = append(p.refinements, r)
+		case kindAnnotation:
+			a, err := DecodeAnnotation(e.Data)
+			if err != nil {
+				return Projection{}, err
+			}
+			p.annotations = append(p.annotations, a)
 		default:
 			return Projection{}, fmt.Errorf("ledger: replay encountered unknown event kind %q", kind)
 		}
