@@ -309,6 +309,23 @@ func (c *ReviewCard) View(_ *via.CtxR) h.H {
 		orderThreads := orderOpenThreads(navKey, woID)
 		annCounts := annotationCountsByFile(orderThreads)
 
+		// Durable human annotations (and their replies) are folded from the log and
+		// scoped to the files this packet actually changed, so the rail shows the
+		// conversation on this diff — not another packet's.
+		var annThreads []annotationThread
+		if anns, err := log.Annotations(); err == nil && len(anns) > 0 {
+			changed, _ := diffCompute(context.Background(), cfg.RepoDir, tgt.BaseRev, tgt.FixRev)
+			inDiff := make(map[string]bool, len(changed.Files))
+			for _, f := range changed.Files {
+				inDiff[f.Path] = true
+			}
+			for _, th := range foldAnnotationThreads(anns) {
+				if inDiff[th.Root.File] {
+					annThreads = append(annThreads, th)
+				}
+			}
+		}
+
 		left := renderInspectorEmptyTree()
 		var main []h.H
 		if hasTarget {
@@ -331,15 +348,19 @@ func (c *ReviewCard) View(_ *via.CtxR) h.H {
 		parts = append(parts, h.P(h.Class("review__lead"),
 			h.Text("Inspecting WO#"+strconv.Itoa(woID)+" — the packet's surviving mutants:")))
 
-		rail := []h.H{annotationRailHeader(len(orderThreads))}
-		if len(orderThreads) == 0 {
+		rail := []h.H{annotationRailHeader(len(orderThreads) + len(annThreads))}
+		if len(orderThreads) == 0 && len(annThreads) == 0 {
 			rail = append(rail, h.Div(h.Class("review__empty"),
 				h.Text("No open questions for this packet — the work left no surviving mutants (or it hasn't filled yet).")))
 		} else {
-			rail = append(rail, renderAnnotationCards(orderThreads)...)
-			// Answer the order's questions in-place: the editable pane, scoped to THIS
-			// order ($answerwo) so the re-run uses the order's revs, not the session's.
-			main = append(main, renderAnswerForm(orderThreads[0], woID))
+			if len(orderThreads) > 0 {
+				rail = append(rail, renderAnnotationCards(orderThreads)...)
+				// Answer the order's questions in-place: the editable pane, scoped to THIS
+				// order ($answerwo) so the re-run uses the order's revs, not the session's.
+				main = append(main, renderAnswerForm(orderThreads[0], woID))
+			}
+			// Durable human annotations + replies render beneath the oracle findings.
+			rail = append(rail, renderAnnotationThreads(annThreads)...)
 		}
 		// The adjustment entry point (DESIGN §12.3, the ✎ you-authored zone): leave an
 		// anchored comment and the live harness re-edits in place. Present on every
