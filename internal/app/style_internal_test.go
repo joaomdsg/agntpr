@@ -16,7 +16,7 @@ func TestReviewSubmit_doesNotRedeclareTheFullBorderShorthand(t *testing.T) {
 		".review-answer__submit must not re-declare the hairline border that .pk-btn already owns")
 }
 
-// Token port: the state grammar IS the product (MVP.md
+// Token port: the state grammar IS the product (the design system's
 // "Brand pack") — a wrong hex silently breaks the honest-state legibility the
 // whole design depends on, so the exact values are pinned, not just presence.
 func TestBaseStylesheet_definesStateGrammarTokensWithExactHexValues(t *testing.T) {
@@ -73,7 +73,7 @@ func TestBaseStylesheet_carriesNoLegacyPkTokens(t *testing.T) {
 		"no `--pk-` custom property may remain once the token port is complete")
 }
 
-// MVP.md marks --heading-cream, --glow-cta, --fs-h2, and --fs-h1 as
+// The design system marks --heading-cream, --glow-cta, --fs-h2, and --fs-h1 as
 // marketing-only ("never in-app"). A verbatim copy-paste of the design/tokens
 // source files would wrongly drag these into the product surface, so their
 // absence is pinned as its own contract, not just a review note.
@@ -82,7 +82,7 @@ func TestBaseStylesheet_excludesMarketingOnlyTokens(t *testing.T) {
 		t.Run(token, func(t *testing.T) {
 			t.Parallel()
 			require.NotContainsf(t, packetsStyle, token,
-				"%s is marketing-only (MVP.md) and must never reach the in-app stylesheet", token)
+				"%s is marketing-only and must never reach the in-app stylesheet", token)
 		})
 	}
 }

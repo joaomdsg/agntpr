@@ -61,7 +61,7 @@ func TestBaseStylesheet_stylesEveryVerdictAndLandState(t *testing.T) {
 }
 
 // The system layer promotes the brand-pack scale into named tokens (the
-// MVP.md port) and one shared component layer every surface hooks. We pin the
+// brand-pack token port) and one shared component layer every surface hooks. We pin the
 // token names + the canonical :focus-visible rule so the contract later
 // surfaces depend on cannot silently disappear. NOT parallel (shared
 // liveReg/liveFabric).

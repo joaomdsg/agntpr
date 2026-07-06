@@ -70,7 +70,7 @@ func (p Projection) Balance() int {
 	return p.balance
 }
 
-// InterruptsSince counts real interrupts (MVP.md concept 8) raised on or
+// InterruptsSince counts real interrupts raised on or
 // after since — one per distinct block id whose stamp meets the threshold,
 // reusing the SAME p.blocks fold Bandwidth() reads (first-block-stamp-wins
 // dedup, so a re-raised block never counts twice). Unlike Bandwidth, this

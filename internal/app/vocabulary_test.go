@@ -15,10 +15,11 @@ import (
 	"github.com/joaomdsg/packets/internal/ledger"
 )
 
-// bannedWordPattern matches any of MVP.md's retired vocabulary as a WHOLE word
+// bannedWordPattern is the source of truth for the retired vocabulary: it matches
+// any of those banned words as a WHOLE word
 // (optionally plural/possessive), case-insensitively — never a substring match,
 // so "coordinator" doesn't trip on "order" and "island" doesn't trip on "land".
-// "review" is banned only as a NOUN per MVP.md (the verb "inspect"/"review a
+// "review" is banned only as a NOUN (the verb "inspect"/"review a
 // packet" is fine) — this pattern can't distinguish the two, so it bans the
 // bare word outright: nothing in this app currently needs the verb form, and
 // a future false positive here is a cheap prompt to double-check it isn't the
@@ -40,7 +41,7 @@ func stripNonVisible(html string) string {
 }
 
 // assertNoBannedVocabulary fails with every offending word if surface (the
-// visible text of one page) still carries any of MVP.md's retired vocabulary.
+// visible text of one page) still carries any of the retired vocabulary.
 func assertNoBannedVocabulary(t *testing.T, surface, body string) {
 	t.Helper()
 	text := stripNonVisible(bodyOf(body))
@@ -89,7 +90,7 @@ func vocabularySweepFixture(t *testing.T, log *ledger.Log) {
 }
 
 // The Console, the fleet board, and the utility settings page must never
-// render MVP.md's retired vocabulary (PR/merge/approve/order/session/board/
+// render the retired vocabulary (PR/merge/approve/order/session/board/
 // oracle/verdict/land/bounced/draft/bench/spend/stock/balance/bet/LGTM) —
 // every packet lifecycle state is present in the fixture so the sweep
 // exercises the needs-you rail, the settled rail, and the in-flight strip

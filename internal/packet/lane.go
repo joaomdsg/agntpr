@@ -1,5 +1,5 @@
 // Package packet's lane mechanic derives a packet's QoS class from MEASURED
-// blast radius — never self-reported, never vibes (MVP.md concept 4). The
+// blast radius — never self-reported, never vibes. The
 // pure core (ImportGraph, BlastRadius, LaneFor) is host-side arithmetic over
 // a `go list` import graph; the exec seam (LoadImportGraph, ChangedPackages,
 // Measure) is the only part that shells out.

@@ -8,7 +8,7 @@ import "github.com/go-via/via/h"
 // board and card markup already emit, so it changes no server markup.
 func styleHead() h.H { return h.StyleEl(h.Raw(packetsStyle)) }
 
-// packetsStyle is the base visual language: the MVP.md brand pack (council
+// packetsStyle is the base visual language: the design system's brand pack (council
 // bootstrap 2026-07-04) ported verbatim from design/tokens/ — IBM Plex type,
 // a dense operational spacing rhythm, and the state grammar (signal / verified
 // / held / risk / agent / delivered) that IS the product. Color REINFORCES
@@ -211,7 +211,7 @@ body {
 .board-nav__sep { color: var(--text-muted); }
 .board-nav__key { color: var(--ink); }
 
-/* ---- the packets brand mark + lockup (MVP.md "Brand pack", locked) ----
+/* ---- the packets brand mark + lockup (the design system's brand pack, locked) ----
    Every dimension derives from the one --mark-cell custom property the Go
    helper sets inline, via calc() — so packetMark(cell) stays a pure function
    of one parameter, never a fixed-size CSS class per call site. */
@@ -453,7 +453,7 @@ body {
 /* box CSS (padding + surface + border + radius) now on .pk-card (multi-class);
    these keep only the shared bottom margin between stacked cards. The
    stock/balance/bandwidth/dispatch meter rows are RETIRED from the UI
-   (MVP.md vocabulary map) — their render helpers are gone,
+   (the vocabulary map) — their render helpers are gone,
    so no rule for them lives here anymore. */
 .beat-row, .review-card, .land-row, .onboarding {
   margin-bottom: var(--sp-3);
@@ -1050,7 +1050,7 @@ body {
 }
 .gauntlet-gate__detail { color: var(--text-faint); font-size: var(--fs-tiny); }
 .gauntlet-gate__confirm { margin-left: var(--sp-2); }
-/* the annotation card (MVP.md AnnotationCard spec): authorship is the 3px
+/* the annotation card (the design system's AnnotationCard spec): authorship is the 3px
    left border — --agent, since every open thread on the rail is oracle-
    authored. Overrides .review-thread's own thinner signal-hue accent
    (later in the stylesheet wins at equal specificity). */

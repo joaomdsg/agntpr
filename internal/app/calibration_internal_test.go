@@ -8,7 +8,7 @@ import (
 	"github.com/joaomdsg/packets/internal/packet"
 )
 
-// A calibration draw (MVP.md concept 8) must never invent a sample when
+// A calibration draw must never invent a sample when
 // nothing has forwarded on its own — the dashed empty state stays honest.
 func TestDrawCalibration_hasNothingToDrawFromAnEmptyAutoForwardedSet(t *testing.T) {
 	t.Parallel()
@@ -110,7 +110,7 @@ func TestDrawCalibration_isDeterministicWithASingleCandidate(t *testing.T) {
 	}
 }
 
-// "Auto-forwarded" (MVP.md concept 8) means State==Verified specifically — a
+// "Auto-forwarded" means State==Verified specifically — a
 // packet that reached Verified without ever being held. Any other lifecycle
 // state must never be eligible for the sample.
 func TestDrawCalibration_onlyConsidersAutoForwardedVerifiedPackets(t *testing.T) {

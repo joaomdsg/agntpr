@@ -29,8 +29,8 @@ func gitInitNoRemote(t testing.TB, dir string) {
 	require.NoError(t, exec.Command("git", "init", "-q", dir).Run())
 }
 
-// /review renders as the 3-column Inspector (252|1fr|312,
-// MVP.md) rather than a flat stack — the changed-files tree, the Monaco
+// /review renders as the 3-column Inspector (252|1fr|312)
+// rather than a flat stack — the changed-files tree, the Monaco
 // island, and the annotation rail are three distinct, hairline-bounded
 // regions. NOT parallel (shared liveReg/liveFabric).
 func TestReviewCard_rendersTheInspectorGridWithThreeRegionsSessionScoped(t *testing.T) {

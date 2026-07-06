@@ -10,7 +10,7 @@ import (
 )
 
 // gauntletGateRow names one of the six gates alongside its Gate value, in
-// G1..G6 order (MVP.md concept 5) — the fixed row order renderInspectorTimeline
+// G1..G6 order (the gauntlet's six gates) — the fixed row order renderInspectorTimeline
 // renders the gauntlet in.
 type gauntletGateRow struct {
 	name string
@@ -47,8 +47,8 @@ func shortRev(rev string) string {
 // when the scope folds to no single packet or nothing has been measured yet,
 // rendered honestly rather than omitted), and the repo addr (packet.ParseAddr
 // — owner/name, or the honest local/<dir> fallback). navHeader already
-// carries the brand mark + lockup, so this strip adds no second mark (MVP.md
-// Titlebar pattern).
+// carries the brand mark + lockup, so this strip adds no second mark (the
+// design system's Titlebar pattern).
 func renderInspectorTitlebar(scope, baseRev, fixRev string, addr packet.Addr, packetName string, lane packet.Lane) h.H {
 	parts := []h.H{
 		h.Class("inspector__titlebar"),
@@ -68,8 +68,8 @@ func renderInspectorTitlebar(scope, baseRev, fixRev string, addr packet.Addr, pa
 	return h.Div(parts...)
 }
 
-// renderInspectorGrid assembles the 3-column Inspector body (252px|1fr|312px,
-// MVP.md): the changed-files tree, the Monaco island + answer form, and the
+// renderInspectorGrid assembles the 3-column Inspector body (252px|1fr|312px):
+// the changed-files tree, the Monaco island + answer form, and the
 // annotation rail — each hairline-bounded, mirroring the Console shell's
 // region approach.
 func renderInspectorGrid(left, main h.H, rail []h.H) h.H {
@@ -91,10 +91,10 @@ func renderInspectorEmptyTree() h.H {
 }
 
 // renderInspectorTimeline is the Inspector's full-width footer: the six
-// gauntlet gates (MVP.md concept 5), one row each, in G1..G6 order. Every
+// gauntlet gates, one row each, in G1..G6 order. Every
 // row renders even when its status is GateNotRun — a real, honest absence,
 // never hidden (the replayable packet-life timeline itself is a later
-// slice; this footer is the gauntlet record MVP.md reserved it for).
+// slice; this footer is the gauntlet record the design reserved it for).
 // orderID>0 additionally renders the ConfirmIntentFidelity affordance
 // inline on the IntentFidelity row while that gate is still NotRun (the G1
 // human residual — a real action, never a computed gate); orderID<=0 (the
@@ -135,13 +135,13 @@ func renderGauntletGateRow(orderID int, row gauntletGateRow, canConfirm bool) h.
 }
 
 // annotationRailHeader renders the rail's kicker in the house voice
-// ("label · N" counts, MVP.md vocabulary map).
+// ("label · N" counts, the vocabulary map).
 func annotationRailHeader(n int) h.H {
 	return h.Div(h.Class("inspector__rail-header"), h.Text("annotations · "+strconv.Itoa(n)))
 }
 
 // renderAnnotationCard renders one open thread as an Inspector annotation
-// card (MVP.md AnnotationCard spec): an "agent" author chip (every open
+// card (the design system's AnnotationCard spec): an "agent" author chip (every open
 // thread here is an oracle finding, never user-authored), a severity chip
 // carrying the thread's Conventional-Comment tag, the file:line anchor in
 // mono, and the body as prose. It KEEPS the "review-thread" class and the

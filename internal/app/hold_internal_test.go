@@ -20,7 +20,7 @@ import (
 )
 
 // The needs-you rail must escalate a packet whose measured
-// Lane outgrew its authored handshake — MVP.md concept 4's "radius buys a
+// Lane outgrew its authored handshake — the lanes / measured-blast-radius rule's "radius buys a
 // STRONGER REQUIRED HANDSHAKE" has teeth only if a lane-floor breach actually
 // forces a hold, not just a data fact nobody looks at. This proves BOTH
 // halves of the app wiring: (1) BEFORE the lane is ever measured (no

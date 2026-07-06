@@ -12,7 +12,7 @@ import (
 )
 
 // Placing a live order with no handshake authored yet must be refused — the
-// handshake is the contract the agent's turn cannot touch (MVP.md concept 3),
+// handshake is the contract the agent's turn cannot touch,
 // so a live order with none is never dispatched. NOT parallel (shared
 // liveReg/liveFabric).
 func TestLiveCard_placeOrderRefusesALiveOrderWithNoHandshakeAuthored(t *testing.T) {

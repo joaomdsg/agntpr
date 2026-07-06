@@ -1,5 +1,5 @@
 // Package packet's handshake authoring model is the pure record shape for
-// MVP.md concept 3: a runnable contract authored independently of, and
+// the handshake: a runnable contract authored independently of, and
 // before, the agent's own code, living under a protected directory the
 // agent's turn cannot touch (enforced separately by internal/settle's
 // handshake/** deny-rule). This file's only I/O is the file write/read a
@@ -90,8 +90,8 @@ func WriteHandshake(repoDir, name, content string, strength HandshakeStrength) (
 }
 
 // VerifyHandshake re-reads h.Path and re-hashes it against h.Hash — the
-// content-hash check before gates run (MVP.md integrity invariant 2's
-// belt-and-suspenders alongside the settle deny-rule). A mismatch is an
+// content-hash check before gates run (the handshake content-hash-before-gates
+// invariant's belt-and-suspenders alongside the settle deny-rule). A mismatch is an
 // honest (false, nil): the file changed, which is a real finding, not a
 // programming error. A missing/unreadable file is (false, err): that is an
 // infra failure distinct from "it changed".

@@ -38,7 +38,7 @@ func TestRenderBeats_emptyBeforeAnyBeatShowsNoTempo(t *testing.T) {
 
 // The raw Kind values ("oracle-base", "land", …) are fine as the data-beat
 // attribute (an internal hook, asserted separately as its own row)
-// but must never leak into the VISIBLE text — MVP.md retires "oracle" and "land"
+// but must never leak into the VISIBLE text — "oracle" and "land" are retired
 // from every surface, and a beat row streaming live is real dynamic content a
 // static fixture sweep never exercises.
 func TestRenderBeats_visibleTextNeverLeaksRetiredVocabulary(t *testing.T) {

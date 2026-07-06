@@ -6,8 +6,9 @@ import (
 	"github.com/joaomdsg/packets/internal/packet"
 )
 
-// drawCalibration selects the Console's calibration sample (MVP.md concept
-// 8): a skim-worthy pick from the auto-forwarded set (packets whose State is
+// drawCalibration selects the Console's calibration sample (attention
+// economics — the calibration draw): a skim-worthy pick from the
+// auto-forwarded set (packets whose State is
 // Verified — reached that state without ever being held). The draw is
 // STABLE across renders — if previous still qualifies, it is kept verbatim
 // rather than re-rolled every poll tick — and only falls back to a fresh

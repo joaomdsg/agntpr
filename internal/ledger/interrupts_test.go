@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// The weekly interrupt KPI (MVP.md concept 8) must count REAL raised
+// The weekly interrupt KPI must count REAL raised
 // interrupts in a rolling window, not the earned-bandwidth fold Bandwidth()
 // already provides — a block that is still open (uncleared) never earns
 // bandwidth, but it already interrupted the Lead the moment it was raised.

@@ -173,8 +173,8 @@ func TestFold_returnsNoPacketsForNoViews(t *testing.T) {
 // Fold is a pure data->data projection over ledger views — it never shells
 // out to `go list`/git, so a folded Packet's Lane must stay Unmeasured until
 // something ELSE (the app's laneFor) computes and attaches
-// it. A Fold that guessed a lane would violate MVP.md's "never self-reported,
-// never vibes" invariant.
+// it. A Fold that guessed a lane would violate the never-self-reported /
+// never-vibes invariant.
 func TestFold_leavesLaneUnmeasuredSinceFoldNeverShellsOutToMeasureIt(t *testing.T) {
 	t.Parallel()
 
@@ -190,7 +190,7 @@ func TestFold_leavesLaneUnmeasuredSinceFoldNeverShellsOutToMeasureIt(t *testing.
 // populate any of the six gauntlet gates itself — that happens at the app
 // layer, per order, at render time (the app's gauntletFor), the same
 // division of labor as Lane above. A Fold that fabricated a gate result
-// would violate MVP.md's "no fabricated metrics" invariant.
+// would violate the no-fabricated-metrics invariant.
 func TestFold_leavesEveryGauntletGateNotRunSinceFoldNeverRunsGatesItself(t *testing.T) {
 	t.Parallel()
 

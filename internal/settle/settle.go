@@ -34,7 +34,7 @@ type Result struct {
 	SHA       string      // the new commit's full SHA (empty when nothing was committed)
 	Secrets   []SecretHit // non-empty when the commit was BLOCKED by a detected secret
 	// PathBlocks is non-empty when the commit was BLOCKED because the staged
-	// diff touches a protected path (e.g. handshake/**, MVP.md concept 3) —
+	// diff touches a protected path (e.g. handshake/**) —
 	// additive to Secrets: either alone blocks, both may be non-empty at once.
 	PathBlocks []PathHit
 	// Artifacts lists staged BINARY files in a minted revision — surfaced, never

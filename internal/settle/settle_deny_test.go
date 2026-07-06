@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// The handshake is authored independently of the agent's turn (MVP.md concept
-// 3) — a turn that touches it, however it touches it, must never land.
+// The handshake is authored independently of the agent's turn — a turn that
+// touches it, however it touches it, must never land.
 func TestSettle_blocksATurnThatAddsAFileUnderHandshake(t *testing.T) {
 	t.Parallel()
 	dir := initRepo(t)

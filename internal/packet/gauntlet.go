@@ -1,5 +1,5 @@
 // Package packet's gauntlet mechanic is the pure record shape for the six
-// gates a packet runs through (MVP.md concept 5): one explicit pipeline
+// gates a packet runs through: one explicit pipeline
 // record per packet, honest about which gates have real data behind them
 // today and which are a deliberate absence. This file holds ONLY the pure
 // core (types, String(), Forwardable, GateFromCatchOutcome) — no I/O, no
@@ -60,8 +60,8 @@ type Gate struct {
 	Detail string
 }
 
-// Gauntlet is the six-gate pipeline record for one packet (MVP.md concept
-// 5, G1..G6 in order). The zero value leaves every gate GateNotRun — the
+// Gauntlet is the six-gate pipeline record for one packet (G1..G6 in order).
+// The zero value leaves every gate GateNotRun — the
 // honest default for a packet nothing has gauntleted yet.
 type Gauntlet struct {
 	IntentFidelity       Gate // G1: the human residual (Inspector affordance).

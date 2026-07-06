@@ -31,7 +31,7 @@ type Packet struct {
 	// folded Packet starts at the honest zero value, LaneUnmeasured, until
 	// the app layer measures and attaches one (laneFor).
 	Lane Lane
-	// Gauntlet is the packet's six-gate pipeline record (MVP.md concept 5).
+	// Gauntlet is the packet's six-gate pipeline record.
 	// Fold NEVER populates it — G3/G4 need a catch outcome and a build/vet
 	// exec respectively, neither of which Fold has access to — so every
 	// folded Packet starts at the honest zero value (all six gates

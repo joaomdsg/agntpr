@@ -9,7 +9,7 @@ import (
 )
 
 // handshakeTestTimeout bounds `go test ./handshake/...` — the handshake is
-// meant to run at line rate (MVP.md concept 3), so a wedged run must never
+// meant to run at line rate, so a wedged run must never
 // hang the caller.
 const handshakeTestTimeout = 30 * time.Second
 
@@ -18,7 +18,7 @@ const handshakeTestTimeout = 30 * time.Second
 // human authored one; its absence is not "unmeasured"), never GateNotRun.
 const notFoundDetail = "handshake test package not found at this revision"
 
-// RunHandshakeGate is G2 (handshake conformance — MVP.md concept 5): once a
+// RunHandshakeGate is G2 (handshake conformance): once a
 // handshake exists, it materializes fixRev into a THROWAWAY git worktree
 // (mirroring RunBuildVetGate's worktree pattern exactly) and runs
 // `go test ./handshake/...` inside it. handshakePath=="" means no handshake

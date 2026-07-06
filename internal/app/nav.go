@@ -60,7 +60,7 @@ func navHeader(key, sub string) h.H {
 		h.Attr("aria-label", "primary"),
 		// 8px cells trigger the mark's small-size rule (nav chrome never carries the
 		// ghost outline) — the stacked lockup is the ONLY wordmark form allowed
-		// beside this breadcrumb (MVP.md brand pack).
+		// beside this breadcrumb (the brand pack).
 		h.A(h.Href("/board"), h.Class("board-nav__home"), packetLockup(8, sub)),
 		h.Div(crumb...),
 	)

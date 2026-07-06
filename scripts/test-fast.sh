@@ -8,7 +8,7 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-# TMPDIR off tmpfs: cage tests fill /tmp (see LOOP.md). Env-overridable,
+# TMPDIR off tmpfs: cage tests fill /tmp. Env-overridable,
 # default matches the existing gate.
 export TMPDIR="${TMPDIR_OVERRIDE:-/home/jgonc/tmp}"
 mkdir -p "$TMPDIR"

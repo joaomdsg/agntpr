@@ -115,7 +115,7 @@ func renderNeedsYouRail(navKey string, packets []packet.Packet) h.H {
 }
 
 // renderCalibrationCard draws the Console's calibration sample
-// (MVP.md concept 8): a real skim link into an auto-forwarded
+// (the calibration draw): a real skim link into an auto-forwarded
 // (Verified) packet when one exists — cached per-session (liveEntry.calibMu)
 // so the draw stays STABLE across the 100ms poll's re-renders rather than
 // re-rolling on every tick — or the honest dashed empty state when nothing
@@ -231,7 +231,8 @@ func renderInFlightStrip(packets []packet.Packet) h.H {
 
 // laneHealthBuckets is the fixed, honest display order of the lane-health
 // grid's cards — every bucket always renders, even at zero, so an empty
-// bucket is never mistaken for a missing mechanic (MVP.md invariant 6).
+// bucket is never mistaken for a missing mechanic (the honest-empty-state
+// invariant).
 var laneHealthBuckets = []packet.Lane{
 	packet.LaneBestEffort, packet.LaneStandard, packet.LaneStrict, packet.LaneUnmeasured,
 }
@@ -290,7 +291,7 @@ func firstWords(s string, n int) string {
 // verified, held, and delivered packets — a run failure IS settled-red, only
 // composing/in-flight packets are excluded — each a lifecycle-colored state
 // square + Name + one-word state, or the dashed empty state when nothing has
-// settled. Below it, "your watches" (MVP.md concept 6): the
+// settled. Below it, "your watches" (standing inspection): the
 // three canonical standing triggers, each with a real precision score folded
 // from human fired-vs-useful marks — "no history yet" until one exists,
 // never a fabricated score.

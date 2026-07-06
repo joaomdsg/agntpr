@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="82" height="28" role="img" aria-label="© joaomdsg">
-<title>© joaomdsg</title>
-<clipPath id="rr"><rect width="82" height="28" rx="4" fill="#fff"></rect></clipPath>
-<g clip-path="url(#rr)">
-<rect width="82" height="28" fill="#141924"></rect>
-<rect x="0.5" y="0.5" width="81" height="27" rx="3.5" fill="none" stroke="rgba(255,255,255,.08)"></rect>
-</g>
-<text x="11" y="18.5" fill="#616b7c" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-weight="500" font-size="9" letter-spacing="0.3">© joaomdsg</text>
-</svg>

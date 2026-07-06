@@ -13,8 +13,8 @@ type PathHit struct {
 	Rule string
 }
 
-// handshakeDenyGlobs is the protected-path rule set: the handshake (MVP.md
-// concept 3) lives under handshake/ and the agent's turn must never touch it,
+// handshakeDenyGlobs is the protected-path rule set: the handshake lives under
+// handshake/ and the agent's turn must never touch it,
 // however it touches it. A package-level var so it can be extended without
 // touching the scan logic, mirroring secretRules.
 var handshakeDenyGlobs = []string{"handshake/**"}

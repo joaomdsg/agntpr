@@ -219,7 +219,7 @@ type liveEntry struct {
 	// into the editor's rewrite payload so Monaco swaps to it. Ephemeral, OFF the
 	// economy ledger (a diagnostic, like analysis). Guarded by findingsMu.
 	rewrite string
-	// pendingHandshake is the handshake (MVP.md concept 3) AuthorHandshake wrote for
+	// pendingHandshake is the handshake AuthorHandshake wrote for
 	// the NEXT live order this session places — PlaceOrder folds its Path/Hash/
 	// Strength into the dispatched Target, then CONSUMES it (clears it back to nil),
 	// so a later order can never silently reuse an earlier one's contract. Ephemeral,
@@ -272,7 +272,7 @@ type liveEntry struct {
 	// laneMu guards laneCache: an order's measured Lane, computed via
 	// packet.Measure (an exec seam — `go list` + git) at most once per order
 	// id. A fixRev change mints a new order id (the identity
-	// model), so there is no staleness to invalidate for MVP. Separate from
+	// model), so there is no staleness to invalidate at this stage. Separate from
 	// findingsMu since it guards an unrelated, exec-derived cache with a much
 	// higher per-entry cost — a lock a render might hold across a subprocess
 	// call must never also block the cheap off-ledger diagnostic reads above.
@@ -298,7 +298,7 @@ type liveEntry struct {
 	// is out of scope this slice).
 	intentFidelityConfirmed map[int]packet.Gate
 	// calibMu guards calibDraw: this session's currently-cached calibration
-	// sample (MVP.md concept 8) — the drawn packet id, kept STABLE across
+	// sample (the calibration draw) — the drawn packet id, kept STABLE across
 	// renders (drawCalibration) until it ages out of the auto-forwarded set.
 	// Separate from findingsMu/laneMu: a render-cheap, rarely-changing value
 	// with no reason to contend with either's own traffic.
@@ -312,7 +312,7 @@ type liveEntry struct {
 	// together with orderFindings in settleCatch.
 	orderCatch map[int]orderCatchOutcome
 	// watchMu guards watchFires: this session's standing-watch history
-	// (MVP.md concept 6). Pure in-memory bookkeeping — an
+	// (standing inspection). Pure in-memory bookkeeping — an
 	// append/read over a slice, no exec — so, like calibMu, there is no
 	// reason to share findingsMu/laneMu's own traffic. Off the ledger: no
 	// persisted event kind for a fire/mark exists yet (a deferral matching
@@ -378,7 +378,7 @@ func (e *liveEntry) confirmIntentFidelity(orderID int, navKey string) {
 
 // standingWatchKinds is the three canonical, pre-defined STANDING triggers
 // (packet.WatchKind's fixed set) evaluated every render — not an
-// author-your-own DSL, per MVP.md concept 6's bounded-scope design.
+// author-your-own DSL, per standing inspection's bounded-scope design.
 var standingWatchKinds = []packet.WatchKind{
 	packet.WatchStrictLane, packet.WatchGateFailure, packet.WatchBlockingHold,
 }
@@ -453,13 +453,13 @@ func (e *liveEntry) markWatchFire(kind packet.WatchKind, packetID int, useful bo
 // handshake authored at all (p.HandshakePath == "").
 var notMeasuredNoHandshake = packet.Gate{Status: packet.GateNotRun, Detail: "not measured — no handshake yet"}
 
-// handshakeConformanceGate computes G2 (MVP.md concept 5): the honest
+// handshakeConformanceGate computes G2 (one of the gauntlet's six gates): the honest
 // no-handshake sentinel when p carries none, otherwise packet.RunHandshakeGate
 // overridden to a hard fail when packet.VerifyHandshake finds the LIVE
 // handshake file (under repoDir, independent of any particular fix revision)
 // no longer matches its authored-time hash — integrity wins over a stale pass
-// (MVP.md integrity invariant 2's belt-and-suspenders alongside the settle
-// deny-rule). A VerifyHandshake ERROR (file gone/unreadable, distinct from a
+// (the handshake content-hash-before-gates invariant's belt-and-suspenders
+// alongside the settle deny-rule). A VerifyHandshake ERROR (file gone/unreadable, distinct from a
 // confirmed mismatch) is not treated as a mismatch: the fix revision's own
 // test-run result stands, since an infra fact about the live file is not
 // itself a fabricated finding about the revision under gate.
@@ -493,7 +493,7 @@ func (e *liveEntry) cachedGauntletEntry(orderID int) (packet.Gauntlet, bool) {
 	return g, ok
 }
 
-// gauntletFor returns p's gauntlet record (MVP.md concept 5's six gates),
+// gauntletFor returns p's gauntlet record (the gauntlet's six gates),
 // computing (and caching) G3/G4 on the first call to observe a cache miss
 // for this order id — mirrors laneFor exactly, including the "no fix
 // revision yet → answer honestly WITHOUT caching" rule (a live prompt order
@@ -1340,7 +1340,7 @@ type LiveCard struct {
 	// read by PlaceOrder to fund a prompt-carrying live order (vs drawing a pre-baked
 	// backlog target). Per-tab signal, not authoritative session state.
 	OrderPrompt via.SignalStr `via:"orderprompt"`
-	// HandshakeDraft/HandshakeStrengthPick carry the handshake (MVP.md concept 3) the
+	// HandshakeDraft/HandshakeStrengthPick carry the handshake the
 	// Lead composes BEFORE placing a live order — a runnable contract authored
 	// independently of the agent's own code, written under the protected handshake/
 	// directory (internal/settle's deny-rule then refuses any later agent turn that
@@ -1407,7 +1407,7 @@ type LiveCard struct {
 	// so the frame always fans out even when the fundable target list is unchanged.
 	Bench via.StateTabStr
 	// MarkWatchKind/MarkWatchWO/MarkUseful carry a standing watch's mark prompt
-	// (MVP.md concept 6): which WatchKind (its int value, as a
+	// (standing inspection): which WatchKind (its int value, as a
 	// string), which packet id, and the human's usefulness judgment ("true"/
 	// "false"). Read by MarkWatchFire, which finds that (kind, packet)'s
 	// unmarked fire and records the judgment — Precision is computed from real
@@ -1558,7 +1558,7 @@ func (c *LiveCard) View(ctx *via.CtxR) h.H {
 		parts = append(parts, h.Section(append(section, actNow...)...))
 	}
 	// The economy meter rows (stock/balance/bandwidth/dispatch) are RETIRED from
-	// the UI (MVP.md vocabulary map) — the underlying ledger
+	// the UI (the vocabulary map) — the underlying ledger
 	// reads above still feed renderFundWork/onboarding (their reframe is a
 	// separate effort), but nothing renders them as a row here anymore.
 	state := []h.H{
@@ -1725,7 +1725,7 @@ func (c *LiveCard) FundChosen(ctx *via.Ctx) {
 // an over-budget balance is a silent no-op (never a funded order with no task, no
 // tree, or no catch to spend). A live order additionally REQUIRES a
 // handshake authored first (AuthorHandshake) — the contract is authored
-// independently of, and before, the agent's own code (MVP.md concept 3), so a live
+// independently of, and before, the agent's own code, so a live
 // order with none is refused (funding nothing) and leaves an honest inline message
 // for the Lead, rather than dispatching an agent turn with no contract to gate it. A
 // PRE-FUNDED order (FundChosen, Prompt=="") predates this concept and is untouched.

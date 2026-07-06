@@ -8,7 +8,8 @@ import "time"
 const weeklyInterruptCap = 10
 
 // weeklyInterrupts reports key's session real interrupt count over the
-// trailing 7 days (used) against the fixed weekly cap (MVP.md concept 8). used
+// trailing 7 days (used) against the fixed weekly cap (attention economics —
+// the interrupt budget). used
 // traces to ledger.Log.InterruptsSince — never fabricated — and is honestly 0
 // for a session with no bound ledger.
 func weeklyInterrupts(key string) (used, cap int) {

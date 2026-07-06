@@ -265,7 +265,7 @@ func TestLiveCard_addrLineRendersTheLocalFallbackForARemotelessRepo(t *testing.T
 }
 
 // The four retired economy meter rows (stock/balance/
-// bandwidth/dispatch) must never render on the console — MVP.md retires them
+// bandwidth/dispatch) must never render on the console — these are retired
 // from the UI outright. NOT parallel (shared liveReg/liveFabric).
 func TestLiveCard_economyMeterRowsAreGoneFromTheConsole(t *testing.T) {
 	server, _ := bootDefaultServer(t, defaultBootCfg)

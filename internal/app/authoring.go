@@ -185,7 +185,7 @@ func (c *LiveCard) UpdateDraft(ctx *via.Ctx) {
 
 // parseHandshakeStrength maps the compose card's strength pick to a
 // packet.HandshakeStrength, reporting ok=false for a blank/unrecognized pick
-// — strength is SELF-DECLARED by the Lead (MVP.md concept 3's gradient),
+// — strength is SELF-DECLARED by the Lead (the handshake's strength gradient),
 // never inferred or defaulted, so an unrecognized pick is refused rather
 // than silently coerced to some default rung.
 func parseHandshakeStrength(s string) (packet.HandshakeStrength, bool) {
@@ -199,7 +199,7 @@ func parseHandshakeStrength(s string) (packet.HandshakeStrength, bool) {
 	}
 }
 
-// AuthorHandshake writes the handshake (MVP.md concept 3) the Lead composed in the
+// AuthorHandshake writes the handshake the Lead composed in the
 // compose card's handshake control to the protected handshake/ directory —
 // internal/settle's deny-rule then refuses any LATER agent turn that touches it,
 // so the contract is authored independently of, and before, the live order's own
@@ -260,7 +260,7 @@ func renderAuthoring(c *LiveCard) h.H {
 	return h.Div(parts...)
 }
 
-// renderHandshakeAuthoring is the handshake compose control (MVP.md concept 3):
+// renderHandshakeAuthoring is the handshake compose control:
 // a plain textarea + a self-declared strength pick, bound directly (data-bind,
 // no CustomEvent bridge — unlike the Monaco draft editor, this is a small plain
 // form) and posted to AuthorHandshake. authored reflects whether the session

@@ -6,7 +6,7 @@ import (
 	"github.com/go-via/via/h"
 )
 
-// smallMarkThreshold is the LOCKED small-size rule (MVP.md brand pack): below
+// smallMarkThreshold is the LOCKED small-size rule (the brand pack): below
 // this cell size the ghost-outline TR cell's 18%-of-cell stroke goes
 // sub-pixel and reads as noise rather than a composing state, so it falls
 // back to a solid --delivered-mid fill instead.
@@ -51,7 +51,7 @@ func packetMarkCells(cell int, held bool) h.H {
 // packetLockup is the compact in-chrome brand lockup: the mark plus a
 // stacked "packets" wordmark over a per-surface sub label (e.g. "console").
 // This is the ONLY wordmark form allowed beside a breadcrumb — the locked
-// full inline wordmark form must never share a row with one (MVP.md brand
+// full inline wordmark form must never share a row with one (the brand
 // pack). sub is passed through as lowercase content; packetsStyle uppercases
 // it visually via text-transform, so the source copy stays lowercase per the
 // house voice rule.

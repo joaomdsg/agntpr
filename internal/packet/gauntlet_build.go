@@ -26,7 +26,7 @@ const detailTailLimit = 200
 // and gets its own message, never this one.
 const notRunNoRevision = "no revision to build yet"
 
-// RunBuildVetGate is G4 (build/vet/lint — MVP.md concept 5): it materializes
+// RunBuildVetGate is G4 (build/vet/lint): it materializes
 // fixRev into a THROWAWAY git worktree (never repoDir's own working tree,
 // so a concurrent caller or a dirty checkout can never leak into the
 // result) and runs `go build ./...` then `go vet ./...` inside it, bounded

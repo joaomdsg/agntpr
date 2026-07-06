@@ -1,14 +1,14 @@
-// Package packet's watch mechanic is the STANDING inspection mode (MVP.md
-// concept 6): a fixed set of pre-defined triggers, each evaluated against
+// Package packet's watch mechanic is the STANDING inspection mode: a fixed
+// set of pre-defined triggers, each evaluated against
 // real packet facts, each carrying a precision score computed from real
 // human fired-vs-useful history — never a fabricated score, and never a
 // human-authored condition nobody has verified. A trigger that proves
 // mostly noise loses the right to interrupt (IsNoisy).
 package packet
 
-// WatchKind names one of the three canonical STANDING triggers (MVP.md
-// concept 6 / design/guidelines/concepts.md's "watches/capture triggers,
-// each carrying a precision score"). These are pre-defined, not an
+// WatchKind names one of the three canonical STANDING triggers
+// (design/guidelines/concepts.md's "watches/capture triggers, each carrying
+// a precision score"). These are pre-defined, not an
 // author-your-own DSL — that keeps the mechanic honest and bounded: every
 // watch's predicate is a fixed, auditable rule over facts this package
 // already computes, never a free-form condition nobody has verified.
@@ -91,8 +91,8 @@ func Precision(fires []WatchFire, kind WatchKind) (score float64, sampled int, o
 	return float64(usefulCount) / float64(sampled), sampled, true
 }
 
-// IsNoisy reports whether a watch has lost the right to interrupt (MVP.md
-// concept 6: "noisy triggers lose the right to interrupt"). A trigger needs
+// IsNoisy reports whether a watch has lost the right to interrupt ("noisy
+// triggers lose the right to interrupt"). A trigger needs
 // a real sample before judgment (sampled >= 5 — a handful of marks is
 // enough to distrust it, but a single unlucky mark isn't) AND a majority of
 // its marked fires must have been useless (score < 0.5) — losing the

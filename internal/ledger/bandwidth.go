@@ -212,8 +212,8 @@ func (l *Log) Bandwidth() (int, error) {
 	return p.Bandwidth(), nil
 }
 
-// InterruptsSince counts real interrupts raised since the given time (MVP.md
-// concept 8's weekly interrupt budget) — see Projection.InterruptsSince for
+// InterruptsSince counts real interrupts raised since the given time (the
+// weekly interrupt budget) — see Projection.InterruptsSince for
 // the fold. Distinct from Bandwidth: a block counts here the moment it is
 // raised, regardless of whether it has since been cleared.
 func (l *Log) InterruptsSince(since time.Time) (int, error) {

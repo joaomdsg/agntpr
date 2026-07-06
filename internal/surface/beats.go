@@ -23,7 +23,7 @@ func RenderBeats(beats string) h.H {
 }
 
 // beatLabel maps a beat's raw Kind (the wire/attribute identifier, unchanged) to
-// vocabulary-clean VISIBLE text — MVP.md retires "oracle" and "land" from every
+// vocabulary-clean VISIBLE text — "oracle" and "land" are retired from every
 // surface, but the identifier itself stays as-is since it is never rendered as
 // prose (only as the data-beat attribute other code and tests key off).
 func beatLabel(kind string) string {

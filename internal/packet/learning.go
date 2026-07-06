@@ -20,7 +20,7 @@ func SettledCount(packets []Packet) int {
 }
 
 // Converged reports whether a repo has accumulated enough real settled
-// history to call its learning period over (MVP.md: a repo new to Packets
+// history to call its learning period over (a repo new to Packets
 // starts in "learning," never in a fabricated converged state).
 func Converged(packets []Packet) bool {
 	return SettledCount(packets) >= LearningThreshold

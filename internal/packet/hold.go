@@ -1,5 +1,5 @@
-// Package packet's hold mechanic is the composition point for MVP.md concept
-// 6 (forward/hold): the RULES that turn a measured Lane and a computed
+// Package packet's hold mechanic is the composition point for the
+// forward/hold concept: the RULES that turn a measured Lane and a computed
 // Gauntlet into an escalated hold, layered on top of the lifecycle-hold
 // baseline Fold already sets (packet.go). This file is pure — no I/O, no
 // exec — because Lane and Gauntlet are populated OUTSIDE Fold, in the app
@@ -9,7 +9,7 @@
 package packet
 
 // LaneFloor is the minimum HandshakeStrength a lane's blast radius REQUIRES
-// (MVP.md concept 4: "radius buys... a stronger required handshake").
+// (radius buys... a stronger required handshake).
 // LaneIrreversible is unreachable from LaneFor today (see lane.go), but its
 // floor is defined now so ReconcileHold is already correct the day
 // irreversibility becomes measurable.
@@ -63,9 +63,9 @@ func firstFailedGate(g Gauntlet) (detail string, ok bool) {
 	return "", false
 }
 
-// ReconcileHold is the composition point for MVP.md concept 6: called by the
-// app AFTER Lane and Gauntlet are attached to p (Fold alone cannot do this —
-// see the package doc), it escalates p's lifecycle-hold baseline toward
+// ReconcileHold is the composition point for the forward/hold concept: called
+// by the app AFTER Lane and Gauntlet are attached to p (Fold alone cannot do
+// this — see the package doc), it escalates p's lifecycle-hold baseline toward
 // blocking when a lane-floor breach or a hard gate failure demands it, and
 // otherwise leaves p exactly as Fold set it. Precedence is fixed and
 // escalate-only — a later rule never de-escalates what an earlier one (or
