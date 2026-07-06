@@ -31,9 +31,38 @@ func renderFileTree(cfg LiveConfig, tgt ledger.Target, woID int, selected string
 		allPaths = changedPaths(changed)
 	}
 	root := buildFileTree(allPaths, changed)
-	kids := append([]h.H{h.Class("file-tree"), h.Attr("aria-label", "changed files")},
-		renderTreeChildren(root.children, woID, selected)...)
+	files, added, deleted := changedSummary(changed)
+	kids := []h.H{h.Class("file-tree"), h.Attr("aria-label", "changed files"),
+		h.Div(h.Class("file-tree__summary"), h.Text(formatChangedSummary(files, added, deleted)))}
+	kids = append(kids, renderTreeChildren(root.children, woID, selected)...)
 	return h.Div(kids...)
+}
+
+// changedSummary totals the base→fix diff: the number of changed files and the
+// summed added / deleted line deltas across them. Pure over the diff the tree
+// already computed, so the header can never disagree with the leaves below it.
+func changedSummary(d diff.Diff) (files, added, deleted int) {
+	for _, f := range d.Files {
+		added += f.Added
+		deleted += f.Deleted
+	}
+	return len(d.Files), added, deleted
+}
+
+// formatChangedSummary renders the diff stat as "N files · +A −B" (U+2212 minus,
+// matching countLabel so the header and the per-leaf counts share one glyph).
+// The "no changes" case keys on the FILE count, not the line deltas — a
+// pure-rename touches real files with zero +/− lines and must still be reported,
+// never hidden behind "no changes".
+func formatChangedSummary(files, added, deleted int) string {
+	if files == 0 {
+		return "no changes"
+	}
+	noun := "files"
+	if files == 1 {
+		noun = "file"
+	}
+	return strconv.Itoa(files) + " " + noun + " · +" + strconv.Itoa(added) + " −" + strconv.Itoa(deleted)
 }
 
 func changedPaths(d diff.Diff) []string {
