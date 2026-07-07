@@ -325,6 +325,8 @@ body {
 .analysis__flags-label { color: var(--text-muted); font-size: var(--fs-small); }
 .analysis__flag { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-2); }
 .analysis__flag-severity { align-self: flex-start; font-size: var(--fs-micro); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--held); }
+.analysis__flag-head { display: flex; align-items: center; gap: var(--sp-2); }
+.analysis__flag-where { margin-left: auto; color: var(--text-faint); font-size: var(--fs-micro); }
 .analysis__flag-note { color: var(--ink); font-size: var(--fs-small); }
 .analysis__questions-label { color: var(--text-muted); font-size: var(--fs-small); }
 /* each question is now an answerable form block (text + choices + a note), so the
