@@ -1,6 +1,7 @@
 # packets
 
 ![status: research preview](https://img.shields.io/badge/status-research_preview-e6b23e)
+[![CI](https://github.com/joaomdsg/packets/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/joaomdsg/packets/actions/workflows/ci.yml)
 
 A control plane for agent-written code changes. Agents compose, verify, and
 forward changes ("packets") at line rate against machine-checkable contracts
