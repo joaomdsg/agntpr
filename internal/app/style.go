@@ -324,6 +324,8 @@ body {
 .analysis__readiness[data-state="ready"] { color: var(--signal); }
 .analysis__flags-label { color: var(--text-muted); font-size: var(--fs-small); }
 .analysis__flag { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-2); }
+.analysis__flag--nav { cursor: pointer; }
+.analysis__flag--nav:hover { border-color: color-mix(in srgb, var(--signal) 40%, var(--hairline)); }
 .analysis__flag-severity { align-self: flex-start; font-size: var(--fs-micro); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--held); }
 .analysis__flag-head { display: flex; align-items: center; gap: var(--sp-2); }
 .analysis__flag-where { margin-left: auto; color: var(--text-faint); font-size: var(--fs-micro); }

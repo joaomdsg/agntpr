@@ -38,7 +38,7 @@ func TestRenderHighlightCards_showsEachFlagsNoteSeverityAndLine(t *testing.T) {
 		{Start: 14, End: 20, Note: "no recovery path specified", Severity: "gap"},
 	})
 	body := renderHTMLNodes(t, cards)
-	assert.Equal(t, 2, strings.Count(body, "analysis__flag\""), "one card per flagged span")
+	assert.Equal(t, 2, strings.Count(body, "analysis__flag--nav"), "one card per flagged span")
 	assert.Contains(t, body, "vague: what is a legitimate burst?")
 	assert.Contains(t, body, "question", "the flag's severity tags it")
 	assert.Contains(t, body, "no recovery path specified")
@@ -57,7 +57,7 @@ func TestRenderHighlightCards_skipsAFlagWithNoReadableNote(t *testing.T) {
 		{Start: 8, End: 9, Note: "real note", Severity: "note"},
 	})
 	body := renderHTMLNodes(t, cards)
-	assert.Equal(t, 1, strings.Count(body, "analysis__flag\""), "only the flag with something to say renders")
+	assert.Equal(t, 1, strings.Count(body, "analysis__flag--nav"), "only the flag with something to say renders")
 	assert.Contains(t, body, "real note")
 }
 
@@ -66,10 +66,32 @@ func TestRenderHighlightCards_skipsAFlagWithNoReadableNote(t *testing.T) {
 func TestRenderHighlightCards_rendersANoteWithoutAStraySeverityTag(t *testing.T) {
 	cards := renderHighlightCards(flagDraft, []assist.Highlight{{Start: 0, End: 3, Note: "untagged but real"}})
 	body := renderHTMLNodes(t, cards)
-	assert.Equal(t, 1, strings.Count(body, "analysis__flag\""))
+	assert.Equal(t, 1, strings.Count(body, "analysis__flag--nav"))
 	assert.Contains(t, body, "untagged but real")
 	assert.Contains(t, body, "line 1", "even an untagged flag names where it is")
 	assert.NotContains(t, body, "analysis__flag-severity", "no severity → no empty tag element")
+}
+
+// A flag card carries its byte offsets so a click can reveal the exact span in
+// the compose editor — the card→editor navigation the exploration's cards offer,
+// keyed on the real offsets (never a fabricated position).
+func TestRenderHighlightCards_carriesOffsetsForEditorNavigation(t *testing.T) {
+	cards := renderHighlightCards(flagDraft, []assist.Highlight{{Start: 12, End: 20, Note: "here"}})
+	body := renderHTMLNodes(t, cards)
+	assert.Contains(t, body, `data-start="12"`, "the card carries the flag's start offset")
+	assert.Contains(t, body, `data-end="20"`, "and its end offset, so a click reveals the exact span")
+	assert.Contains(t, body, "analysis__flag--nav", "the card is marked navigable")
+}
+
+// The compose surface wires navigable flag cards to the editor: a delegated
+// click on a flag reveals its span via the editor's offset→position mapping.
+// (Runtime behavior is browser-verified; this pins the wiring is emitted so it
+// can't silently disappear.)
+func TestComposeSurface_wiresFlagCardsToRevealTheirSpan(t *testing.T) {
+	body := renderHTML(t, composeSurface(&draftAnalysis{Draft: "d", Result: &assist.Analysis{Summary: "s"}}, ""))
+	assert.Contains(t, body, "analysis__flag--nav", "the reveal handler targets navigable flag cards")
+	assert.Contains(t, body, "revealRangeInCenter", "clicking a flag reveals its span in the editor")
+	assert.Contains(t, body, "getPositionAt", "the flag's byte offsets convert to editor positions")
 }
 
 // No flags → no cards; a clean draft's panel shows none.

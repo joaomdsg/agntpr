@@ -447,8 +447,13 @@ func renderHighlightCards(draft string, hs []assist.Highlight) []h.H {
 		}
 		head = append(head, h.Span(h.Class("analysis__flag-where"),
 			h.Text("line "+strconv.Itoa(lineOfOffset(draft, hl.Start)))))
+		// The card carries the flag's byte offsets so a delegated click can reveal the
+		// exact span in the compose editor (analysis__flag--nav marks it navigable) —
+		// keyed on the real offsets, converted to editor positions client-side.
 		out = append(out, h.Div(
-			h.Class("pk-card analysis__flag"),
+			h.Class("pk-card analysis__flag analysis__flag--nav"),
+			h.Data("start", strconv.Itoa(hl.Start)),
+			h.Data("end", strconv.Itoa(hl.End)),
 			h.Div(head...),
 			h.Span(h.Class("analysis__flag-note"), h.Text(note)),
 		))
@@ -578,6 +583,23 @@ const authoringEditorJS = `(function(){
         answers.push({ Q: qtextEl ? qtextEl.textContent : '', Answers: picks, Note: noteEl ? noteEl.value : '' });
       }
       live.dispatchEvent(new CustomEvent('viaupdatedraft', { detail: { draft: ed.getValue(), answers: JSON.stringify(answers) } }));
+    });
+    // Navigable flag cards: a delegated click on a flagged-span card (also outside
+    // the editor shield, re-rendered per analysis) reveals its span in the editor,
+    // converting the flag's byte offsets to positions the same way applyDecos does.
+    // Delegated on document so it survives the panel's SSE re-renders.
+    document.addEventListener('click', function(ev){
+      var card = ev.target.closest ? ev.target.closest('.analysis__flag--nav') : null;
+      if (!card) return;
+      var s = parseInt(card.getAttribute('data-start'), 10), e = parseInt(card.getAttribute('data-end'), 10);
+      if (isNaN(s)) return;
+      if (isNaN(e) || e < s) e = s;
+      var model = ed.getModel(); if (!model) return;
+      var ps = model.getPositionAt(s), pe = model.getPositionAt(e);
+      var range = new monaco.Range(ps.lineNumber, ps.column, pe.lineNumber, pe.column);
+      ed.revealRangeInCenter(range);
+      ed.setSelection(range);
+      ed.focus();
     });
     // The rewrite payload: when UpdateDraft pushes a new draft, swap the editor to it
     // (only when non-empty and actually changed, so the initial empty payload never
