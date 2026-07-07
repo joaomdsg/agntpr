@@ -322,6 +322,10 @@ body {
    blocked draft reads dim ("not yet"); a ready one reads in the balance hue. */
 .analysis__readiness[data-state="blocked"] { color: var(--text-muted); }
 .analysis__readiness[data-state="ready"] { color: var(--signal); }
+.analysis__flags-label { color: var(--text-muted); font-size: var(--fs-small); }
+.analysis__flag { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-2); }
+.analysis__flag-severity { align-self: flex-start; font-size: var(--fs-micro); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--held); }
+.analysis__flag-note { color: var(--ink); font-size: var(--fs-small); }
 .analysis__questions-label { color: var(--text-muted); font-size: var(--fs-small); }
 /* each question is now an answerable form block (text + choices + a note), so the
    list drops its bullets and stacks the questions with a calm rhythm. */
