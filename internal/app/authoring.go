@@ -391,7 +391,7 @@ func renderAnalysisPanel(da *draftAnalysis) h.H {
 	// The producer's flagged spans, surfaced as readable cards (not only as inline
 	// editor decorations) — the built composer's harness-pair panel, from real
 	// producer output.
-	if flags := renderHighlightCards(a.Highlights); len(flags) > 0 {
+	if flags := renderHighlightCards(da.Draft, a.Highlights); len(flags) > 0 {
 		parts = append(parts, h.Span(h.Class("analysis__flags-label"), h.Text("Flagged in the draft:")))
 		parts = append(parts, flags...)
 	}
@@ -414,24 +414,44 @@ func renderAnalysisPanel(da *draftAnalysis) h.H {
 	return h.Div(parts...)
 }
 
+// lineOfOffset maps a byte offset into draft to its 1-based line — the "where" a
+// flag names. It counts newlines before the offset, clamping a negative offset to
+// line 1 and a past-the-end offset to the last line, so a stale/garbled offset
+// yields a real location rather than line 0 or a panic.
+func lineOfOffset(draft string, offset int) int {
+	if offset < 0 {
+		offset = 0
+	}
+	if offset > len(draft) {
+		offset = len(draft)
+	}
+	return 1 + strings.Count(draft[:offset], "\n")
+}
+
 // renderHighlightCards renders the producer's flagged spans as cards: each
-// carries the flag's note and, when present, its severity as a tag. A flag with
-// no readable note (empty or whitespace-only) is skipped rather than shown as a
-// blank card — never a decorative flag with nothing to say. Real producer output
-// only; no fabricated flag.
-func renderHighlightCards(hs []assist.Highlight) []h.H {
+// carries the flag's note, its line location (computed from the real draft +
+// offset), and — when present — its severity as a tag. A flag with no readable
+// note (empty or whitespace-only) is skipped rather than shown as a blank card —
+// never a decorative flag with nothing to say. Real producer output only; no
+// fabricated flag, no invented line.
+func renderHighlightCards(draft string, hs []assist.Highlight) []h.H {
 	var out []h.H
 	for _, hl := range hs {
 		note := strings.TrimSpace(hl.Note)
 		if note == "" {
 			continue
 		}
-		card := []h.H{h.Class("pk-card analysis__flag")}
+		head := []h.H{h.Class("analysis__flag-head")}
 		if sev := strings.TrimSpace(hl.Severity); sev != "" {
-			card = append(card, h.Span(h.Class("analysis__flag-severity"), h.Text(sev)))
+			head = append(head, h.Span(h.Class("analysis__flag-severity"), h.Text(sev)))
 		}
-		card = append(card, h.Span(h.Class("analysis__flag-note"), h.Text(note)))
-		out = append(out, h.Div(card...))
+		head = append(head, h.Span(h.Class("analysis__flag-where"),
+			h.Text("line "+strconv.Itoa(lineOfOffset(draft, hl.Start)))))
+		out = append(out, h.Div(
+			h.Class("pk-card analysis__flag"),
+			h.Div(head...),
+			h.Span(h.Class("analysis__flag-note"), h.Text(note)),
+		))
 	}
 	return out
 }
