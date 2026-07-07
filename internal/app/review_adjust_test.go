@@ -81,6 +81,69 @@ func TestLiveCard_adjustmentsGetDistinctAnnotationIDs(t *testing.T) {
 	assert.NotEqual(t, anns[0].ID, anns[1].ID, "each annotation gets a distinct id a reply can target")
 }
 
+// Selecting a line RANGE in the diff (Monaco sets adjendline) persists an
+// annotation anchored to the whole span, so a comment on a block reads as the
+// block it covers — not just its first line.
+func TestLiveCard_addAdjustmentPersistsALineRange(t *testing.T) {
+	repo := initGitRepoForOrder(t)
+	head := gitOrder(t, repo, "rev-parse", "HEAD")
+
+	server, _ := bootDefaultServer(t, defaultBootCfg)
+	log := addFundedSession(t, "adjrange", app.LiveConfig{RepoDir: repo, BaseRev: head, Anchor: anchorForCap(), TestCmd: []string{"true"}})
+
+	tc := vt.NewClient(t, server, "/review?key=adjrange")
+	require.Equal(t, 200, tc.Action((&app.ReviewCard{Key: "adjrange"}).AddAdjustment).
+		WithSignal("adjfile", "main.go").WithSignal("adjline", "10").WithSignal("adjendline", "14").
+		WithSignal("adjtext", "this whole block ignores the error").Fire())
+
+	anns, err := log.Annotations()
+	require.NoError(t, err)
+	require.Len(t, anns, 1)
+	assert.Equal(t, 10, anns[0].StartLine, "the range starts where the selection did")
+	assert.Equal(t, 14, anns[0].EndLine, "and ends where it ended — the annotation covers the span")
+}
+
+// A single-line comment (no adjendline, or end == start) records no spurious
+// range — EndLine stays 0 so it anchors as one line.
+func TestLiveCard_addAdjustmentSingleLineHasNoRange(t *testing.T) {
+	repo := initGitRepoForOrder(t)
+	head := gitOrder(t, repo, "rev-parse", "HEAD")
+
+	server, _ := bootDefaultServer(t, defaultBootCfg)
+	log := addFundedSession(t, "adjsingle", app.LiveConfig{RepoDir: repo, BaseRev: head, Anchor: anchorForCap(), TestCmd: []string{"true"}})
+
+	tc := vt.NewClient(t, server, "/review?key=adjsingle")
+	require.Equal(t, 200, tc.Action((&app.ReviewCard{Key: "adjsingle"}).AddAdjustment).
+		WithSignal("adjfile", "main.go").WithSignal("adjline", "3").WithSignal("adjtext", "one line").Fire())
+
+	anns, err := log.Annotations()
+	require.NoError(t, err)
+	require.Len(t, anns, 1)
+	assert.Equal(t, 3, anns[0].StartLine)
+	assert.Equal(t, 0, anns[0].EndLine, "a single-line comment carries no range")
+}
+
+// A zero-length selection (end == start) collapses to a single line, not a
+// bogus range — guards against a guardless "EndLine = whatever was sent".
+func TestLiveCard_addAdjustmentEndEqualToStartIsNotARange(t *testing.T) {
+	repo := initGitRepoForOrder(t)
+	head := gitOrder(t, repo, "rev-parse", "HEAD")
+
+	server, _ := bootDefaultServer(t, defaultBootCfg)
+	log := addFundedSession(t, "adjeq", app.LiveConfig{RepoDir: repo, BaseRev: head, Anchor: anchorForCap(), TestCmd: []string{"true"}})
+
+	tc := vt.NewClient(t, server, "/review?key=adjeq")
+	require.Equal(t, 200, tc.Action((&app.ReviewCard{Key: "adjeq"}).AddAdjustment).
+		WithSignal("adjfile", "main.go").WithSignal("adjline", "7").WithSignal("adjendline", "7").
+		WithSignal("adjtext", "one line, selected as itself").Fire())
+
+	anns, err := log.Annotations()
+	require.NoError(t, err)
+	require.Len(t, anns, 1)
+	assert.Equal(t, 7, anns[0].StartLine)
+	assert.Equal(t, 0, anns[0].EndLine, "end == start is a single line, not a zero-length range")
+}
+
 // An empty comment persists no annotation — nothing to record, same as it
 // dispatches no turn.
 func TestLiveCard_addAdjustmentPersistsNoAnnotationForAnEmptyComment(t *testing.T) {
