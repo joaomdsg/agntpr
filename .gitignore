@@ -6,3 +6,6 @@ catches-fabric/
 
 # Saved Anthropic API key (a credential — never commit)
 catches.token
+
+# Local design exploration mockups (raw .dc.html working set, not part of the built system)
+design/explorations/
