@@ -388,6 +388,13 @@ func renderAnalysisPanel(da *draftAnalysis) h.H {
 		h.Attr("aria-label", "draft analysis"),
 		h.Span(h.Class("analysis__summary"), h.Text(a.Summary)),
 	}
+	// The producer's flagged spans, surfaced as readable cards (not only as inline
+	// editor decorations) — the built composer's harness-pair panel, from real
+	// producer output.
+	if flags := renderHighlightCards(a.Highlights); len(flags) > 0 {
+		parts = append(parts, h.Span(h.Class("analysis__flags-label"), h.Text("Flagged in the draft:")))
+		parts = append(parts, flags...)
+	}
 	if len(a.Questions) > 0 {
 		qs := []h.H{h.Class("analysis__questions")}
 		for i, q := range a.Questions {
@@ -405,6 +412,28 @@ func renderAnalysisPanel(da *draftAnalysis) h.H {
 		)
 	}
 	return h.Div(parts...)
+}
+
+// renderHighlightCards renders the producer's flagged spans as cards: each
+// carries the flag's note and, when present, its severity as a tag. A flag with
+// no readable note (empty or whitespace-only) is skipped rather than shown as a
+// blank card — never a decorative flag with nothing to say. Real producer output
+// only; no fabricated flag.
+func renderHighlightCards(hs []assist.Highlight) []h.H {
+	var out []h.H
+	for _, hl := range hs {
+		note := strings.TrimSpace(hl.Note)
+		if note == "" {
+			continue
+		}
+		card := []h.H{h.Class("pk-card analysis__flag")}
+		if sev := strings.TrimSpace(hl.Severity); sev != "" {
+			card = append(card, h.Span(h.Class("analysis__flag-severity"), h.Text(sev)))
+		}
+		card = append(card, h.Span(h.Class("analysis__flag-note"), h.Text(note)))
+		out = append(out, h.Div(card...))
+	}
+	return out
 }
 
 // renderQuestion renders one clarifying question as an answerable form item: the
