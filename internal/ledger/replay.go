@@ -19,17 +19,17 @@ import (
 type Projection struct {
 	catches  []CatchRecord
 	balance  int
-	orders   []WorkOrderRecord
+	pkts     []PacketRecord
 	status   map[int]string
-	verdicts map[int]string // per-order oracle verdict (last-writer-wins), diagnostic only
+	verdicts map[int]string // per-packet oracle verdict (last-writer-wins), diagnostic only
 	// blocks/unblocks hold the FIRST stamp seen per id (earliest block, earliest
 	// clearing) — a block is raised and cleared once, so a duplicate never re-pays
 	// nor moves the latency interval. The attention-bandwidth earn folds from these.
 	blocks      map[string]int64
 	unblocks    map[string]int64
-	bwSpent     int                  // total bandwidth debited (the meter's sink)
-	refinements []RefinedOrderRecord // dead-air sharpenings the backlog folds on read
-	annotations []AnnotationRecord   // durable comments+replies the Inspector folds into threads
+	bwSpent     int                   // total bandwidth debited (the meter's sink)
+	refinements []RefinedPacketRecord // dead-air sharpenings the backlog folds on read
+	annotations []AnnotationRecord    // durable comments+replies the Inspector folds into threads
 }
 
 // Bandwidth is the earned attention bandwidth: the sum of awards across every
@@ -93,23 +93,23 @@ func (p Projection) InterruptsSince(since time.Time) int {
 // contributing to Balance or the confirmed stock.
 func (p Projection) Records() []CatchRecord { return p.catches }
 
-// WorkOrders is the funded work-order ledger in funding (id) order.
-func (p Projection) WorkOrders() []WorkOrderRecord { return p.orders }
+// Packets is the funded packet ledger in funding (id) order.
+func (p Projection) Packets() []PacketRecord { return p.pkts }
 
-// Refinements is the refined-work-order ledger in append order — the sharpening
+// Refinements is the refined-packet ledger in append order — the sharpening
 // facts (split/criteria/convention) the backlog projection folds on read.
-func (p Projection) Refinements() []RefinedOrderRecord { return p.refinements }
+func (p Projection) Refinements() []RefinedPacketRecord { return p.refinements }
 
 // Annotations is the durable annotation+reply ledger in append order — the
 // comments the Inspector's read model folds into threads (nesting replies under
 // their ParentID) on read.
 func (p Projection) Annotations() []AnnotationRecord { return p.annotations }
 
-// DispatchStatusCounts tallies the orders by CURRENT status (last status line
+// SendStatusCounts tallies the packets by CURRENT status (last status line
 // per id wins; an unknown status counts as queued), mirroring Log.
-func (p Projection) DispatchStatusCounts() DispatchCounts {
-	var c DispatchCounts
-	for _, o := range p.orders {
+func (p Projection) SendStatusCounts() SendCounts {
+	var c SendCounts
+	for _, o := range p.pkts {
 		switch p.status[o.ID] {
 		case "running":
 			c.Running++
@@ -122,34 +122,34 @@ func (p Projection) DispatchStatusCounts() DispatchCounts {
 	return c
 }
 
-// caughtWorkOrders maps "wo:<id>" → true for every dispatched-order catch — the
-// shared catch-provenance lookup behind RecentDispatches and ScoutingReport: a
-// catch tagged Producer "wo:<id>" marks that order CAUGHT, while a "connect" catch
+// caughtPackets maps "wo:<id>" → true for every sent-packet catch — the
+// shared catch-provenance lookup behind RecentSends and ScoutingReport: a
+// catch tagged Source "wo:<id>" marks that packet CAUGHT, while a "connect" catch
 // never does (the two-scores provenance gate).
-func (p Projection) caughtWorkOrders() map[string]bool {
+func (p Projection) caughtPackets() map[string]bool {
 	caught := make(map[string]bool)
 	for _, c := range p.catches {
-		if strings.HasPrefix(c.Producer, "wo:") {
-			caught[c.Producer] = true
+		if strings.HasPrefix(c.Source, "wo:") {
+			caught[c.Source] = true
 		}
 	}
 	return caught
 }
 
-// RecentDispatches projects the funded orders into DispatchViews, NEWEST FIRST,
-// capped at n (n<=0 = all). Per order: its current status (last status line,
+// RecentSends projects the funded packets into SendViews, NEWEST FIRST,
+// capped at n (n<=0 = all). Per packet: its current status (last status line,
 // default queued) and whether its run minted a catch (a catch tagged
-// Producer "wo:<id>"). Pure projection; mirrors Log.RecentDispatches.
-func (p Projection) RecentDispatches(n int) []DispatchView {
-	caughtIDs := p.caughtWorkOrders()
-	views := make([]DispatchView, 0, len(p.orders))
-	for i := len(p.orders) - 1; i >= 0; i-- { // newest (highest id) first
-		o := p.orders[i]
+// Source "wo:<id>"). Pure projection; mirrors Log.RecentSends.
+func (p Projection) RecentSends(n int) []SendView {
+	caughtIDs := p.caughtPackets()
+	views := make([]SendView, 0, len(p.pkts))
+	for i := len(p.pkts) - 1; i >= 0; i-- { // newest (highest id) first
+		o := p.pkts[i]
 		status := p.status[o.ID]
 		if status == "" {
 			status = "queued"
 		}
-		views = append(views, DispatchView{
+		views = append(views, SendView{
 			ID:      o.ID,
 			Target:  o.Target,
 			Status:  status,
@@ -164,9 +164,9 @@ func (p Projection) RecentDispatches(n int) []DispatchView {
 }
 
 // ScoutReport is a per-session FIRST-PASS catch-rate — the outward Trust Ledger
-// signal ("this lane ships clean — N/M first-pass"). Completed counts orders that
+// signal ("this lane ships clean — N/M first-pass"). Completed counts packets that
 // ran to done; Caught counts those whose run minted a confirmed catch. Counts-only
-// and retrospective: it redeems against logged facts (order status + the wo:<id>
+// and retrospective: it redeems against logged facts (packet status + the wo:<id>
 // catch provenance), never a model judgment.
 type ScoutReport struct {
 	Caught    int
@@ -182,14 +182,14 @@ func (s ScoutReport) FirstPassRate() float64 {
 	return float64(s.Caught) / float64(s.Completed)
 }
 
-// ScoutingReport folds the per-session first-pass catch-rate: of the orders that
-// completed (status done — a failed/queued/running order is not a completed pass),
-// how many minted a confirmed catch (a CatchRecord tagged Producer "wo:<id>"). Pure
+// ScoutingReport folds the per-session first-pass catch-rate: of the packets that
+// completed (status done — a failed/queued/running packet is not a completed pass),
+// how many minted a confirmed catch (a CatchRecord tagged Source "wo:<id>"). Pure
 // projection; Caught is gated on completion, so it never exceeds Completed.
 func (p Projection) ScoutingReport() ScoutReport {
-	caughtIDs := p.caughtWorkOrders()
+	caughtIDs := p.caughtPackets()
 	var r ScoutReport
-	for _, o := range p.orders {
+	for _, o := range p.pkts {
 		if p.status[o.ID] != "done" {
 			continue
 		}
@@ -201,11 +201,11 @@ func (p Projection) ScoutingReport() ScoutReport {
 	return r
 }
 
-// QueuedWorkOrders returns the orders whose current status is exactly queued, in
-// funding order — the runner's input, mirroring Log.QueuedWorkOrders.
-func (p Projection) QueuedWorkOrders() []WorkOrderRecord {
-	var queued []WorkOrderRecord
-	for _, o := range p.orders {
+// QueuedPackets returns the packets whose current status is exactly queued, in
+// funding order — the runner's input, mirroring Log.QueuedPackets.
+func (p Projection) QueuedPackets() []PacketRecord {
+	var queued []PacketRecord
+	for _, o := range p.pkts {
 		if p.status[o.ID] == "queued" {
 			queued = append(queued, o)
 		}
@@ -233,7 +233,7 @@ func ReplayProjection(ctx context.Context, f *fabric.Fabric, session, instance s
 // token, and folds each group with the same canonical fold ReplayProjection
 // uses — returning one Projection per session. This is the cross-process
 // aggregator: the fleet board derives from the authoritative stream, not from
-// any in-process registry, so it reflects sessions written by any producer.
+// any in-process registry, so it reflects sessions written by any peer.
 func FleetProjection(ctx context.Context, f *fabric.Fabric) (map[string]Projection, error) {
 	events, err := f.ReplaySubject(ctx, fabric.FleetMintedSubject())
 	if err != nil {
@@ -258,8 +258,8 @@ func FleetProjection(ctx context.Context, f *fabric.Fabric) (map[string]Projecti
 }
 
 // FleetView is one session's full board row: its confirmed economy (the embedded
-// Projection, whose Balance/Records/DispatchStatusCounts promote) PLUS the
-// producers' claim lifecycle — InFlight pending bets and Rejected verified-losses.
+// Projection, whose Balance/Records/SendStatusCounts promote) PLUS the
+// peers' claim lifecycle — InFlight pending bets and Rejected verified-losses.
 // The bet counts are independent axes from the confirmed economy (two-scores): a
 // pending or lost bet never folds into Balance or the confirmed stock.
 type FleetView struct {
@@ -275,7 +275,7 @@ type FleetView struct {
 // fold — and computes InFlight/Rejected through the SAME pure projections the
 // per-Log ClaimsInFlight/ClaimsRejected use, so the stream and the in-process
 // board can never disagree on how a bet is classified. A session that has only
-// submitted claims (no mint yet) still appears, so a producer's new bets are
+// submitted claims (no mint yet) still appears, so a peer's new bets are
 // never invisible. Either replay error degrades the caller to (nil, err).
 func FleetBoard(ctx context.Context, f *fabric.Fabric) (map[string]FleetView, error) {
 	minted, err := FleetProjection(ctx, f)
@@ -328,21 +328,21 @@ func foldEvents(events []fabric.Event) (Projection, error) {
 			if s.Amount > 0 {
 				p.balance -= s.Amount
 			}
-		case kindWorkOrder:
-			w, err := DecodeWorkOrder(e.Data)
+		case kindPacket:
+			w, err := DecodePacket(e.Data)
 			if err != nil {
 				return Projection{}, err
 			}
-			p.orders = append(p.orders, w)
+			p.pkts = append(p.pkts, w)
 			p.status[w.ID] = w.Status
-		case kindWOStatus:
+		case kindPacketStatus:
 			st, err := DecodeStatus(e.Data)
 			if err != nil {
 				return Projection{}, err
 			}
 			p.status[st.ID] = st.Status
-		case kindWOVerdict:
-			v, err := DecodeWorkOrderVerdict(e.Data)
+		case kindPacketVerdict:
+			v, err := DecodePacketVerdict(e.Data)
 			if err != nil {
 				return Projection{}, err
 			}
@@ -371,7 +371,7 @@ func foldEvents(events []fabric.Event) (Projection, error) {
 			if s.Amount > 0 {
 				p.bwSpent += s.Amount
 			}
-		case kindWORefine:
+		case kindPacketRefine:
 			r, err := DecodeRefine(e.Data)
 			if err != nil {
 				return Projection{}, err

@@ -46,7 +46,7 @@ const notRunNoRevision = "no revision to build yet"
 // against the SAME repoDir serialize safely at the git level (each gets its
 // own uniquely-named scratch worktree, and git's own locking around
 // .git/worktrees prevents corruption) but do contend — a caller driving many
-// orders against one repo concurrently should expect queuing here, not a
+// packets against one repo concurrently should expect queuing here, not a
 // race. No explicit lock is taken in this slice; revisit if that contention
 // becomes a real bottleneck.
 func RunBuildVetGate(ctx context.Context, repoDir, fixRev string) Gate {

@@ -55,8 +55,8 @@ func TestLiveCard_repoOnlySessionDoesNotPromiseAutomaticCatchCycle(t *testing.T)
 		"a fresh repo-only session is still usable and must carry the onboarding affordance")
 	require.NotContains(t, body, "runs the gauntlet on load",
 		"a repo-only session runs no connect cycle, so the affordance must not promise an automatic catch on load")
-	require.Contains(t, body, "Dispatched packets run the gauntlet",
-		"instead of an on-load promise, a repo-only session must name the honest path to a mint: dispatched packets run the gauntlet")
+	require.Contains(t, body, "Sent packets run the gauntlet",
+		"instead of an on-load promise, a repo-only session must name the honest path to a mint: sent packets run the gauntlet")
 	require.Contains(t, body, "mints a new one to compose",
 		"the affordance still explains how a confirmed catch becomes something to compose")
 	require.Contains(t, body, "composes one packet",

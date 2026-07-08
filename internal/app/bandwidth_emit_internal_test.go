@@ -16,7 +16,7 @@ import (
 	"github.com/joaomdsg/packets/internal/mutation"
 )
 
-// A surfaced review question is the producer asking for the Lead's input — a
+// A surfaced review question is the peer asking for the Lead's input — a
 // block. recordQuestionBlocks logs one block per question id, ONCE (a re-surfaced
 // question from a later cycle never re-blocks), so the bandwidth interval starts
 // when the question first appears. NOT parallel (shared globals).

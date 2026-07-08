@@ -18,18 +18,18 @@ import (
 	"github.com/joaomdsg/packets/internal/reanchor"
 )
 
-func woDispatchTarget() ledger.Target {
+func sendTarget() ledger.Target {
 	return ledger.Target{BaseRev: "wo-base", FixRev: "wo-fix", TipRev: "wo-fix", Path: "other.go", Line: 9}
 }
 
-func TestLiveCard_spendDispatchesAnOrderThatRunsAndMintsBackADistinctCatch(t *testing.T) {
+func TestLiveCard_spendSendsAPacketThatRunsAndMintsBackADistinctCatch(t *testing.T) {
 	// Internal test (package app), NON-parallel (shared globals). The spend-to-earn
 	// loop: spend a catch → the order RUNS distinct work → it mints a NEW distinct
 	// catch back, so the balance nets -1 then +1 and the economy compounds. The
-	// dispatched mint carries Producer="wo:1" (reinvestment provenance).
+	// dispatched mint carries Source="wo:1" (reinvestment provenance).
 	restore := resolveCycle
 	t.Cleanup(func() { resolveCycle = restore })
-	tgt := woDispatchTarget()
+	tgt := sendTarget()
 	resolveCycle = func(_ context.Context, _, base, _, _ string, _ reanchor.Anchor, _ []string, _, _ bool, _ chan<- pipe.TraceEvent) (Resolution, error) {
 		if base == tgt.BaseRev { // only the dispatched run (on the order's target) mints
 			return Resolution{Verdict: string(catch.Catch), Record: &ledger.CatchRecord{
@@ -43,7 +43,7 @@ func TestLiveCard_spendDispatchesAnOrderThatRunsAndMintsBackADistinctCatch(t *te
 	var server *httptest.Server
 	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: logPath, DispatchBacklog: []ledger.Target{tgt},
+		TestCmd: []string{"true"}, LedgerPath: logPath, SendBacklog: []ledger.Target{tgt},
 	})
 	require.NoError(t, err)
 	server = httptest.NewServer(viaApp)
@@ -58,7 +58,7 @@ func TestLiveCard_spendDispatchesAnOrderThatRunsAndMintsBackADistinctCatch(t *te
 	require.Equal(t, 200, tc.Action((&LiveCard{}).Spend).Fire())
 
 	require.Eventually(t, func() bool {
-		c, e := log.DispatchStatusCounts()
+		c, e := log.SendStatusCounts()
 		return e == nil && c.Done == 1
 	}, 10*time.Second, 10*time.Millisecond, "the dispatched order ran to done")
 
@@ -71,20 +71,20 @@ func TestLiveCard_spendDispatchesAnOrderThatRunsAndMintsBackADistinctCatch(t *te
 	require.Len(t, recs, 2, "the seed catch + the dispatched run's NEW distinct catch")
 	var dispatched *ledger.CatchRecord
 	for i := range recs {
-		if recs[i].Producer == "wo:1" {
+		if recs[i].Source == "wo:1" {
 			dispatched = &recs[i]
 		}
 	}
-	require.NotNil(t, dispatched, "the dispatched mint carries Producer wo:1 — reinvestment provenance, byte-distinguishable from a connect mint")
+	require.NotNil(t, dispatched, "the dispatched mint carries Source wo:1 — reinvestment provenance, byte-distinguishable from a connect mint")
 }
 
-func TestLiveCard_dispatchingOwnAlreadyCaughtWorkIsAnHonestLossNotAFarm(t *testing.T) {
+func TestLiveCard_sendingOwnAlreadyCaughtWorkIsAnHonestLossNotAFarm(t *testing.T) {
 	// The anti-farm property at the app layer: if the dispatched run reproduces an
 	// identity ALREADY in the stock, the identity-dedup gate mints nothing — spend
 	// 1, get 0, an honest loss. The economy never inflates from re-running work.
 	restore := resolveCycle
 	t.Cleanup(func() { resolveCycle = restore })
-	tgt := woDispatchTarget()
+	tgt := sendTarget()
 	seededIdentity := ledger.CatchRecord{Outcome: catch.Catch, Path: tgt.Path, Line: tgt.Line, BeforeRev: tgt.BaseRev, AfterRev: tgt.FixRev, ReasonTag: "catch"}
 	resolveCycle = func(_ context.Context, _, base, _, _ string, _ reanchor.Anchor, _ []string, _, _ bool, _ chan<- pipe.TraceEvent) (Resolution, error) {
 		if base == tgt.BaseRev {
@@ -98,7 +98,7 @@ func TestLiveCard_dispatchingOwnAlreadyCaughtWorkIsAnHonestLossNotAFarm(t *testi
 	var server *httptest.Server
 	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: logPath, DispatchBacklog: []ledger.Target{tgt},
+		TestCmd: []string{"true"}, LedgerPath: logPath, SendBacklog: []ledger.Target{tgt},
 	})
 	require.NoError(t, err)
 	server = httptest.NewServer(viaApp)
@@ -113,7 +113,7 @@ func TestLiveCard_dispatchingOwnAlreadyCaughtWorkIsAnHonestLossNotAFarm(t *testi
 
 	require.Equal(t, 200, tc.Action((&LiveCard{}).Spend).Fire())
 	require.Eventually(t, func() bool {
-		c, e := log.DispatchStatusCounts()
+		c, e := log.SendStatusCounts()
 		return e == nil && c.Done == 1
 	}, 10*time.Second, 10*time.Millisecond, "the order ran to done even though it minted nothing")
 
@@ -125,13 +125,13 @@ func TestLiveCard_dispatchingOwnAlreadyCaughtWorkIsAnHonestLossNotAFarm(t *testi
 	require.Len(t, recs, 2, "the dispatched run added NO new catch — the dedup gate held")
 }
 
-func TestLiveCard_connectAndDispatchMintsCarryDistinctProducerProvenance(t *testing.T) {
-	// Two real producers on one log: the connect-cycle stamps Producer="connect",
+func TestLiveCard_connectAndSendMintsCarryDistinctSourceProvenance(t *testing.T) {
+	// Two real sources on one log: the connect-cycle stamps Source="connect",
 	// the dispatched run stamps "wo:<id>". Both mint distinct identities; the field
 	// demuxes them on replay.
 	restore := resolveCycle
 	t.Cleanup(func() { resolveCycle = restore })
-	tgt := woDispatchTarget()
+	tgt := sendTarget()
 	resolveCycle = func(_ context.Context, _, base, _, _ string, _ reanchor.Anchor, _ []string, _, _ bool, _ chan<- pipe.TraceEvent) (Resolution, error) {
 		if base == tgt.BaseRev {
 			return Resolution{Verdict: string(catch.Catch), Record: &ledger.CatchRecord{
@@ -147,7 +147,7 @@ func TestLiveCard_connectAndDispatchMintsCarryDistinctProducerProvenance(t *test
 	var server *httptest.Server
 	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: logPath, DispatchBacklog: []ledger.Target{tgt},
+		TestCmd: []string{"true"}, LedgerPath: logPath, SendBacklog: []ledger.Target{tgt},
 	})
 	require.NoError(t, err)
 	server = httptest.NewServer(viaApp)
@@ -161,21 +161,21 @@ func TestLiveCard_connectAndDispatchMintsCarryDistinctProducerProvenance(t *test
 
 	require.Equal(t, 200, tc.Action((&LiveCard{}).Spend).Fire())
 	require.Eventually(t, func() bool {
-		c, e := log.DispatchStatusCounts()
+		c, e := log.SendStatusCounts()
 		return e == nil && c.Done == 1
 	}, 10*time.Second, 10*time.Millisecond, "the dispatched order ran")
 
 	recs, err := log.Records()
 	require.NoError(t, err)
-	producers := map[string]int{}
+	sources := map[string]int{}
 	for _, r := range recs {
-		producers[r.Producer]++
+		sources[r.Source]++
 	}
-	require.Equal(t, 1, producers["connect"], "the connect-cycle mint is tagged connect")
-	require.Equal(t, 1, producers["wo:1"], "the dispatched run's mint is tagged wo:1 — the two producers are demuxed on the one log")
+	require.Equal(t, 1, sources["connect"], "the connect-cycle mint is tagged connect")
+	require.Equal(t, 1, sources["wo:1"], "the dispatched run's mint is tagged wo:1 — the two sources are demuxed on the one log")
 }
 
-func TestLiveCard_dispatchedRunDoesNotLeakItsBeatsDiscardGoroutine(t *testing.T) {
+func TestLiveCard_sentRunDoesNotLeakItsBeatsDiscardGoroutine(t *testing.T) {
 	// Each dispatched run spawns a goroutine to discard the cycle's off-ledger beats.
 	// resolveCycle (ResolveStreaming) only SENDS on the beats channel, never closes it
 	// — the caller owns the close. If the runner forgets to close beats after the
@@ -184,7 +184,7 @@ func TestLiveCard_dispatchedRunDoesNotLeakItsBeatsDiscardGoroutine(t *testing.T)
 	// and assert the goroutine count settles back — a permanent rise is the leak.
 	restore := resolveCycle
 	t.Cleanup(func() { resolveCycle = restore })
-	tgt := woDispatchTarget()
+	tgt := sendTarget()
 	resolveCycle = func(_ context.Context, _, base, _, _ string, _ reanchor.Anchor, _ []string, _, _ bool, beats chan<- pipe.TraceEvent) (Resolution, error) {
 		if beats != nil {
 			beats <- pipe.TraceEvent{Kind: "catch"} // exercise the discard goroutine's range
@@ -201,7 +201,7 @@ func TestLiveCard_dispatchedRunDoesNotLeakItsBeatsDiscardGoroutine(t *testing.T)
 	const orders = 8
 	_, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: logPath, DispatchBacklog: []ledger.Target{tgt},
+		TestCmd: []string{"true"}, LedgerPath: logPath, SendBacklog: []ledger.Target{tgt},
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = log.Close() })
@@ -209,14 +209,14 @@ func TestLiveCard_dispatchedRunDoesNotLeakItsBeatsDiscardGoroutine(t *testing.T)
 		require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Line: i + 1, ReasonTag: "catch"})) // balance to fund the orders
 	}
 	for i := 0; i < orders; i++ {
-		require.NoError(t, log.AppendDispatch("dispatch", tgt, ledger.Target{})) // queue the work the runner will drain
+		require.NoError(t, log.AppendSend("dispatch", tgt, ledger.Target{})) // queue the work the runner will drain
 	}
 
 	runtime.GC()
 	baseline := runtime.NumGoroutine()
-	drainQueuedOrders(defaultSessionKey) // runs all queued orders to completion, synchronously
+	drainQueuedPackets(defaultSessionKey) // runs all queued orders to completion, synchronously
 	require.Eventually(t, func() bool {
-		c, e := log.DispatchStatusCounts()
+		c, e := log.SendStatusCounts()
 		return e == nil && c.Done == orders
 	}, 10*time.Second, 10*time.Millisecond, "every dispatched order ran to done")
 
@@ -226,14 +226,14 @@ func TestLiveCard_dispatchedRunDoesNotLeakItsBeatsDiscardGoroutine(t *testing.T)
 	}, 5*time.Second, 50*time.Millisecond, "the per-order beats-discard goroutines must exit — a permanent rise of ~%d is the leak", orders)
 }
 
-func TestLiveCard_dispatchedOrderProgressIsWatchableQueuedRunningDoneOverSSE(t *testing.T) {
+func TestLiveCard_sentPacketProgressIsWatchableQueuedRunningDoneOverSSE(t *testing.T) {
 	// The dispatched run happens in a BACKGROUND goroutine (no request ctx), yet the
 	// live view must still SHOW its progress. The OnConnect Stream poll surfaces the
 	// per-status tally, so the Lead watches queued→running→done over SSE. A blocking
 	// fake holds the run in "running" long enough to observe it deterministically.
 	restore := resolveCycle
 	t.Cleanup(func() { resolveCycle = restore })
-	tgt := woDispatchTarget()
+	tgt := sendTarget()
 	release := make(chan struct{})
 	resolveCycle = func(_ context.Context, _, base, _, _ string, _ reanchor.Anchor, _ []string, _, _ bool, _ chan<- pipe.TraceEvent) (Resolution, error) {
 		if base == tgt.BaseRev {
@@ -249,7 +249,7 @@ func TestLiveCard_dispatchedOrderProgressIsWatchableQueuedRunningDoneOverSSE(t *
 	var server *httptest.Server
 	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: logPath, DispatchBacklog: []ledger.Target{tgt},
+		TestCmd: []string{"true"}, LedgerPath: logPath, SendBacklog: []ledger.Target{tgt},
 	})
 	require.NoError(t, err)
 	server = httptest.NewServer(viaApp)

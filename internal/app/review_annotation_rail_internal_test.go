@@ -33,7 +33,7 @@ func TestReviewSurface_durableAnnotationAndItsReplyShowInTheRail(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Close() })
 	log := ledger.Bind(f, "annrail", "i")
-	fundDispatch(t, log, "d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7})
+	fundSend(t, log, "d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7})
 	require.NoError(t, log.AppendAnnotation(ledger.AnnotationRecord{
 		ID: "root", File: "alpha.go", StartLine: 7, Author: "lead", Body: "guard the negative amount"}))
 	require.NoError(t, log.AppendAnnotation(ledger.AnnotationRecord{
@@ -72,7 +72,7 @@ func TestReviewSurface_annotationOnAnUnrelatedFileIsNotShown(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Close() })
 	log := ledger.Bind(f, "annscope", "i")
-	fundDispatch(t, log, "d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7})
+	fundSend(t, log, "d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7})
 	require.NoError(t, log.AppendAnnotation(ledger.AnnotationRecord{
 		ID: "x", File: "unrelated.go", StartLine: 1, Author: "lead", Body: "note on another file"}))
 	registerSession("annscope", LiveConfig{RepoDir: ".", BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)

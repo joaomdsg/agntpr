@@ -39,10 +39,10 @@ func TestReadSourceLine_returnsTheOneIndexedLineOrEmpty(t *testing.T) {
 // live HEAD — reusing the live-order pipe. The dispatched order must carry the composed
 // review turn (the comment + the address-it instruction), so the agent re-edits in
 // place. NOT parallel (shared liveReg/liveFabric).
-func TestLiveCard_addAdjustmentDispatchesAReviewTurnToTheHarness(t *testing.T) {
+func TestLiveCard_addAdjustmentSendsAReviewTurnToTheHarness(t *testing.T) {
 	resetConsumersForTest()
-	repo := initGitRepoForOrder(t)
-	head := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	head := gitPacket(t, repo, "rev-parse", "HEAD")
 
 	restoreHarness := runHarness
 	t.Cleanup(func() { runHarness = restoreHarness })
@@ -91,15 +91,15 @@ func TestLiveCard_addAdjustmentDispatchesAReviewTurnToTheHarness(t *testing.T) {
 // (shared globals).
 func TestReviewCard_surfacesWhetherTheAdjustmentWasAddressed(t *testing.T) {
 	resetConsumersForTest()
-	repo := initGitRepoForOrder(t)
-	head := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	head := gitPacket(t, repo, "rev-parse", "HEAD")
 	ctx := context.Background()
 	f, err := fabric.Start(ctx, t.TempDir())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Close() })
 	log := ledger.Bind(f, "adjstat", "i")
 	registerSession("adjstat", LiveConfig{RepoDir: repo, BaseRev: head, Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
-	// initGitRepoForOrder seeds base.txt whose line 1 is "base"; anchor there.
+	// initGitRepoForPacket seeds base.txt whose line 1 is "base"; anchor there.
 	lookupLiveEntry("adjstat").addAdjAnchor("base.txt", 1, "base", "address this")
 
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
@@ -124,12 +124,12 @@ func TestReviewCard_surfacesWhetherTheAdjustmentWasAddressed(t *testing.T) {
 // its OWN comment, not just the last one. NOT parallel (shared globals).
 func TestReviewCard_surfacesEveryAdjustmentNotJustTheLast(t *testing.T) {
 	resetConsumersForTest()
-	repo := initGitRepoForOrder(t)
-	head := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	head := gitPacket(t, repo, "rev-parse", "HEAD")
 	// Seed a second line so two distinct anchors exist.
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "base.txt"), []byte("base\nsecond\n"), 0o644))
-	gitOrder(t, repo, "add", "-A")
-	gitOrder(t, repo, "commit", "-qm", "two lines")
+	gitPacket(t, repo, "add", "-A")
+	gitPacket(t, repo, "commit", "-qm", "two lines")
 	ctx := context.Background()
 	f, err := fabric.Start(ctx, t.TempDir())
 	require.NoError(t, err)
@@ -162,8 +162,8 @@ func TestReviewCard_surfacesEveryAdjustmentNotJustTheLast(t *testing.T) {
 func TestReviewCard_surfacesMovedAndOutdatedAdjustments(t *testing.T) {
 	render := func(t *testing.T, key, fileContent string) string {
 		resetConsumersForTest()
-		repo := initGitRepoForOrder(t)
-		head := gitOrder(t, repo, "rev-parse", "HEAD")
+		repo := initGitRepoForPacket(t)
+		head := gitPacket(t, repo, "rev-parse", "HEAD")
 		ctx := context.Background()
 		f, err := fabric.Start(ctx, t.TempDir())
 		require.NoError(t, err)
@@ -198,8 +198,8 @@ func TestReviewCard_surfacesMovedAndOutdatedAdjustments(t *testing.T) {
 // comment. NOT parallel (shared globals).
 func TestLiveEntry_reCommentingTheSameLineReplacesNotStacks(t *testing.T) {
 	resetConsumersForTest()
-	repo := initGitRepoForOrder(t)
-	head := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	head := gitPacket(t, repo, "rev-parse", "HEAD")
 	ctx := context.Background()
 	f, err := fabric.Start(ctx, t.TempDir())
 	require.NoError(t, err)
@@ -220,8 +220,8 @@ func TestLiveEntry_reCommentingTheSameLineReplacesNotStacks(t *testing.T) {
 // while other adjustments stay. An unknown file:line is a calm no-op. NOT parallel.
 func TestReviewCard_resolveAdjustmentClearsOneAnchor(t *testing.T) {
 	resetConsumersForTest()
-	repo := initGitRepoForOrder(t)
-	head := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	head := gitPacket(t, repo, "rev-parse", "HEAD")
 	ctx := context.Background()
 	f, err := fabric.Start(ctx, t.TempDir())
 	require.NoError(t, err)

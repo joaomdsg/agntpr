@@ -14,6 +14,10 @@ Networking automated **forwarding** — line rate, no human per packet — but n
 - **Implementation tests** — the unit/integration/e2e the coding agent writes. **Evidence, never the contract.** "The agent's tests pass" ≠ "the handshake is met" (same-author tests are homework-grading). Authority ⊥ scope: a property unit test can be a handshake term; a flaky e2e can't.
 - **Lane** — QoS class derived from the dependency graph (never self-reported): best-effort → standard → strict → irreversible. Blast radius buys two things: more gates, and a stronger required handshake. Irreversible is verified BEFORE prod (staged, canary, mandatory human) — never "verify in prod", because production is not reversible (data, money, sent emails).
 - **Blast radius** — measured coupling; what decides holds. Never vibes.
+- **Socket** — an addr's live attachment to the fabric, auto-managed for the addr's lifetime; carries the addr's packets. Keeps a warm base session (listening), parks to a resumable ticket when idle. The addr stays the durable identity independent of any socket; a socket both accepts (compose activity, peer claims) and originates (sends packets).
+- **Packet / send** — draft (being composed) → packet (sealed with prompt, base rev, handshake as headers) → send over the socket. Every packet requires its own handshake, consumed by that send.
+- **Peer** — a remote endpoint admitted by a Grant, confined to publishing claims into its own session subtree; never mints.
+- **Source** — provenance of a mint (`"connect"` or `"wo:<id>"`).
 
 ## The lifecycle (= the state grammar = the mark)
 compose (ghost outline) → forward/in-flight (bright cyan) → verify (green) → **held** (amber advisory / red blocking) → deliver (dark cyan fill). Delivered means **ACK'd healthy in prod** (`packets deployed` / `packets regressed`) — not merged.

@@ -12,7 +12,7 @@ import (
 
 const draft = "Add retry logic to the uploader so transient network errors recover."
 
-// The producer's analysis arrives as one JSON object the agent prints amid its
+// The assist's analysis arrives as one JSON object the agent prints amid its
 // prose/stream chatter. ParseAnalysis must find and decode that object — tolerant
 // of leading/trailing noise — into the structured highlights/questions/summary the
 // authoring surface renders.
@@ -29,7 +29,7 @@ func TestParseAnalysis_extractsTheJSONBlockFromNoisyOutput(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "Clear goal, missing the retry budget.", got.Summary)
-	assert.False(t, got.Ready, "the producer judged the draft not yet ready")
+	assert.False(t, got.Ready, "the assist judged the draft not yet ready")
 	require.Len(t, got.Highlights, 1)
 	assert.Equal(t, "how many retries?", got.Highlights[0].Note)
 	assert.Equal(t, "question", got.Highlights[0].Severity)
@@ -39,7 +39,7 @@ func TestParseAnalysis_extractsTheJSONBlockFromNoisyOutput(t *testing.T) {
 	}, got.Questions, "bare-string questions decode into Question.Q")
 }
 
-// A producer that answers in the RICH question shape — each question carrying its own
+// A assist that answers in the RICH question shape — each question carrying its own
 // suggested answers and a multiselect flag — must decode into the structured form the
 // authoring panel renders (a choice list per question, single- or multi-select). This
 // is the whole point of the suggestions feature: the Lead picks, not free-types.
@@ -60,7 +60,7 @@ func TestParseAnalysis_decodesStructuredQuestionsWithSuggestionsAndMultiselect(t
 }
 
 // The panel renders AT MOST four suggestions per question (a calm, scannable choice
-// set, not an overwhelming wall) — so a producer that returns more must be trimmed to
+// set, not an overwhelming wall) — so a assist that returns more must be trimmed to
 // the first four, never rendered in full.
 func TestParseAnalysis_capsSuggestionsAtFourPerQuestion(t *testing.T) {
 	t.Parallel()
@@ -75,7 +75,7 @@ func TestParseAnalysis_capsSuggestionsAtFourPerQuestion(t *testing.T) {
 		"only the first four suggestions are kept")
 }
 
-// A producer may mix shapes in one array — a terse bare-string question beside a
+// A assist may mix shapes in one array — a terse bare-string question beside a
 // rich object one — and may omit suggestions on a question entirely. The tolerant
 // decode must handle the mix (so a half-structured reply isn't rejected), default a
 // suggestion-less question to no choices, and trim padding off the question text so
@@ -203,8 +203,8 @@ func itoa(n int) string {
 
 // The rewrite prompt is the input side of the draft-update contract: it must carry
 // the current draft AND every answer the Lead gave (the question, the picked
-// suggestions, and any free-text note), and instruct the producer to return ONLY the
-// rewritten draft — so the round-trip (answers → producer → new draft) is coherent
+// suggestions, and any free-text note), and instruct the assist to return ONLY the
+// rewritten draft — so the round-trip (answers → assist → new draft) is coherent
 // and the reply is the draft text, not commentary.
 func TestRewritePrompt_carriesDraftAndAnswers(t *testing.T) {
 	t.Parallel()
@@ -220,10 +220,10 @@ func TestRewritePrompt_carriesDraftAndAnswers(t *testing.T) {
 	assert.Contains(t, p, "timeouts", "it carries multi-select picks")
 	assert.Contains(t, p, "5xx")
 	assert.Contains(t, p, "managed instance", "it carries the free-text note")
-	assert.Contains(t, strings.ToLower(p), "only", "it tells the producer to return ONLY the rewritten draft")
+	assert.Contains(t, strings.ToLower(p), "only", "it tells the assist to return ONLY the rewritten draft")
 }
 
-// The producer is asked for the bare draft, but models often wrap it in a ```fenced
+// The assist is asked for the bare draft, but models often wrap it in a ```fenced
 // block or add a stray prefix. ParseRewrite must return the clean draft text so it
 // can drop straight into the editor — fences stripped, whitespace trimmed.
 func TestParseRewrite_returnsTheCleanDraftText(t *testing.T) {
@@ -264,7 +264,7 @@ func TestParseRewrite_emptyReplyIsEmptyDraft(t *testing.T) {
 }
 
 // The decode must be TOLERANT of a malformed question element (a stray number, bool,
-// or null the producer emitted by mistake): such an element is dropped, never failing
+// or null the assist emitted by mistake): such an element is dropped, never failing
 // the WHOLE analysis — a half-bad questions array still yields the good questions.
 func TestParseAnalysis_skipsMalformedQuestionElements(t *testing.T) {
 	t.Parallel()

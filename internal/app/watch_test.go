@@ -16,7 +16,7 @@ import (
 	"github.com/joaomdsg/packets/internal/packet"
 )
 
-// failedDispatch mints a catch to cover the dispatch's cost (AppendDispatch
+// failedDispatch mints a catch to cover the dispatch's cost (AppendSend
 // refuses a zero balance — mirrors the calibration fixture),
 // funds one work order, and fails it — a "failed" status folds to a
 // HoldBlocking packet, the cheapest real trigger for
@@ -27,8 +27,8 @@ func failedDispatch(t *testing.T, log *ledger.Log, name string) int {
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "cover-" + name + ".go", Line: 1, ReasonTag: "catch"}))
 	target := ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Prompt: name, Path: "alpha.go", Line: 7}
-	require.NoError(t, log.AppendDispatch(name, target, own))
-	rows, err := log.RecentDispatches(0)
+	require.NoError(t, log.AppendSend(name, target, own))
+	rows, err := log.RecentSends(0)
 	require.NoError(t, err)
 	require.NotEmpty(t, rows)
 	id := rows[0].ID

@@ -17,7 +17,7 @@ func TestRefinement_replaysBackAsTheSharpeningSoTheBacklogCanFoldIt(t *testing.T
 	// accepts. The backlog projection (a later brick) folds this on read, so the
 	// fact must replay back carrying every field it needs to do so.
 	into := []ledger.Target{distinctTarget(), {BaseRev: "b2", FixRev: "f2", TipRev: "f2", Path: "other.go", Line: 40}}
-	require.NoError(t, l.AppendRefine(ledger.RefinedOrderRecord{
+	require.NoError(t, l.AppendRefine(ledger.RefinedPacketRecord{
 		RefineID: 1, Target: ownTarget(), Refine: "split", Splits: into,
 	}))
 
@@ -34,11 +34,11 @@ func TestRefinement_carriesCriteriaAndConventionTextBackForTheCardBody(t *testin
 	t.Parallel()
 	l, _ := openLog(t)
 
-	require.NoError(t, l.AppendRefine(ledger.RefinedOrderRecord{
+	require.NoError(t, l.AppendRefine(ledger.RefinedPacketRecord{
 		RefineID: 1, Target: distinctTarget(), Refine: "criteria",
 		Criteria: []string{"rejects a negative amount", "caps at the daily ceiling"},
 	}))
-	require.NoError(t, l.AppendRefine(ledger.RefinedOrderRecord{
+	require.NoError(t, l.AppendRefine(ledger.RefinedPacketRecord{
 		RefineID: 2, Target: distinctTarget(), Refine: "convention",
 		Note: "errors wrap with a short origin prefix",
 	}))
@@ -57,7 +57,7 @@ func TestRefinement_isNotEconomicSoSharpeningNeverMintsOrFundsWork(t *testing.T)
 	// Sharpening is an append-only fact beside the economy, NOT a catch, spend, or
 	// work-order. It also exercises the replay path: the fold errors on an unknown
 	// kind, so a refinement that did not thread through would break every read.
-	require.NoError(t, l.AppendRefine(ledger.RefinedOrderRecord{
+	require.NoError(t, l.AppendRefine(ledger.RefinedPacketRecord{
 		RefineID: 1, Target: distinctTarget(), Refine: "criteria",
 		Criteria: []string{"rejects a negative amount"},
 	}))
@@ -68,7 +68,7 @@ func TestRefinement_isNotEconomicSoSharpeningNeverMintsOrFundsWork(t *testing.T)
 	recs, err := l.Records()
 	require.NoError(t, err)
 	assert.Empty(t, recs, "a refinement is not a catch")
-	orders, err := l.WorkOrders()
+	orders, err := l.Packets()
 	require.NoError(t, err)
 	assert.Empty(t, orders, "sharpening a target funds no work-order on its own")
 }
@@ -76,7 +76,7 @@ func TestRefinement_isNotEconomicSoSharpeningNeverMintsOrFundsWork(t *testing.T)
 func TestRefinement_replaysFromThePersistedLogAlone(t *testing.T) {
 	t.Parallel()
 	l, _ := openLog(t)
-	require.NoError(t, l.AppendRefine(ledger.RefinedOrderRecord{
+	require.NoError(t, l.AppendRefine(ledger.RefinedPacketRecord{
 		RefineID: 1, Target: ownTarget(), Refine: "split", Splits: []ledger.Target{distinctTarget()},
 	}))
 	require.NoError(t, l.Close())

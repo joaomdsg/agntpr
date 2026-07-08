@@ -56,15 +56,15 @@ func runCheck(ctx context.Context, args []string) error {
 }
 
 // runDeploy is the `deployed`/`regressed` subcommand: a host-issued ACK (or
-// regression) for one work order, backed by an OPTIONAL re-checkable command
+// regression) for one packet, backed by an OPTIONAL re-checkable command
 // whose exit code the host captures — never an agent's self-report. It
 // reopens the existing ledger at -ledger (the same durable JetStream store
 // -live/-backlog seed at boot) and appends the resulting status.
 func runDeploy(verb string, args []string, out io.Writer) error {
 	fs := flag.NewFlagSet(verb, flag.ContinueOnError)
 	ledgerPath := fs.String("ledger", "catches", "durable economy store base (matches the running server's -ledger)")
-	session := fs.String("session", "default", "session key the work order belongs to")
-	wo := fs.Int("wo", 0, "the work order id to mark")
+	session := fs.String("session", "default", "session key the packet belongs to")
+	wo := fs.Int("wo", 0, "the packet id to mark")
 	check := fs.String("check", "", "an optional command whose exit code must agree with this verb (run via a shell)")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -93,6 +93,6 @@ func runDeploy(verb string, args []string, out io.Writer) error {
 	if err := log.AppendStatus(*wo, status); err != nil {
 		return fmt.Errorf("%s: %w", verb, err)
 	}
-	fmt.Fprintf(out, "wo#%d: %s\n", *wo, status)
+	fmt.Fprintf(out, "pkt#%d: %s\n", *wo, status)
 	return nil
 }

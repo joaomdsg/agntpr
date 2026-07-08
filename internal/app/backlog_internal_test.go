@@ -50,7 +50,7 @@ func TestLiveCard_spendsDrawDistinctConfigWorkThenSupplyRefillsFromCatches(t *te
 	logPath := filepath.Join(t.TempDir(), "catches.jsonl")
 	cfg := LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: logPath, DispatchBacklog: []ledger.Target{t1, t2},
+		TestCmd: []string{"true"}, LedgerPath: logPath, SendBacklog: []ledger.Target{t1, t2},
 	}
 	var server *httptest.Server
 	viaApp, log, err := NewServer(cfg)
@@ -69,7 +69,7 @@ func TestLiveCard_spendsDrawDistinctConfigWorkThenSupplyRefillsFromCatches(t *te
 	require.Equal(t, 200, tc.Action((&LiveCard{}).Spend).Fire()) // funds T2 (head advances — NOT T1 again)
 
 	require.Eventually(t, func() bool {
-		c, e := log.DispatchStatusCounts()
+		c, e := log.SendStatusCounts()
 		return e == nil && c.Done == 2
 	}, 10*time.Second, 10*time.Millisecond, "both backlog targets ran to done")
 
@@ -77,13 +77,13 @@ func TestLiveCard_spendsDrawDistinctConfigWorkThenSupplyRefillsFromCatches(t *te
 	require.NoError(t, err)
 	reinvested := map[string]bool{}
 	for _, r := range recs {
-		if r.Producer == "wo:1" || r.Producer == "wo:2" {
+		if r.Source == "wo:1" || r.Source == "wo:2" {
 			reinvested[r.BeforeRev] = true
 		}
 	}
 	require.Len(t, reinvested, 2, "two DISTINCT targets minted back — the mint ties to distinct work consumed, never to dispatch acts")
 
-	pendingBefore, err := log.PendingDispatches()
+	pendingBefore, err := log.PendingSends()
 	require.NoError(t, err)
 	require.Equal(t, 2, pendingBefore, "two config orders so far")
 
@@ -93,7 +93,7 @@ func TestLiveCard_spendsDrawDistinctConfigWorkThenSupplyRefillsFromCatches(t *te
 	// did NOT silently dead-end: a real order was funded).
 	require.Equal(t, 200, tc.Action((&LiveCard{}).Spend).Fire())
 	require.Eventually(t, func() bool {
-		p, e := log.PendingDispatches()
+		p, e := log.PendingSends()
 		return e == nil && p > pendingBefore
 	}, 10*time.Second, 10*time.Millisecond, "a drawn-down config refills from the card's own catches — the 3rd spend funds a derived order, not a silent dead-end")
 }
@@ -111,16 +111,16 @@ func TestNextUnconsumedTarget_isLogDerivedAndSurvivesReopen(t *testing.T) {
 	l := ledger.Bind(f, "reopen", "i")
 	require.NoError(t, l.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "x.go", Line: 1, ReasonTag: "catch"}))
 	require.NoError(t, l.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "x.go", Line: 2, ReasonTag: "catch"}))
-	cfg := LiveConfig{DispatchBacklog: []ledger.Target{t1, t2}}
+	cfg := LiveConfig{SendBacklog: []ledger.Target{t1, t2}}
 
 	got, ok := nextUnconsumedTarget(cfg, l)
 	require.True(t, ok)
 	require.Equal(t, t1, got, "head-first: the first unconsumed CONFIG target is T1 (config precedes from-catch supply)")
-	require.NoError(t, l.AppendDispatch("dispatch", t1, ownTargetOf(cfg)))
+	require.NoError(t, l.AppendSend("dispatch", t1, ownTargetOf(cfg)))
 	got, ok = nextUnconsumedTarget(cfg, l)
 	require.True(t, ok)
 	require.Equal(t, t2, got, "after T1 is funded it is consumed — the head advances to T2")
-	require.NoError(t, l.AppendDispatch("dispatch", t2, ownTargetOf(cfg)))
+	require.NoError(t, l.AppendSend("dispatch", t2, ownTargetOf(cfg)))
 
 	// Config drawn down — supply is a going concern: a from-catch candidate refills it.
 	got, ok = nextUnconsumedTarget(cfg, l)
@@ -144,13 +144,13 @@ func TestNextUnconsumedTarget_emptyBacklogIsExhausted(t *testing.T) {
 
 func TestNextUnconsumedTarget_skipsTheCardsOwnWorkSoItCannotStallTheHead(t *testing.T) {
 	// A backlog entry equal to the card's OWN caught cycle would be refused by
-	// AppendDispatch and so never become consumed — left in the backlog it would
+	// AppendSend and so never become consumed — left in the backlog it would
 	// stall the head forever, starving the targets behind it. nextUnconsumedTarget
 	// must skip own work and advance to the next fundable distinct target.
 	t2 := woTargetN(2)
 	cfg := LiveConfig{BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap()}
 	own := ownTargetOf(cfg)
-	cfg.DispatchBacklog = []ledger.Target{own, t2}
+	cfg.SendBacklog = []ledger.Target{own, t2}
 
 	l := scratchLog(t)
 

@@ -11,8 +11,8 @@ type Stock struct {
 	ByReason         map[string]int
 	SelfFlagged      int
 	WouldHaveShipped int
-	// Reinvested is the dispatch-minted share of Count — catches a SPEND bought by
-	// dispatching distinct work (Producer "wo:<id>"), as opposed to a connect-cycle
+	// Reinvested is the send-minted share of Count — catches a SPEND bought by
+	// sending distinct work (Peer "wo:<id>"), as opposed to a connect-cycle
 	// mint. It is an ADDITIVE PARTITION of Count (connect-minted = Count − Reinvested),
 	// so the surface can show compounding: a spend's catch is distinguishable from a
 	// fresh mint, making the reinvestment chain legible rather than two equal bumps.
@@ -30,8 +30,8 @@ func ConfirmedCatches(recs []CatchRecord) Stock {
 			continue
 		}
 		s.Count++
-		if strings.HasPrefix(r.Producer, "wo:") {
-			s.Reinvested++ // minted by a dispatched run — the spend-to-earn share
+		if strings.HasPrefix(r.Source, "wo:") {
+			s.Reinvested++ // minted by a sent run — the spend-to-earn share
 		}
 		s.ByReason[r.ReasonTag]++
 		if r.SelfFlagged {

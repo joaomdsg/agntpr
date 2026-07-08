@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFold_mapsEachDispatchStatusToItsLifecycleState(t *testing.T) {
+func TestFold_mapsEachSendStatusToItsLifecycleState(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -111,7 +111,7 @@ func TestFold_mapsEachDispatchStatusToItsLifecycleState(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			views := []ledger.DispatchView{{
+			views := []ledger.SendView{{
 				ID:     1,
 				Target: ledger.Target{Prompt: "some prompt"},
 				Status: tt.status,
@@ -128,10 +128,10 @@ func TestFold_mapsEachDispatchStatusToItsLifecycleState(t *testing.T) {
 	}
 }
 
-func TestFold_preservesOrderIdentityAndOrderingAcrossMultipleViews(t *testing.T) {
+func TestFold_preservesPacketIdentityAndOrderingAcrossMultipleViews(t *testing.T) {
 	t.Parallel()
 
-	views := []ledger.DispatchView{
+	views := []ledger.SendView{
 		{ID: 3, Target: ledger.Target{Prompt: "third order"}, Status: "queued"},
 		{ID: 1, Target: ledger.Target{Prompt: "first order"}, Status: "running"},
 		{ID: 2, Target: ledger.Target{Prompt: "second order"}, Status: "failed"},
@@ -148,7 +148,7 @@ func TestFold_preservesOrderIdentityAndOrderingAcrossMultipleViews(t *testing.T)
 func TestFold_looksUpOpenQuestionsByEachViewsOwnID(t *testing.T) {
 	t.Parallel()
 
-	views := []ledger.DispatchView{
+	views := []ledger.SendView{
 		{ID: 10, Target: ledger.Target{Prompt: "no questions here"}, Status: "done", Caught: true},
 		{ID: 20, Target: ledger.Target{Prompt: "has questions here"}, Status: "done", Caught: true},
 	}
@@ -178,7 +178,7 @@ func TestFold_returnsNoPacketsForNoViews(t *testing.T) {
 func TestFold_leavesLaneUnmeasuredSinceFoldNeverShellsOutToMeasureIt(t *testing.T) {
 	t.Parallel()
 
-	views := []ledger.DispatchView{{ID: 1, Status: "done", Caught: true}}
+	views := []ledger.SendView{{ID: 1, Status: "done", Caught: true}}
 
 	got := packet.Fold(views, packet.Addr{}, zeroQuestions)
 
@@ -194,7 +194,7 @@ func TestFold_leavesLaneUnmeasuredSinceFoldNeverShellsOutToMeasureIt(t *testing.
 func TestFold_leavesEveryGauntletGateNotRunSinceFoldNeverRunsGatesItself(t *testing.T) {
 	t.Parallel()
 
-	views := []ledger.DispatchView{{ID: 1, Status: "done", Caught: true}}
+	views := []ledger.SendView{{ID: 1, Status: "done", Caught: true}}
 
 	got := packet.Fold(views, packet.Addr{}, zeroQuestions)
 
@@ -208,7 +208,7 @@ func TestFold_leavesEveryGauntletGateNotRunSinceFoldNeverRunsGatesItself(t *test
 func TestFold_copiesHandshakeFieldsStraightFromTheTarget(t *testing.T) {
 	t.Parallel()
 
-	views := []ledger.DispatchView{{
+	views := []ledger.SendView{{
 		ID: 1,
 		Target: ledger.Target{
 			Prompt:        "do the thing",
@@ -231,7 +231,7 @@ func TestFold_copiesHandshakeFieldsStraightFromTheTarget(t *testing.T) {
 func TestFold_leavesHandshakeFieldsEmptyWhenTheTargetHasNone(t *testing.T) {
 	t.Parallel()
 
-	views := []ledger.DispatchView{{ID: 1, Target: ledger.Target{Prompt: "do the thing"}, Status: "queued"}}
+	views := []ledger.SendView{{ID: 1, Target: ledger.Target{Prompt: "do the thing"}, Status: "queued"}}
 
 	got := packet.Fold(views, packet.Addr{}, zeroQuestions)
 
@@ -264,7 +264,7 @@ func TestFold_copiesHandshakeStrengthFromTheTargetsPlainInt(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			views := []ledger.DispatchView{{
+			views := []ledger.SendView{{
 				ID:     1,
 				Target: ledger.Target{Prompt: "do the thing", HandshakeStrength: int(tt.want)},
 				Status: "queued",

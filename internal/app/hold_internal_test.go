@@ -51,15 +51,15 @@ func TestLiveCard_needsYouRailEscalatesOnceALaneFloorBreachIsMeasuredAndSortsAhe
 	// so once LaneStrict is measured its floor (StrengthProperties) is
 	// breached.
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 100, ReasonTag: "catch"}))
-	require.NoError(t, log.AppendDispatch("d1", ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1}, own))
-	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "main.go", Line: 1, ReasonTag: "catch", Producer: "wo:1"}))
+	require.NoError(t, log.AppendSend("d1", ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1}, own))
+	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "main.go", Line: 1, ReasonTag: "catch", Source: "wo:1"}))
 	require.NoError(t, log.AppendStatus(1, "done"))
 
 	// Order 2: a plain lifecycle advisory hold (done, not caught) — its lane
 	// is never measured (LaneUnmeasured, floor StrengthNone) so it can never
 	// be forced blocking; it stays exactly what Fold set.
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 101, ReasonTag: "catch"}))
-	require.NoError(t, log.AppendDispatch("d2", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "beta.go", Line: 2}, own))
+	require.NoError(t, log.AppendSend("d2", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "beta.go", Line: 2}, own))
 	require.NoError(t, log.AppendStatus(2, "done"))
 
 	registerSession("holdlanefloor", LiveConfig{RepoDir: repo, BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
@@ -103,7 +103,7 @@ func TestLiveCard_needsYouRailEscalatesOnceALaneFloorBreachIsMeasuredAndSortsAhe
 	// change is the observable trigger the sibling poll-safety tests
 	// use to force the poll to notice and re-render over this connection.
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 102, ReasonTag: "catch"}))
-	require.NoError(t, log.AppendDispatch("d3", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "gamma.go", Line: 3}, own))
+	require.NoError(t, log.AppendSend("d3", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "gamma.go", Line: 3}, own))
 	require.NoError(t, log.AppendStatus(3, "running"))
 
 	// The console's NEXT poll tick reads the now-cached lane (a pure map

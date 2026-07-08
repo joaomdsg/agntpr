@@ -20,7 +20,7 @@ func boardSession(t *testing.T, key string, seedCatches int, backlog []ledger.Ta
 	for i := 0; i < seedCatches; i++ {
 		require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Line: 100 + i, ReasonTag: "catch"}))
 	}
-	registerSession(key, LiveConfig{BaseRev: "own-b-" + key, FixRev: "own-f", Anchor: anchorForCap(), DispatchBacklog: backlog}, log)
+	registerSession(key, LiveConfig{BaseRev: "own-b-" + key, FixRev: "own-f", Anchor: anchorForCap(), SendBacklog: backlog}, log)
 	return log
 }
 

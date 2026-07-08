@@ -25,7 +25,7 @@ import (
 // findings) and surfacing the count on the order makes a funded order reviewable:
 // you don't fire-and-forget; you see what you paid for left open. NOT parallel
 // (shared liveReg + the resolveCycle seam).
-func TestLiveCard_aFilledOrderShowsItsOpenReviewQuestions(t *testing.T) {
+func TestLiveCard_aFilledPacketShowsItsOpenReviewQuestions(t *testing.T) {
 	resetConsumersForTest()
 	restore := resolveCycle
 	t.Cleanup(func() { resolveCycle = restore })
@@ -58,10 +58,10 @@ func TestLiveCard_aFilledOrderShowsItsOpenReviewQuestions(t *testing.T) {
 	log := ledger.Bind(f, "woq", "i")
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 1, ReasonTag: "catch"})) // balance 1
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
-	require.NoError(t, log.AppendDispatch("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
+	require.NoError(t, log.AppendSend("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
 	registerSession("woq", LiveConfig{RepoDir: ".", BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 
-	drainQueuedOrders("woq") // sync: fill order 1, capturing its findings
+	drainQueuedPackets("woq") // sync: fill order 1, capturing its findings
 
 	require.Equal(t, 2, lookupLiveEntry("woq").orderQuestionCount(1),
 		"the filled order's review questions are captured (off the economy ledger)")
@@ -77,19 +77,19 @@ func TestLiveCard_aFilledOrderShowsItsOpenReviewQuestions(t *testing.T) {
 	t.Cleanup(func() { _ = defLog.Close() })
 
 	body := bodyOf(vt.NewClient(t, server, "/?key=woq").HTML())
-	require.Contains(t, body, "WO#1", "the filled order is shown on the card")
+	require.Contains(t, body, "PKT#1", "the filled order is shown on the card")
 	require.Contains(t, body, "2 open questions", "with its reviewable test-debt — the dispatch→review tie")
 	require.Contains(t, body, "wo=1", "the count DRILLS into that order's review (/review?...&wo=1)")
 
 	// Drill: /review?wo=<id> reviews THAT order's questions (not the session's).
 	orderBody := bodyOf(vt.NewClient(t, server, "/review?key=woq&wo=1").HTML())
-	require.Contains(t, orderBody, "Inspecting WO#1", "the per-order review names the order")
+	require.Contains(t, orderBody, "Inspecting PKT#1", "the per-order review names the order")
 	require.Contains(t, orderBody, "review-thread", "the order's questions render as anchored threads")
 	require.Contains(t, orderBody, "alpha.go:7", "anchored to the order's surviving-mutant line")
 	require.Contains(t, orderBody, "question: mutated &gt;= to &gt;", "carrying the order's finding as a question")
 	// "See the edits the order made": the base→fix diff in a Monaco diff editor.
-	require.Contains(t, orderBody, "The edits WO#1 made", "the per-order review shows the order's edits")
-	require.Contains(t, orderBody, "order-diff-editor", "a diff editor mount for the edits")
+	require.Contains(t, orderBody, "The edits PKT#1 made", "the per-order review shows the order's edits")
+	require.Contains(t, orderBody, "packet-diff-editor", "a diff editor mount for the edits")
 	require.Contains(t, orderBody, "createDiffEditor", "a bootstrap mounts the base↔fix diff editor")
 	require.Contains(t, orderBody, `"base":`, "the base source rides in the diff payload (server contract)")
 	require.Contains(t, orderBody, `"fix":`, "the fix source rides too")
@@ -97,7 +97,7 @@ func TestLiveCard_aFilledOrderShowsItsOpenReviewQuestions(t *testing.T) {
 
 	// An order with no captured findings → calm empty per-order state, not the session's.
 	emptyBody := bodyOf(vt.NewClient(t, server, "/review?key=woq&wo=999").HTML())
-	require.Contains(t, emptyBody, "Inspecting WO#999", "the per-order review names the (unfilled) order")
+	require.Contains(t, emptyBody, "Inspecting PKT#999", "the per-order review names the (unfilled) order")
 	require.Contains(t, emptyBody, "No open questions for this packet", "a calm empty state for an order with no surviving mutants")
 }
 
@@ -105,7 +105,7 @@ func TestLiveCard_aFilledOrderShowsItsOpenReviewQuestions(t *testing.T) {
 // work it did), not the session's, and clear that order's findings on a kill — so
 // you act on the funded work's test-debt in place. NOT parallel (shared liveReg +
 // the re-run seam).
-func TestReviewCard_answeringAnOrdersQuestionRerunsOnTheOrdersRevs(t *testing.T) {
+func TestReviewCard_answeringAPacketsQuestionRerunsOnThePacketsRevs(t *testing.T) {
 	resetConsumersForTest()
 	restore := rerunWithOverlay
 	t.Cleanup(func() { rerunWithOverlay = restore })
@@ -122,7 +122,7 @@ func TestReviewCard_answeringAnOrdersQuestionRerunsOnTheOrdersRevs(t *testing.T)
 	log := ledger.Bind(f, "woa", "i")
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 1, ReasonTag: "catch"})) // balance 1
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
-	require.NoError(t, log.AppendDispatch("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
+	require.NoError(t, log.AppendSend("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
 	require.NoError(t, log.AppendStatus(1, "done"))
 	registerSession("woa", LiveConfig{RepoDir: ".", BaseRev: "own-b", FixRev: "own-f-session", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 	lookupLiveEntry("woa").setOrderFindings(1, []mutation.Finding{{File: "alpha.go", Line: 7, Outcome: mutation.Survived, Message: "mutated >= to >"}})

@@ -18,7 +18,7 @@ import (
 
 // ResolveAdjustment clears the adjustment anchored at the AdjFile:AdjLine signals — the
 // Lead marking it addressed so it leaves the list (closing the review-thread loop
-// symmetrically with the answer-vanish flow). Off the economy ledger, no harness dispatch
+// symmetrically with the answer-vanish flow). Off the economy ledger, no harness send
 // (unlike AddAdjustment): it only forgets the anchor. A missing entry / treeless session /
 // blank or non-positive line is a silent no-op.
 func (c *ReviewCard) ResolveAdjustment(ctx *via.Ctx) {
@@ -39,10 +39,10 @@ func (c *ReviewCard) ResolveAdjustment(ctx *via.Ctx) {
 }
 
 // AddAdjustment is the keystone of the review-thread loop (DESIGN §12.3): leaving an
-// anchored comment on a line dispatches a harness TURN that tells the agent what to
+// anchored comment on a line sends a harness TURN that tells the agent what to
 // fix, run against the session's live HEAD — so "leave an adjustment" becomes "watch
-// the agent fix it". It is an additive reuse of the live-order pipe: the comment turn
-// is dispatched and drained exactly like a placed order (funded by attention
+// the agent fix it". It is an additive reuse of the live-packet pipe: the comment turn
+// is sent and drained exactly like a placed packet (funded by attention
 // bandwidth), with the agent's edits folding into the next settled revision. An empty
 // comment, a treeless session, or an over-budget meter is a silent no-op.
 func (c *ReviewCard) AddAdjustment(ctx *via.Ctx) {
@@ -85,7 +85,7 @@ func (c *ReviewCard) AddAdjustment(ctx *via.Ctx) {
 		endLine = 0
 	}
 
-	// Persist the anchored comment as a DURABLE annotation before the dispatch, so
+	// Persist the anchored comment as a DURABLE annotation before the send, so
 	// the comment is recorded on the log (and folds into the review rail) even when
 	// the re-trigger below is refused for budget — the human said it, so it stays.
 	// The id is sequential over the session's existing annotations, giving each a
@@ -102,12 +102,12 @@ func (c *ReviewCard) AddAdjustment(ctx *via.Ctx) {
 	})
 
 	tgt := ledger.Target{BaseRev: head, Prompt: assist.ReviewTurnPrompt(file, line, codeLine, text)}
-	// Funded by attention bandwidth like any UI-authored live order; an over-budget
+	// Funded by attention bandwidth like any UI-authored live packet; an over-budget
 	// meter is refused by the ledger and is a silent no-op for the re-trigger.
-	if err := log.AppendLiveDispatch("liveorder", tgt, ownTargetOf(cfg)); err != nil {
+	if err := log.AppendLiveSend("liveorder", tgt, ownTargetOf(cfg)); err != nil {
 		return
 	}
-	go drainQueuedOrders(key)
+	go drainQueuedPackets(key)
 }
 
 // adjAnchorState is where an adjustment's commented line ended up after the agent
@@ -292,7 +292,7 @@ func jsStr(s string) string {
 // readSourceLine returns the 1-indexed content of file's line within repoDir, so the
 // review turn can quote the line under comment. Best-effort: a missing file, an
 // unreadable tree, or an out-of-range/non-positive line degrades to "" (no quote)
-// rather than erroring — the adjustment still dispatches, it just isn't quoted.
+// rather than erroring — the adjustment still sends, it just isn't quoted.
 func readSourceLine(repoDir, file string, line int) string {
 	if file == "" || line < 1 {
 		return ""

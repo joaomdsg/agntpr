@@ -312,7 +312,7 @@ body {
 .settings__token-input { min-width: 22ch; }  /* box CSS on .pk-input */
 /* .settings__save box CSS now on .pk-btn */
 
-/* ---- the authoring assist (the producer's draft read) ---- */
+/* ---- the authoring assist (the assist's draft read) ---- */
 .authoring { display: flex; flex-direction: column; gap: var(--sp-3); }
 /* .compose__analyze is a .pk-btn--quiet; it kept the raised-surface background */
 .compose__analyze { background: var(--surface-raised); }
@@ -363,7 +363,7 @@ body {
 .compose__readiness[data-state="caution"] { color: var(--text-muted); }
 .compose__readiness[data-state="ready"] { color: var(--signal); }
 
-/* ---- author a live order ---- */
+/* ---- author a live packet ---- */
 .compose { display: flex; flex-direction: column; gap: var(--sp-3); margin: var(--sp-3) 0; }
 .compose__place { align-self: flex-start; }  /* box CSS on .pk-btn */
 .compose__needs-key { color: var(--text-muted); font-size: var(--fs-small); }
@@ -411,8 +411,8 @@ body {
 .board-row__retire { margin-left: auto; padding: 0 var(--sp-3); font-size: var(--fs-micro); }
 .board-row__retire:hover { color: var(--risk); border-color: var(--risk); }
 
-/* the producers' bet lifecycle — one sealed cluster, distinct from confirmed stock */
-.board-row__bets, .board-row__dispatches {
+/* the peers' bet lifecycle — one sealed cluster, distinct from confirmed stock */
+.board-row__bets, .board-row__sends {
   display: inline-flex;
   align-items: baseline;
   gap: var(--sp-1) var(--sp-3);
@@ -422,28 +422,28 @@ body {
 /* the uppercase labels are .pk-section-label (multi-class) */
 .board-row__inflight { color: var(--signal); }
 .board-row__rejected { color: var(--risk); }
-.board-row__dispatch { color: var(--text-muted); }  /* font-family/font-size now on .pk-chip; KEEP color + the [data-outcome] hue rules */
-/* a resolved order's outcome, legible at a glance in the honest palette (extends
-   the honest per-state palette to the dispatch round-trip): caught is a calm
+.board-row__send { color: var(--text-muted); }  /* font-family/font-size now on .pk-chip; KEEP color + the [data-outcome] hue rules */
+/* a resolved packet's outcome, legible at a glance in the honest palette (extends
+   the honest per-state palette to the send round-trip): caught is a calm
    confirmed, missed a muted loss — never an alarm red/green. A queued/running
-   order has no data-outcome, so it stays neutral dim. */
-.board-row__dispatch[data-outcome="caught"] { color: var(--verified); }
-.board-row__dispatch[data-outcome="missed"] { color: var(--risk); }
-/* the oracle's verdict for a resolved order — the WHY behind the outcome, shown as
+   packet has no data-outcome, so it stays neutral dim. */
+.board-row__send[data-outcome="caught"] { color: var(--verified); }
+.board-row__send[data-outcome="missed"] { color: var(--risk); }
+/* the oracle's verdict for a resolved packet — the WHY behind the outcome, shown as
    calm dim secondary detail (the outcome word already carries the color). */
-.board-row__dispatch-why { color: var(--text-muted); }
-/* a filled order's reviewable test-debt — how many open review questions it left;
-   a quiet accent count (the dispatch→review tie), never an alarm. */
-.board-row__dispatch-questions { color: var(--text-muted); }
-/* a settled order with no open questions still drills into its base→fix diff — so
+.board-row__send-why { color: var(--text-muted); }
+/* a filled packet's reviewable test-debt — how many open review questions it left;
+   a quiet accent count (the send→review tie), never an alarm. */
+.board-row__send-questions { color: var(--text-muted); }
+/* a settled packet with no open questions still drills into its base→fix diff — so
    a clean fill is never a dead end. Same quiet accent as the question count. */
-.board-row__dispatch-inspect { color: var(--text-muted); }
-/* "watch it fill": a calm live row while the runner fills an order — the cycle beats
+.board-row__send-inspect { color: var(--text-muted); }
+/* "watch it fill": a calm live row while the runner fills a packet — the cycle beats
    accruing as the oracle works. Dim mono, in the beat idiom; vanishes when done. */
-.order-filling { color: var(--text-muted); font-family: var(--font-mono); font-size: var(--fs-small); padding: var(--sp-1) 0; }
-/* the scrolling agent transcript while an order fills: bounded height so a long run
+.packet-filling { color: var(--text-muted); font-family: var(--font-mono); font-size: var(--fs-small); padding: var(--sp-1) 0; }
+/* the scrolling agent transcript while a packet fills: bounded height so a long run
    scrolls in place rather than pushing the card; the calm mono idiom, no alarm. */
-.order-transcript {
+.packet-transcript {
   margin: var(--sp-1) 0;
   max-height: 14em;
   overflow-y: auto;
@@ -455,12 +455,12 @@ body {
   font-size: var(--fs-small);
   color: var(--text-muted);
 }
-.order-transcript__line { padding: 1px 0; white-space: pre-wrap; word-break: break-word; }
+.packet-transcript__line { padding: 1px 0; white-space: pre-wrap; word-break: break-word; }
 
 /* ---- the single review card ---- */
 /* box CSS (padding + surface + border + radius) now on .pk-card (multi-class);
    these keep only the shared bottom margin between stacked cards. The
-   stock/balance/bandwidth/dispatch meter rows are RETIRED from the UI
+   stock/balance/bandwidth/send meter rows are RETIRED from the UI
    (the vocabulary map) — their render helpers are gone,
    so no rule for them lives here anymore. */
 .beat-row, .review-card, .land-row, .onboarding {
@@ -505,10 +505,10 @@ body {
    text threads carry the review. */
 .review-editor-island { display: block; }
 .review-editor { width: 100%; height: 60vh; border: 1px solid var(--hairline); border-radius: var(--r-btn); }
-/* the per-order diff editor — the edits the work order made, base vs fix side by
+/* the per-packet diff editor — the edits the packet made, base vs fix side by
    side (a static, pre-funded diff; never a faked live agent). */
-.order-diff-island { display: block; }
-.order-diff-editor { width: 100%; height: 45vh; border: 1px solid var(--hairline); border-radius: var(--r-btn); }
+.packet-diff-island { display: block; }
+.packet-diff-editor { width: 100%; height: 45vh; border: 1px solid var(--hairline); border-radius: var(--r-btn); }
 /* the changed-file tree — the review surface's left rail: the full fix tree as
    native collapsible <details> groups, expanded by default. Changed leaves take
    the bronze accent, deletions the muted-mauve loss hue (both existing
@@ -650,13 +650,13 @@ body {
 .bench__anno { display: flex; flex-direction: column; gap: 2px; }
 .bench__anno-item { color: var(--text-muted); font-size: var(--fs-small); }
 
-/* the agent-runner control: a calm act-now row (host vs container for live orders),
+/* the agent-runner control: a calm act-now row (host vs container for live packets),
    sitting with the funding controls it governs. */
 .live-runner { display: flex; align-items: baseline; gap: var(--sp-3); }
 .live-runner__mode { color: var(--text-muted); font-size: var(--fs-small); }
 
 /* the fleet board's live activity beat — what an agent is doing right now, a calm
-   dim ticker on its row (shown only while an order fills). */
+   dim ticker on its row (shown only while a packet fills). */
 .board-row__activity-beat { color: var(--text-muted); font-size: var(--fs-small); }
 
 /* ---- Flow A: the live card's two sub-landmarks. The split is carried by the
@@ -665,7 +665,7 @@ body {
    rhythm between the regions is the only chrome the calm system needs. ---- */
 [role="main"] > section + section { margin-top: var(--sp-5); }
 
-/* ---- Flow B: the unified funding group. Spend (balance hue) and place-order
+/* ---- Flow B: the unified funding group. Spend (balance hue) and place-packet
    (bandwidth/accent hue) co-located under one label + a dim two-currency
    explainer. A labelled affordance pair — never a meter/gauge/bar. ---- */
 .fund-work {

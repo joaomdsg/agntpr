@@ -32,7 +32,7 @@ var gauntletGateNames = []string{
 // mechanic yet (G2/G5/G6 stay NotRun for now) — an absent gate is never
 // hidden. G4 is a REAL exec seam over the fixture's own clean build. NOT
 // parallel (shared liveReg/liveFabric).
-func TestReviewCard_orderScopedTimelineRendersAllSixGatesComputedOnRender(t *testing.T) {
+func TestReviewCard_PacketScopedTimelineRendersAllSixGatesComputedOnRender(t *testing.T) {
 	resetConsumersForTest()
 	repo, base, fix := initMeasurableRepo(t)
 
@@ -41,7 +41,7 @@ func TestReviewCard_orderScopedTimelineRendersAllSixGatesComputedOnRender(t *tes
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Close() })
 	log := ledger.Bind(f, "gauntletall", "i")
-	fundDispatch(t, log, "d1", ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1})
+	fundSend(t, log, "d1", ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1})
 	registerSession("gauntletall", LiveConfig{RepoDir: repo, BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
@@ -72,7 +72,7 @@ func TestReviewCard_orderScopedTimelineRendersAllSixGatesComputedOnRender(t *tes
 
 // G3 (handshake tightness) folds from the order's OWN cached catch-cycle
 // outcome — never a re-run of the mutation oracle. NOT parallel.
-func TestReviewCard_timelineDerivesHandshakeTightnessFromTheOrdersCachedCatchOutcome(t *testing.T) {
+func TestReviewCard_timelineDerivesHandshakeTightnessFromThePacketsCachedCatchOutcome(t *testing.T) {
 	resetConsumersForTest()
 	repo, base, fix := initMeasurableRepo(t)
 
@@ -81,7 +81,7 @@ func TestReviewCard_timelineDerivesHandshakeTightnessFromTheOrdersCachedCatchOut
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Close() })
 	log := ledger.Bind(f, "gauntletg3", "i")
-	fundDispatch(t, log, "d1", ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1})
+	fundSend(t, log, "d1", ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1})
 	registerSession("gauntletg3", LiveConfig{RepoDir: repo, BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 	e := lookupLiveEntry("gauntletg3")
 	require.NotNil(t, e)
@@ -114,7 +114,7 @@ func TestReviewCard_confirmIntentFidelityMarksItPassedAndPersistsAcrossReRender(
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Close() })
 	log := ledger.Bind(f, "gauntletconfirm", "i")
-	fundDispatch(t, log, "d1", ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1})
+	fundSend(t, log, "d1", ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1})
 	registerSession("gauntletconfirm", LiveConfig{RepoDir: repo, BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
@@ -141,7 +141,7 @@ func TestReviewCard_confirmIntentFidelityMarksItPassedAndPersistsAcrossReRender(
 // A SECOND confirmation, for a different order, must not clobber or be
 // blocked by the first — intentFidelityConfirmed is a real per-order map,
 // not a single slot reused across confirmations. NOT parallel.
-func TestReviewCard_confirmIntentFidelityForASecondOrderDoesNotClobberTheFirst(t *testing.T) {
+func TestReviewCard_confirmIntentFidelityForASecondPacketDoesNotClobberTheFirst(t *testing.T) {
 	resetConsumersForTest()
 	repo, base, fix := initMeasurableRepo(t)
 	target := ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1}
@@ -151,8 +151,8 @@ func TestReviewCard_confirmIntentFidelityForASecondOrderDoesNotClobberTheFirst(t
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Close() })
 	log := ledger.Bind(f, "gauntletconfirmtwo", "i")
-	fundDispatch(t, log, "d1", target)
-	fundDispatch(t, log, "d2", target)
+	fundSend(t, log, "d1", target)
+	fundSend(t, log, "d2", target)
 	registerSession("gauntletconfirmtwo", LiveConfig{RepoDir: repo, BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
@@ -180,7 +180,7 @@ func TestReviewCard_confirmIntentFidelityForASecondOrderDoesNotClobberTheFirst(t
 // gauntlet — only a render (View) may, scoped to the packet shown in detail.
 // Mirrors the lane poll-safety proof exactly. NOT
 // parallel (shared liveReg/liveFabric).
-func TestLiveCard_streamPollNeverComputesTheGauntletCacheForAnUnvisitedOrder(t *testing.T) {
+func TestLiveCard_streamPollNeverComputesTheGauntletCacheForAnUnvisitedPacket(t *testing.T) {
 	resetConsumersForTest()
 	repo, base, fix := initMeasurableRepo(t)
 
@@ -189,7 +189,7 @@ func TestLiveCard_streamPollNeverComputesTheGauntletCacheForAnUnvisitedOrder(t *
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Close() })
 	log := ledger.Bind(f, "gauntletpoll", "i")
-	fundDispatch(t, log, "d1", ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1})
+	fundSend(t, log, "d1", ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1})
 	registerSession("gauntletpoll", LiveConfig{RepoDir: repo, BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
@@ -221,7 +221,7 @@ func TestLiveCard_streamPollNeverComputesTheGauntletCacheForAnUnvisitedOrder(t *
 // so every gate must answer honestly WITHOUT caching (a later render, once
 // the order fills, must get a real computation). Mirrors the lane revless
 // test. NOT parallel.
-func TestReviewCard_orderScopedTimelineShowsUnmeasuredGatesWithoutCachingWhenFixRevIsUnknown(t *testing.T) {
+func TestReviewCard_PacketScopedTimelineShowsUnmeasuredGatesWithoutCachingWhenFixRevIsUnknown(t *testing.T) {
 	resetConsumersForTest()
 	ctx := context.Background()
 	f, err := fabric.Start(ctx, t.TempDir())
@@ -230,7 +230,7 @@ func TestReviewCard_orderScopedTimelineShowsUnmeasuredGatesWithoutCachingWhenFix
 	log := ledger.Bind(f, "gauntletnorev", "i")
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: "catch", Path: "c.go", Line: 1, ReasonTag: "catch"}))
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
-	require.NoError(t, log.AppendDispatch("d1", ledger.Target{BaseRev: "b", Prompt: "do the thing"}, own))
+	require.NoError(t, log.AppendSend("d1", ledger.Target{BaseRev: "b", Prompt: "do the thing"}, own))
 	registerSession("gauntletnorev", LiveConfig{RepoDir: ".", BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
@@ -267,7 +267,7 @@ func TestReviewCard_secondVisitServesTheCachedGauntletWithoutRecomputing(t *test
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Close() })
 	log := ledger.Bind(f, "gauntletcachehit", "i")
-	fundDispatch(t, log, "d1", ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1})
+	fundSend(t, log, "d1", ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1})
 	registerSession("gauntletcachehit", LiveConfig{RepoDir: repo, BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
@@ -292,7 +292,7 @@ func TestReviewCard_secondVisitServesTheCachedGauntletWithoutRecomputing(t *test
 // never populate or corrupt a different order's cache slot. Mirrors the
 // lane sibling's per-order cache-isolation proof (the lane-health-grid test).
 // NOT parallel.
-func TestReviewCard_visitingOneOrderNeverCachesAGauntletForADifferentOrder(t *testing.T) {
+func TestReviewCard_visitingOnePacketNeverCachesAGauntletForADifferentPacket(t *testing.T) {
 	resetConsumersForTest()
 	repo, base, fix := initMeasurableRepo(t)
 	target := ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1}
@@ -302,8 +302,8 @@ func TestReviewCard_visitingOneOrderNeverCachesAGauntletForADifferentOrder(t *te
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Close() })
 	log := ledger.Bind(f, "gauntletisolate", "i")
-	fundDispatch(t, log, "d1", target) // order 1 — will be visited
-	fundDispatch(t, log, "d2", target) // order 2 — left unvisited
+	fundSend(t, log, "d1", target) // order 1 — will be visited
+	fundSend(t, log, "d2", target) // order 2 — left unvisited
 	registerSession("gauntletisolate", LiveConfig{RepoDir: repo, BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
@@ -329,7 +329,7 @@ func TestReviewCard_visitingOneOrderNeverCachesAGauntletForADifferentOrder(t *te
 
 // A blank/zero/invalid confirmwo signal is a calm no-op, mirroring how
 // ResolveAdjustment/AddAdjustment handle blank input. NOT parallel.
-func TestReviewCard_confirmIntentFidelityWithNoOrderIDIsASilentNoOp(t *testing.T) {
+func TestReviewCard_confirmIntentFidelityWithNoPacketIDIsASilentNoOp(t *testing.T) {
 	resetConsumersForTest()
 	repo, base, fix := initMeasurableRepo(t)
 
@@ -338,7 +338,7 @@ func TestReviewCard_confirmIntentFidelityWithNoOrderIDIsASilentNoOp(t *testing.T
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Close() })
 	log := ledger.Bind(f, "gauntletconfirmnoop", "i")
-	fundDispatch(t, log, "d1", ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1})
+	fundSend(t, log, "d1", ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1})
 	registerSession("gauntletconfirmnoop", LiveConfig{RepoDir: repo, BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
@@ -368,8 +368,8 @@ func TestReviewCard_confirmIntentFidelityWithNoOrderIDIsASilentNoOp(t *testing.T
 // confirm intent fidelity against. NOT parallel.
 func TestReviewCard_sessionScopedTimelineRendersAllSixGatesHonestlyUnmeasured(t *testing.T) {
 	resetConsumersForTest()
-	repo := initGitRepoForOrder(t)
-	head := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	head := gitPacket(t, repo, "rev-parse", "HEAD")
 	ctx := context.Background()
 	f, err := fabric.Start(ctx, t.TempDir())
 	require.NoError(t, err)
@@ -423,7 +423,7 @@ func TestReviewCard_independentCheckReRunsTheCageAndCachesAPassedG6(t *testing.T
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Close() })
 	log := ledger.Bind(f, "gauntletg6", "i")
-	fundDispatch(t, log, "d1", ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1})
+	fundSend(t, log, "d1", ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1})
 	registerSession("gauntletg6", LiveConfig{RepoDir: repo, BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 
 	var invoked atomic.Int32
@@ -469,7 +469,7 @@ func TestReviewCard_independentCheckStaysNotRunOnAnUnverifiableTarget(t *testing
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Close() })
 	log := ledger.Bind(f, "gauntletg6bad", "i")
-	fundDispatch(t, log, "d1", ledger.Target{BaseRev: "0000000000000000000000000000000000bad0", FixRev: fix, TipRev: fix, Path: "main.go", Line: 1})
+	fundSend(t, log, "d1", ledger.Target{BaseRev: "0000000000000000000000000000000000bad0", FixRev: fix, TipRev: fix, Path: "main.go", Line: 1})
 	registerSession("gauntletg6bad", LiveConfig{RepoDir: repo, BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 
 	var invoked atomic.Int32
@@ -508,7 +508,7 @@ func TestReviewCard_independentCheckStaysTheHonestDefaultWhenCageIsUnconfigured(
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Close() })
 	log := ledger.Bind(f, "gauntletg6off", "i")
-	fundDispatch(t, log, "d1", ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1})
+	fundSend(t, log, "d1", ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1})
 	registerSession("gauntletg6off", LiveConfig{RepoDir: repo, BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
@@ -521,7 +521,7 @@ func TestReviewCard_independentCheckStaysTheHonestDefaultWhenCageIsUnconfigured(
 	t.Cleanup(func() { _ = defLog.Close() })
 
 	body := bodyOf(vt.NewClient(t, server, "/review?key=gauntletg6off&wo=1").HTML())
-	assert.Contains(t, body, "not measured — cage not wired to local dispatch")
+	assert.Contains(t, body, "not measured — cage not wired to local send")
 
 	e := lookupLiveEntry("gauntletg6off")
 	require.NotNil(t, e)

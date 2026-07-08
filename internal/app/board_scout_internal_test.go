@@ -15,15 +15,15 @@ import (
 // heuristic clamped hits=min(Reinvested,Done), misattributing such a catch; the
 // exact ScoutingReport gates Caught on the same order being done.) NOT parallel
 // (shared liveReg).
-func TestBoardRows_doesNotCreditADoneOrderForACatchOnADifferentRunningOrder(t *testing.T) {
+func TestBoardRows_doesNotCreditADonePacketForACatchOnADifferentRunningPacket(t *testing.T) {
 	log := boardSession(t, "miscredit", 2, nil) // balance 2 funds two dispatches
 	own := ownTargetOf(LiveConfig{BaseRev: "own-b-miscredit", FixRev: "own-f", Anchor: anchorForCap()})
-	require.NoError(t, log.AppendDispatch("d1", woTargetN(1), own))
-	require.NoError(t, log.AppendDispatch("d2", woTargetN(2), own))
+	require.NoError(t, log.AppendSend("d1", woTargetN(1), own))
+	require.NoError(t, log.AppendSend("d2", woTargetN(2), own))
 	require.NoError(t, log.AppendStatus(1, "done"))    // order 1 ran to done, minted NOTHING
 	require.NoError(t, log.AppendStatus(2, "running")) // order 2 still in flight
 	// A catch on the RUNNING order 2 — it must not credit the done order 1.
-	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Producer: "wo:2", ReasonTag: "catch", Line: 7}))
+	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Source: "wo:2", ReasonTag: "catch", Line: 7}))
 
 	r := rowFor(t, BoardRows(), "miscredit")
 	require.Equal(t, 1, r.Done, "one order reached done")
@@ -36,12 +36,12 @@ func TestBoardRows_doesNotCreditADoneOrderForACatchOnADifferentRunningOrder(t *t
 // a first-pass hit — so the board reads "hit-rate 1/1", no miss. (Guards against a
 // broken ScoutingReport that always reports 0, which would still pass the
 // misattribution test above.) NOT parallel (shared liveReg).
-func TestBoardRows_countsADoneOrdersOwnCatchAsAFirstPassHit(t *testing.T) {
+func TestBoardRows_countsADonePacketsOwnCatchAsAFirstPassHit(t *testing.T) {
 	log := boardSession(t, "hitlane", 1, nil) // balance 1 funds one dispatch
 	own := ownTargetOf(LiveConfig{BaseRev: "own-b-hitlane", FixRev: "own-f", Anchor: anchorForCap()})
-	require.NoError(t, log.AppendDispatch("d1", woTargetN(1), own))
+	require.NoError(t, log.AppendSend("d1", woTargetN(1), own))
 	require.NoError(t, log.AppendStatus(1, "done"))
-	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Producer: "wo:1", ReasonTag: "catch", Line: 7})) // THIS order's catch
+	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Source: "wo:1", ReasonTag: "catch", Line: 7})) // THIS order's catch
 
 	r := rowFor(t, BoardRows(), "hitlane")
 	require.Equal(t, 1, r.Caught, "the order's own catch is a first-pass hit")

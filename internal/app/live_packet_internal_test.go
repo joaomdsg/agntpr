@@ -22,7 +22,7 @@ import (
 	"github.com/joaomdsg/packets/internal/translate"
 )
 
-func gitOrder(t *testing.T, dir string, args ...string) string {
+func gitPacket(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 	cmd := exec.Command("git", args...)
 	cmd.Dir = dir
@@ -31,21 +31,21 @@ func gitOrder(t *testing.T, dir string, args ...string) string {
 	return strings.TrimSpace(string(out))
 }
 
-func initGitRepoForOrder(t *testing.T) string {
+func initGitRepoForPacket(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	gitOrder(t, dir, "init", "-q")
-	gitOrder(t, dir, "config", "user.email", "t@t")
-	gitOrder(t, dir, "config", "user.name", "t")
+	gitPacket(t, dir, "init", "-q")
+	gitPacket(t, dir, "config", "user.email", "t@t")
+	gitPacket(t, dir, "config", "user.name", "t")
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "base.txt"), []byte("base\n"), 0o644))
-	gitOrder(t, dir, "add", "-A")
-	gitOrder(t, dir, "commit", "-qm", "base")
+	gitPacket(t, dir, "add", "-A")
+	gitPacket(t, dir, "commit", "-qm", "base")
 	return dir
 }
 
-func statusOfOrder(t *testing.T, log *ledger.Log, id int) string {
+func statusOfPacket(t *testing.T, log *ledger.Log, id int) string {
 	t.Helper()
-	views, err := log.RecentDispatches(0)
+	views, err := log.RecentSends(0)
 	require.NoError(t, err)
 	for _, v := range views {
 		if v.ID == id {
@@ -59,10 +59,10 @@ func statusOfOrder(t *testing.T, log *ledger.Log, id int) string {
 // (which produces a revision in the repo), NOT by the pre-funded catch cycle —
 // this is what makes a funded order do REAL work instead of replaying a baked
 // base→fix diff.
-func TestDrainQueuedOrders_routesAPromptOrderToTheLiveHarnessNotThePrefundedCycle(t *testing.T) {
+func TestDrainQueuedPackets_routesAPromptPacketToTheLiveHarnessNotThePrefundedCycle(t *testing.T) {
 	resetConsumersForTest()
-	repo := initGitRepoForOrder(t)
-	headBefore := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	headBefore := gitPacket(t, repo, "rev-parse", "HEAD")
 
 	// The live path runs the catch cycle on the PRODUCED revision; stub
 	// it to a no-catch so this routing test mints nothing and stays fast. (That the
@@ -82,9 +82,9 @@ func TestDrainQueuedOrders_routesAPromptOrderToTheLiveHarnessNotThePrefundedCycl
 		// A faithful stub of the agent: it edits the working tree and commits,
 		// producing a real revision (moving HEAD) just as a live run would.
 		require.NoError(t, os.WriteFile(filepath.Join(repoDir, "feature.go"), []byte("package main\n"), 0o644))
-		gitOrder(t, repoDir, "add", "-A")
-		gitOrder(t, repoDir, "commit", "-qm", "live turn")
-		sha := gitOrder(t, repoDir, "rev-parse", "HEAD")
+		gitPacket(t, repoDir, "add", "-A")
+		gitPacket(t, repoDir, "commit", "-qm", "live turn")
+		sha := gitPacket(t, repoDir, "rev-parse", "HEAD")
 		return []harness.Turn{{Outcome: orchestrator.TurnOutcome{Minted: true, SHA: sha}}}, nil
 	}
 
@@ -97,19 +97,19 @@ func TestDrainQueuedOrders_routesAPromptOrderToTheLiveHarnessNotThePrefundedCycl
 
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
 	live := ledger.Target{BaseRev: headBefore, Prompt: "add a feature.go file"}
-	require.NoError(t, log.AppendDispatch("d1", live, own)) // spends the 1 → balance 0
+	require.NoError(t, log.AppendSend("d1", live, own)) // spends the 1 → balance 0
 	registerSession("live", LiveConfig{RepoDir: repo, BaseRev: headBefore, Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 
 	balBefore, err := log.Balance()
 	require.NoError(t, err)
 	require.Equal(t, 0, balBefore, "the seed catch was spent funding the dispatch")
 
-	drainQueuedOrders("live")
+	drainQueuedPackets("live")
 
 	assert.Equal(t, repo, gotRepoDir, "the live harness runs in the order's repo")
 	assert.Equal(t, "add a feature.go file", gotPrompt, "the order's prompt drives the live harness")
-	assert.NotEqual(t, headBefore, gitOrder(t, repo, "rev-parse", "HEAD"), "the live run produced a real revision (HEAD moved)")
-	assert.Equal(t, "done", statusOfOrder(t, log, 1), "the live order runs to done")
+	assert.NotEqual(t, headBefore, gitPacket(t, repo, "rev-parse", "HEAD"), "the live run produced a real revision (HEAD moved)")
+	assert.Equal(t, "done", statusOfPacket(t, log, 1), "the live order runs to done")
 
 	balAfter, err := log.Balance()
 	require.NoError(t, err)
@@ -119,10 +119,10 @@ func TestDrainQueuedOrders_routesAPromptOrderToTheLiveHarnessNotThePrefundedCycl
 // A live run that fails (the harness errored — e.g. the agent crashed) must
 // mark the order failed, never "done": a failed run is not a completed fill, and
 // the order must reach a terminal status so it doesn't linger mid-flight.
-func TestDrainQueuedOrders_marksALiveOrderFailedWhenTheHarnessErrors(t *testing.T) {
+func TestDrainQueuedPackets_marksALivePacketFailedWhenTheHarnessErrors(t *testing.T) {
 	resetConsumersForTest()
-	repo := initGitRepoForOrder(t)
-	headBefore := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	headBefore := gitPacket(t, repo, "rev-parse", "HEAD")
 
 	restoreHarness := runHarness
 	t.Cleanup(func() { runHarness = restoreHarness })
@@ -139,17 +139,17 @@ func TestDrainQueuedOrders_marksALiveOrderFailedWhenTheHarnessErrors(t *testing.
 
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
 	live := ledger.Target{BaseRev: headBefore, Prompt: "do the task"}
-	require.NoError(t, log.AppendDispatch("d1", live, own))
+	require.NoError(t, log.AppendSend("d1", live, own))
 	registerSession("livefail", LiveConfig{RepoDir: repo, BaseRev: headBefore, Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 
-	drainQueuedOrders("livefail")
+	drainQueuedPackets("livefail")
 
-	assert.Equal(t, "failed", statusOfOrder(t, log, 1), "a harness error marks the order failed, not done")
+	assert.Equal(t, "failed", statusOfPacket(t, log, 1), "a harness error marks the order failed, not done")
 }
 
 // A work order WITHOUT a prompt must keep filling via the pre-funded catch
 // cycle — the live-harness routing must not disturb the existing path.
-func TestDrainQueuedOrders_keepsAPromptlessOrderOnThePrefundedCycle(t *testing.T) {
+func TestDrainQueuedPackets_keepsAPromptlessPacketOnThePrefundedCycle(t *testing.T) {
 	resetConsumersForTest()
 
 	restoreCycle := resolveCycle
@@ -177,12 +177,12 @@ func TestDrainQueuedOrders_keepsAPromptlessOrderOnThePrefundedCycle(t *testing.T
 
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
 	prefunded := ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}
-	require.NoError(t, log.AppendDispatch("d1", prefunded, own))
+	require.NoError(t, log.AppendSend("d1", prefunded, own))
 	registerSession("prefunded", LiveConfig{RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 
-	drainQueuedOrders("prefunded")
+	drainQueuedPackets("prefunded")
 
 	assert.True(t, cycleCalled, "a promptless order must run the pre-funded catch cycle")
 	assert.False(t, harnessCalled, "a promptless order must NOT spawn the live harness")
-	assert.Equal(t, "done", statusOfOrder(t, log, 1), "the promptless order completes via the existing path")
+	assert.Equal(t, "done", statusOfPacket(t, log, 1), "the promptless order completes via the existing path")
 }

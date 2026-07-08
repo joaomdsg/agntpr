@@ -11,7 +11,7 @@ import (
 
 // validClaimTarget is the canonical in-flight claim the lifecycle tests submit
 // through the in-process ingress (the host-side equivalent of an authenticated
-// producer publishing the same encoded ClaimRecord over the NATS socket). Used by
+// peer publishing the same encoded ClaimRecord over the NATS socket). Used by
 // the internal lifecycle tests (which swap/read unexported seams, so they stay in
 // the internal test package), so this helper stays here rather than moving with
 // the one test that no longer needs it (the test asserting the unauthenticated

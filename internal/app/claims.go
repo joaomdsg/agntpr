@@ -17,7 +17,7 @@ import (
 //     cageVerifyTimeout: the consumer acks AFTER the verify returns, so a slow but
 //     legal verify (up to the deadline) must finish and ack before redelivery, or
 //     the same claim runs twice concurrently in two cages.
-//   - claimBurst / claimRatePerSec throttle a single producer's claim flood.
+//   - claimBurst / claimRatePerSec throttle a single peer's claim flood.
 const (
 	cageVerifyTimeout = 120 * time.Second
 	claimAckWait      = 240 * time.Second
@@ -34,7 +34,7 @@ func claimConcurrency() int { return max(1, min(4, runtime.NumCPU()/2)) }
 // StartCageClaimConsumers spawns one durable claim consumer per registered
 // session, each verifying claims in the hardened Docker cage via the injected
 // runner (production passes sandbox.DockerRunner{}; tests fake it at this seam).
-// It applies the shared governor: a per-producer token bucket plus a process-wide
+// It applies the shared governor: a per-peer token bucket plus a process-wide
 // concurrency semaphore. Call this once after the boot sessions are registered; it
 // also arms registerSession so any session created later (a runtime-created
 // session) gets its own cage consumer immediately.
@@ -43,11 +43,11 @@ func StartCageClaimConsumers(ctx context.Context, image string, runner sandbox.R
 		Burst:       claimBurst,
 		RatePerSec:  claimRatePerSec,
 		Concurrency: make(chan struct{}, claimConcurrency()),
-		// Post-verdict GC: the instant a claim resolves, reclaim its producer's
+		// Post-verdict GC: the instant a claim resolves, reclaim its peer's
 		// objects if it has no other claim in flight — prompt reclamation on top of
-		// the periodic StartProducerGC sweep. Uses the consumer ctx so
+		// the periodic StartPeerGC sweep. Uses the consumer ctx so
 		// a shutdown cancels an in-progress prune.
-		OnResolved: func(session string) { pruneProducerSession(ctx, session) },
+		OnResolved: func(session string) { prunePeerSession(ctx, session) },
 	}
 	verifierFor := func(cfg LiveConfig) ledger.Verifier {
 		return cage.CageVerifier(runner, cfg.RepoDir, image, cageVerifyTimeout)
@@ -59,7 +59,7 @@ func StartCageClaimConsumers(ctx context.Context, image string, runner sandbox.R
 }
 
 // cageGauntlet is the process-wide cage wiring gauntletFor needs to re-derive
-// G6 (IndependentCheck) for a filled order — set once by
+// G6 (IndependentCheck) for a filled packet — set once by
 // StartCageClaimConsumers, left nil until then. It reuses the SAME
 // verifierFor factory the claim consumers run, so a G6 re-derivation exercises
 // the identical CageVerifier (repo dir, image, timeout) production wires for

@@ -17,12 +17,12 @@ func TestFundableBacklog_aSplitReplacesItsParentTargetWithItsSubTargets(t *testi
 	other := ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "auth.go", Line: 12}
 	subA := ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 90}
 	subB := ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 120}
-	require.NoError(t, log.AppendRefine(ledger.RefinedOrderRecord{
+	require.NoError(t, log.AppendRefine(ledger.RefinedPacketRecord{
 		RefineID: 1, Target: parent, Refine: "split", Splits: []ledger.Target{subA, subB},
 	}))
 
 	cfg := LiveConfig{BaseRev: "own-b", FixRev: "own-f", TipRev: "own-f", Anchor: anchorForCap(),
-		DispatchBacklog: []ledger.Target{parent, other}}
+		SendBacklog: []ledger.Target{parent, other}}
 
 	// A split sharpening folds on read: the broad parent is no longer fundable as
 	// one unit — it is replaced IN PLACE by its sub-targets, so the Lead funds the
@@ -46,13 +46,13 @@ func TestFundableBacklog_aSplitDoesNotReopenAnAlreadyFundedParent(t *testing.T) 
 	subB := ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 120}
 
 	cfg := LiveConfig{BaseRev: "own-b", FixRev: "own-f", TipRev: "own-f", Anchor: anchorForCap(),
-		DispatchBacklog: []ledger.Target{parent, other}}
+		SendBacklog: []ledger.Target{parent, other}}
 	// Mint a balance so the dispatch can be funded (its catch lives on an unrelated file).
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "unrelated.go", Line: 500, ReasonTag: "catch"}))
 	// Fund the parent as a whole — its work is now bought (consumed).
-	require.NoError(t, log.AppendDispatch("d", parent, ownTargetOf(cfg)))
+	require.NoError(t, log.AppendSend("d", parent, ownTargetOf(cfg)))
 	// A split refinement arrives AFTER the parent was funded.
-	require.NoError(t, log.AppendRefine(ledger.RefinedOrderRecord{
+	require.NoError(t, log.AppendRefine(ledger.RefinedPacketRecord{
 		RefineID: 1, Target: parent, Refine: "split", Splits: []ledger.Target{subA, subB},
 	}))
 
@@ -67,15 +67,15 @@ func TestFundableBacklog_criteriaAndConventionRefinementsLeaveTheTargetListUncha
 	t.Parallel()
 	log := scratchLog(t)
 	tgt := ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 88}
-	require.NoError(t, log.AppendRefine(ledger.RefinedOrderRecord{
+	require.NoError(t, log.AppendRefine(ledger.RefinedPacketRecord{
 		RefineID: 1, Target: tgt, Refine: "criteria", Criteria: []string{"rejects a negative amount"},
 	}))
-	require.NoError(t, log.AppendRefine(ledger.RefinedOrderRecord{
+	require.NoError(t, log.AppendRefine(ledger.RefinedPacketRecord{
 		RefineID: 2, Target: tgt, Refine: "convention", Note: "wrap errors with an origin prefix",
 	}))
 
 	cfg := LiveConfig{BaseRev: "own-b", FixRev: "own-f", TipRev: "own-f", Anchor: anchorForCap(),
-		DispatchBacklog: []ledger.Target{tgt}}
+		SendBacklog: []ledger.Target{tgt}}
 
 	// Criteria/convention annotate the card body — they do NOT split or remove the
 	// target — so the fundable set is exactly the original work.
@@ -93,12 +93,12 @@ func TestFundableBacklog_splitSubTargetsStillPassTheConsumedAndOwnFilters(t *tes
 	fresh := ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 90}
 
 	// A split must not smuggle a banned target past the filters: one sub-target IS
-	// the card's own caught cycle (which AppendDispatch refuses), so it must be
+	// the card's own caught cycle (which AppendSend refuses), so it must be
 	// dropped exactly as a top-level own target would be.
-	require.NoError(t, log.AppendRefine(ledger.RefinedOrderRecord{
+	require.NoError(t, log.AppendRefine(ledger.RefinedPacketRecord{
 		RefineID: 1, Target: parent, Refine: "split", Splits: []ledger.Target{own, fresh},
 	}))
-	cfg.DispatchBacklog = []ledger.Target{parent}
+	cfg.SendBacklog = []ledger.Target{parent}
 
 	out := fundableBacklog(cfg, log)
 	assert.Equal(t, []ledger.Target{fresh}, out,
@@ -111,11 +111,11 @@ func TestFundableBacklog_aSecondSplitOfTheSameTargetSupersedesTheFirst(t *testin
 	parent := ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 88}
 	first := ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 90}
 	second := ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 120}
-	require.NoError(t, log.AppendRefine(ledger.RefinedOrderRecord{RefineID: 1, Target: parent, Refine: "split", Splits: []ledger.Target{first}}))
-	require.NoError(t, log.AppendRefine(ledger.RefinedOrderRecord{RefineID: 2, Target: parent, Refine: "split", Splits: []ledger.Target{second}}))
+	require.NoError(t, log.AppendRefine(ledger.RefinedPacketRecord{RefineID: 1, Target: parent, Refine: "split", Splits: []ledger.Target{first}}))
+	require.NoError(t, log.AppendRefine(ledger.RefinedPacketRecord{RefineID: 2, Target: parent, Refine: "split", Splits: []ledger.Target{second}}))
 
 	cfg := LiveConfig{BaseRev: "own-b", FixRev: "own-f", TipRev: "own-f", Anchor: anchorForCap(),
-		DispatchBacklog: []ledger.Target{parent}}
+		SendBacklog: []ledger.Target{parent}}
 
 	// Re-splitting the same target is the Lead correcting an earlier sharpening; the
 	// latest split is authoritative (last-writer-wins, like an order's status), not
@@ -128,10 +128,10 @@ func TestFundableBacklog_anEmptySplitLeavesTheParentFundableRatherThanErasingIt(
 	t.Parallel()
 	log := scratchLog(t)
 	parent := ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 88}
-	require.NoError(t, log.AppendRefine(ledger.RefinedOrderRecord{RefineID: 1, Target: parent, Refine: "split", Splits: nil}))
+	require.NoError(t, log.AppendRefine(ledger.RefinedPacketRecord{RefineID: 1, Target: parent, Refine: "split", Splits: nil}))
 
 	cfg := LiveConfig{BaseRev: "own-b", FixRev: "own-f", TipRev: "own-f", Anchor: anchorForCap(),
-		DispatchBacklog: []ledger.Target{parent}}
+		SendBacklog: []ledger.Target{parent}}
 
 	// A split into nothing is malformed (the proposed-then-accept UI never emits it);
 	// it must NOT silently erase the parent from the fundable set — losing real work

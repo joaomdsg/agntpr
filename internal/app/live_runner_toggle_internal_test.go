@@ -44,11 +44,11 @@ func TestLiveCard_toggleRunnerSwitchesTheLiveRunnerMode(t *testing.T) {
 // The runtime toggle must actually change which runner a subsequent live order uses
 // — not just a cosmetic label. A session toggled into the container runs its next
 // live order in the container runner, overriding the boot default. NOT parallel.
-func TestDrainQueuedOrders_honorsARuntimeRunnerToggle(t *testing.T) {
+func TestDrainQueuedPackets_honorsARuntimeRunnerToggle(t *testing.T) {
 	resetConsumersForTest()
 	stubResolveNoCatch(t)
-	repo := initGitRepoForOrder(t)
-	base := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	base := gitPacket(t, repo, "rev-parse", "HEAD")
 
 	var procCalled, ctrCalled bool
 	restoreProc := runHarness
@@ -69,12 +69,12 @@ func TestDrainQueuedOrders_honorsARuntimeRunnerToggle(t *testing.T) {
 	log := ledger.Bind(f, "rt", "i")
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 1, ReasonTag: "catch"}))
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
-	require.NoError(t, log.AppendDispatch("d1", ledger.Target{BaseRev: base, Path: "t.go", Line: 4, Prompt: "fix it"}, own))
+	require.NoError(t, log.AppendSend("d1", ledger.Target{BaseRev: base, Path: "t.go", Line: 4, Prompt: "fix it"}, own))
 	// Boot default is host; the Lead toggles this session into the container at runtime.
 	registerSession("rt", LiveConfig{RepoDir: repo, BaseRev: base, Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 	lookupLiveEntry("rt").toggleRunner()
 
-	drainQueuedOrders("rt")
+	drainQueuedPackets("rt")
 
 	assert.True(t, ctrCalled, "a session toggled into the container runs its next live order in the container runner")
 	assert.False(t, procCalled, "the host runner is not used once the session is toggled to the container")

@@ -23,11 +23,11 @@ func TestFold_derivesNameAsASlugOfTheFirstThreeWordsOfThePrompt(t *testing.T) {
 		{"exactly three words", "Fix the limiter", 1, "fix-the-limiter"},
 		{"two words uses both", "Fix limiter", 1, "fix-limiter"},
 		{"one word uses it alone", "Fix", 1, "fix"},
-		{"empty prompt falls back to the order id", "", 7, "wo-7"},
-		{"whitespace-only prompt falls back to the order id", "   ", 9, "wo-9"},
+		{"empty prompt falls back to the order id", "", 7, "pkt-7"},
+		{"whitespace-only prompt falls back to the order id", "   ", 9, "pkt-9"},
 		{"non letter/digit runes are dropped from each word", "Fix! the-rate #limiter", 1, "fix-therate-limiter"},
 		{"punctuation-only words clean to empty and are skipped, not fabricated", "--- the limiter", 1, "the-limiter"},
-		{"all three candidate words clean to empty falls back to the order id", "--- *** !!!", 3, "wo-3"},
+		{"all three candidate words clean to empty falls back to the order id", "--- *** !!!", 3, "pkt-3"},
 		{"digits are kept", "Bump v2 config", 1, "bump-v2-config"},
 		{"an all-digit word is kept as-is", "123 abc def", 1, "123-abc-def"},
 		{"multi-byte unicode letters are kept and lowercased", "Café Latte Fix", 1, "café-latte-fix"},
@@ -37,7 +37,7 @@ func TestFold_derivesNameAsASlugOfTheFirstThreeWordsOfThePrompt(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			views := []ledger.DispatchView{{
+			views := []ledger.SendView{{
 				ID:     tt.id,
 				Target: ledger.Target{Prompt: tt.prompt},
 				Status: "queued",
@@ -51,11 +51,11 @@ func TestFold_derivesNameAsASlugOfTheFirstThreeWordsOfThePrompt(t *testing.T) {
 	}
 }
 
-func TestFold_copiesOrderFactsThroughUnchanged(t *testing.T) {
+func TestFold_copiesPacketFactsThroughUnchanged(t *testing.T) {
 	t.Parallel()
 
 	addr := packet.Addr{Owner: "acme", Name: "widgets"}
-	views := []ledger.DispatchView{{
+	views := []ledger.SendView{{
 		ID:      42,
 		Target:  ledger.Target{Prompt: "fix the thing", BaseRev: "base123", FixRev: "fix456"},
 		Status:  "done",
@@ -94,7 +94,7 @@ func TestPacket_isNeverDeliverableFromNonACKStatuses(t *testing.T) {
 				t.Run(name, func(t *testing.T) {
 					t.Parallel()
 
-					views := []ledger.DispatchView{{
+					views := []ledger.SendView{{
 						ID:     1,
 						Target: ledger.Target{Prompt: "irrelevant prompt here"},
 						Status: status,
@@ -118,7 +118,7 @@ func TestPacket_isNeverDeliverableFromNonACKStatuses(t *testing.T) {
 func TestFold_deployedStatusReachesDeliveredAndIsDeliverable(t *testing.T) {
 	t.Parallel()
 
-	views := []ledger.DispatchView{{
+	views := []ledger.SendView{{
 		ID:     1,
 		Target: ledger.Target{Prompt: "ship the thing"},
 		Status: "deployed",
@@ -138,7 +138,7 @@ func TestFold_deployedStatusReachesDeliveredAndIsDeliverable(t *testing.T) {
 func TestFold_regressedStatusRoutesBackToHeldBlocking(t *testing.T) {
 	t.Parallel()
 
-	views := []ledger.DispatchView{{
+	views := []ledger.SendView{{
 		ID:     1,
 		Target: ledger.Target{Prompt: "ship the thing"},
 		Status: "regressed",

@@ -16,7 +16,7 @@ import (
 // tests inject a canned diff (the real one shells out to git).
 var diffCompute = diff.Compute
 
-// renderFileTree renders the order's full fix-tree as a nested, collapsible file
+// renderFileTree renders the packet's full fix-tree as a nested, collapsible file
 // tree with the base→fix changes highlighted in place — the review surface's
 // left rail. Each leaf is a plain href click-through (/review?wo=<id>&file=<path>),
 // NOT a datastar @post: selecting a file is pure navigation, and the diff island

@@ -187,14 +187,14 @@ func (c *LiveCard) Approve(ctx *via.Ctx) {
 		c.Landed.Write(ctx, "blocked")
 		return
 	}
-	title, body := prTitleAndBody(key, latestDispatchPrompt(log))
+	title, body := prTitleAndBody(key, latestSendPrompt(log))
 	// Lease the push against the SHA we last pushed for this session (""=first land →
 	// must-not-exist), so a re-land updates the branch only if nothing else moved it.
 	expected := e.lastPushedSHASnapshot()
-	// A prompt-first session has no configured base; derive its origin from the order
+	// A prompt-first session has no configured base; derive its origin from the packet
 	// history so the squash parents onto where the work actually started (not "").
-	orders, _ := log.WorkOrders()
-	baseRev := landBaseRev(cfg.BaseRev, orders)
+	pkts, _ := log.Packets()
+	baseRev := landBaseRev(cfg.BaseRev, pkts)
 	url, pushedSHA, err := openPR(context.Background(), cfg.RepoDir, baseRev, prBranchName(key), title, body, expected)
 	// Cache the pushed SHA the moment the push lands (pushedSHA non-empty) — independent of
 	// whether the PR-open step then failed. Otherwise a gh failure after a successful push
@@ -220,15 +220,15 @@ func (c *LiveCard) Approve(ctx *via.Ctx) {
 // carries an explicit configured base and lands against THAT. A prompt-first session has
 // none (board.go zeroes the revs), so passing it straight to commit-tree would fail
 // ("not a valid object name" on an empty parent); instead the base is the session's
-// ORIGIN — the earliest order's recorded base (the repo HEAD before any harness commit,
+// ORIGIN — the earliest packet's recorded base (the repo HEAD before any harness commit,
 // an ancestor of the current HEAD) — so the squash collapses ALL the session's work onto
 // where it actually started. Empty early bases are skipped; "" means none is derivable
 // (the caller then surfaces an honest error rather than fabricating a parentless commit).
-func landBaseRev(cfgBaseRev string, orders []ledger.WorkOrderRecord) string {
+func landBaseRev(cfgBaseRev string, pkts []ledger.PacketRecord) string {
 	if cfgBaseRev != "" {
 		return cfgBaseRev
 	}
-	for _, o := range orders {
+	for _, o := range pkts {
 		if o.Target.BaseRev != "" {
 			return o.Target.BaseRev
 		}
@@ -249,13 +249,13 @@ func setLandResult(key, res string) {
 	}
 }
 
-// latestDispatchPrompt returns the most recent dispatched order's prompt — the task
-// the PR title/body summarizes. Empty when there are no dispatches.
-func latestDispatchPrompt(log *ledger.Log) string {
+// latestSendPrompt returns the most recent sent packet's prompt — the task
+// the PR title/body summarizes. Empty when there are no sends.
+func latestSendPrompt(log *ledger.Log) string {
 	if log == nil {
 		return ""
 	}
-	views, err := log.RecentDispatches(1)
+	views, err := log.RecentSends(1)
 	if err != nil || len(views) == 0 {
 		return ""
 	}
@@ -421,13 +421,13 @@ func landLifecycleSnapshot(key string) string {
 	return ""
 }
 
-// sessionHasDispatches reports whether the session has at least one dispatched order —
+// sessionHasSends reports whether the session has at least one sent packet —
 // the landable work the approve flow opens a PR for.
-func sessionHasDispatches(log *ledger.Log) bool {
+func sessionHasSends(log *ledger.Log) bool {
 	if log == nil {
 		return false
 	}
-	v, err := log.RecentDispatches(1)
+	v, err := log.RecentSends(1)
 	return err == nil && len(v) > 0
 }
 

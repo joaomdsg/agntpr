@@ -17,7 +17,7 @@ const warmHarnessTimeout = 2 * time.Minute
 var warmHarnessRun = runWarmHarness
 
 // runWarmHarness explores repoDir under the pinned sessionID, establishing the
-// resumable session the later analyze/order requests fork from.
+// resumable session the later analyze/packet requests fork from.
 func runWarmHarness(ctx context.Context, repoDir, sessionID string) error {
 	cmd := exec.CommandContext(ctx, "claude", warmArgs(sessionID)...)
 	cmd.Dir = repoDir
@@ -60,14 +60,14 @@ func newSessionID() string {
 
 // warmExplorePrompt is the warm-up task: it asks the harness to explore the repo so
 // the session's resumable id carries a real mental model of the codebase, which every
-// later analyze + order resumes. A one-line reply keeps the warm-up cheap.
+// later analyze + packet resumes. A one-line reply keeps the warm-up cheap.
 const warmExplorePrompt = "Explore this repository — its layout, primary language, build, tests, and conventions — so you can act on focused tasks in it later. Reply with a one-line summary of what it is."
 
 // warmArgs is the claude argv for the warm-up explore. It PINS the session id
 // (--session-id) so later requests can --resume it, reads the repo with tool access
 // (bypassPermissions), and is a one-shot text run (the reply is discarded; the point
 // is to populate the session with repo context). No --model override: the explore
-// runs the default model, the richer base the order fills resume.
+// runs the default model, the richer base the packet fills resume.
 func warmArgs(sessionID string) []string {
 	return []string{
 		"--session-id", sessionID,

@@ -2,7 +2,7 @@
 // stream to a renderer: it subscribes to the session's minted subtree and emits
 // a fresh projection snapshot on every committed event. This is the read side of
 // the NATS→SSE browser bridge — the rendered board reflects the stream, so it
-// can never disagree with the real ledger (and a future cross-process producer's
+// can never disagree with the real ledger (and a future cross-process peer's
 // events drive the same render).
 package bridge
 

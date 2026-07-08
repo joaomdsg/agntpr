@@ -31,13 +31,13 @@ import (
 )
 
 // verifyTestCmd is the FIXED suite command the host runs the oracle with. It is
-// host-controlled (never supplied by an agent), so a producer cannot choose what
+// host-controlled (never supplied by an agent), so a peer cannot choose what
 // executes on its behalf.
 var verifyTestCmd = []string{"go", "test", "./..."}
 
-// producerGCInterval is how often the server sweeps idle producers' ingested git
+// peerGCInterval is how often the server sweeps idle peers' ingested git
 // objects (retention housekeeping). Generous — disk hygiene, not a hot path.
-const producerGCInterval = 10 * time.Minute
+const peerGCInterval = 10 * time.Minute
 
 // runVerifyCatch is the `verify-catch` subcommand: it runs the SAME catch oracle
 // (pipe.RunCatchCycle) over the given revisions and writes the deterministic
@@ -193,23 +193,23 @@ func Main() {
 	line := flag.Int("line", 0, "1-based anchored line")
 	ledgerPath := flag.String("ledger", "catches", "durable economy store base; the JetStream log lives in a <ledger>-fabric directory beside it")
 	addr := flag.String("addr", ":3000", "listen address")
-	cageImage := flag.String("cage-image", "packets-cage:dev", "Docker image the claim verifier runs producer-submitted work in")
-	container := flag.Bool("container", false, "run the primary session's LIVE work orders in the hardened agent container (harness.RunContainer) instead of the host subprocess; needs the packets-agent image + an ANTHROPIC_API_KEY")
-	seedBandwidth := flag.Int("bandwidth", 0, "seed N cleared attention intervals on the primary session at boot so live orders can be placed without first answering questions (dev/demo; each interval is worth ~3 attention bandwidth)")
+	cageImage := flag.String("cage-image", "packets-cage:dev", "Docker image the claim verifier runs peer-submitted work in")
+	container := flag.Bool("container", false, "run the primary session's LIVE packets in the hardened agent container (harness.RunContainer) instead of the host subprocess; needs the packets-agent image + an ANTHROPIC_API_KEY")
+	seedBandwidth := flag.Int("bandwidth", 0, "seed N cleared attention intervals on the primary session at boot so live packets can be placed without first answering questions (dev/demo; each interval is worth ~3 attention bandwidth)")
 	reposRoot := flag.String("repos-root", "", "parent directory under which board-created sessions resolve a picked repo folder name (the directory picker yields only a name, never an absolute path); empty resolves a pick against the server's working dir")
 	var sessions sessionFlag
 	flag.Var(&sessions, "session", "additional keyed review target served at /?key=NAME; repeatable: key=NAME,base=SHA,fix=SHA,file=F,line=N[,tip=SHA]")
 	var backlog backlogFlag
-	flag.Var(&backlog, "backlog", "seed a fundable work-order target on the primary session so Spend can dispatch+fill it; repeatable: base=SHA,fix=SHA,file=F,line=N[,tip=SHA]")
+	flag.Var(&backlog, "backlog", "seed a fundable packet target on the primary session so Spend can send+fill it; repeatable: base=SHA,fix=SHA,file=F,line=N[,tip=SHA]")
 	var live liveFlag
-	flag.Var(&live, "live", "seed a PROMPT-BEARING live work-order on the primary session (a real Claude Code harness produces the fix); repeatable: file=F,line=N,base=SHA[,tip=SHA],prompt=<task>")
-	producerListen := flag.String("producer-listen", "", "bind an AUTHENTICATED NATS socket (host:port) for cross-process producers to submit claims; empty keeps the fabric in-process-only")
-	var producers producerFlag
-	flag.Var(&producers, "producer", "authorize a cross-process producer to submit claims to its session's claim subtree (never mint); repeatable: key:user:pass")
+	flag.Var(&live, "live", "seed a PROMPT-BEARING live packet on the primary session (a real Claude Code harness produces the fix); repeatable: file=F,line=N,base=SHA[,tip=SHA],prompt=<task>")
+	peerListen := flag.String("peer-listen", "", "bind an AUTHENTICATED NATS socket (host:port) for cross-process peers to submit claims; empty keeps the fabric in-process-only")
+	var peers peerFlag
+	flag.Var(&peers, "peer", "peer grant spec key:user:pass — authorizes a cross-process peer to submit claims to its session's claim subtree (never mint)")
 	flag.Parse()
 
-	if len(producers.grants) > 0 && *producerListen == "" {
-		log.Fatal("packets: -producer needs -producer-listen <host:port> to bind the authenticated socket")
+	if len(peers.grants) > 0 && *peerListen == "" {
+		log.Fatal("packets: -peer needs -peer-listen <host:port> to bind the authenticated socket")
 	}
 
 	// -repo accepts a clonable URL as well as a local path (DESIGN §15.2): a URL is
@@ -235,8 +235,8 @@ func Main() {
 		TestCmd:      []string{"go", "test", "./..."},
 		LedgerPath:   *ledgerPath,
 		UseContainer: *container,
-		ListenAddr:   *producerListen,
-		Grants:       producers.grants,
+		ListenAddr:   *peerListen,
+		Grants:       peers.grants,
 		ReposRoot:    *reposRoot,
 		// Cap concurrent catch cycles: each is several full-suite runs (#15), and
 		// per-cycle wall-time stays flat through ~2 concurrent on the bench, so 2 is
@@ -257,11 +257,11 @@ func Main() {
 		liveCfg.TipRev = tipRev
 		liveCfg.Anchor = reanchor.Anchor{Path: *file, Start: *line, End: *line, LineHash: hash}
 
-		// Seed any -backlog/-live specs as fundable work-order targets on the primary
+		// Seed any -backlog/-live specs as fundable packet targets on the primary
 		// session (a -backlog target replays a pre-funded base→fix diff; a -live target
 		// carries a prompt a real harness fills). Computed only when there is a primary
 		// session to attach them to.
-		var dispatchBacklog []ledger.Target
+		var sendBacklog []ledger.Target
 		for _, spec := range backlog.specs {
 			tgt, err := parseBacklogSpec(spec)
 			if err != nil {
@@ -271,7 +271,7 @@ func Main() {
 			if err != nil {
 				log.Fatalf("packets: backlog %q: %v", spec, err)
 			}
-			dispatchBacklog = append(dispatchBacklog, tgt)
+			sendBacklog = append(sendBacklog, tgt)
 		}
 		for _, spec := range live.specs {
 			tgt, err := parseLiveSpec(spec)
@@ -282,9 +282,9 @@ func Main() {
 			if err != nil {
 				log.Fatalf("packets: live %q: %v", spec, err)
 			}
-			dispatchBacklog = append(dispatchBacklog, tgt)
+			sendBacklog = append(sendBacklog, tgt)
 		}
-		liveCfg.DispatchBacklog = dispatchBacklog
+		liveCfg.SendBacklog = sendBacklog
 	}
 
 	application, ledgerLog, err := app.NewServer(liveCfg)
@@ -294,7 +294,7 @@ func Main() {
 	defer ledgerLog.Close()
 
 	// Dev/demo: seed cleared attention intervals so the Lead starts with spendable
-	// bandwidth and can author + place a live order without first answering a review
+	// bandwidth and can author + place a live packet without first answering a review
 	// question to earn it. Each interval is a block→unblock pair cleared instantly
 	// (the throughput base + the fast-clear bonus). Uses only the public ledger
 	// primitives; the events are real cleared-attention facts, just pre-seeded. The
@@ -351,22 +351,22 @@ func Main() {
 
 	// All sessions are now registered, so start exactly one cage claim consumer
 	// per session (the StartClaimConsumers single-call/register-first contract).
-	// The consumers verify producer-submitted claims in the hardened Docker cage;
+	// The consumers verify peer-submitted claims in the hardened Docker cage;
 	// the shutdown-scoped ctx stops them on SIGINT.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 	app.StartCageClaimConsumers(ctx, *cageImage, sandbox.DockerRunner{})
 
-	// Background housekeeping: periodically reclaim idle producers' ingested git
+	// Background housekeeping: periodically reclaim idle peers' ingested git
 	// objects (never a session with a claim in flight). Generous interval — this
 	// is disk hygiene, not a hot path. Stops with ctx on SIGINT.
-	app.StartProducerGC(ctx, producerGCInterval)
+	app.StartPeerGC(ctx, peerGCInterval)
 
 	switch {
 	case configured:
 		log.Printf("packets: serving the review card on %s — open it and watch %s:%d resolve", *addr, *file, *line)
 	case hasRepo:
-		log.Printf("packets: serving the session card on %s — author prompt orders against %s, or create more sessions from the board", *addr, *repo)
+		log.Printf("packets: serving the session card on %s — author prompt packets against %s, or create more sessions from the board", *addr, *repo)
 	default:
 		log.Printf("packets: serving the fleet board on %s — open it; create sessions from the board (no repo configured)", *addr)
 	}

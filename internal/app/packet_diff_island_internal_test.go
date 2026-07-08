@@ -25,7 +25,7 @@ func swapFileReader(t *testing.T) {
 // dispatches the CustomEvent from the modified editor's selection. (The JS's
 // runtime behavior is browser-verified; this pins that the wiring is emitted so
 // it can't silently disappear.)
-func TestOrderDiffIsland_wiresTheSelectionToAnnotationBridge(t *testing.T) {
+func TestPacketDiffIsland_wiresTheSelectionToAnnotationBridge(t *testing.T) {
 	swapFileReader(t)
 	tgt := ledger.Target{BaseRev: "base", FixRev: "fix", Path: "a.go"}
 	body := renderHTML(t, orderDiffIsland(LiveConfig{RepoDir: "."}, tgt, "a.go"))
@@ -40,7 +40,7 @@ func TestOrderDiffIsland_wiresTheSelectionToAnnotationBridge(t *testing.T) {
 
 // Clicking a tree leaf must re-point the diff editor at THAT file, not stay on
 // the order's anchored path — otherwise the tree selector is inert.
-func TestOrderDiffIsland_embedsTheSelectedFileNotTheAnchor(t *testing.T) {
+func TestPacketDiffIsland_embedsTheSelectedFileNotTheAnchor(t *testing.T) {
 	swapFileReader(t)
 	tgt := ledger.Target{BaseRev: "base", FixRev: "fix", Path: "anchor.go"}
 
@@ -54,7 +54,7 @@ func TestOrderDiffIsland_embedsTheSelectedFileNotTheAnchor(t *testing.T) {
 
 // Selecting a different file changes which base/fix the island embeds — the
 // per-file re-point the tree relies on.
-func TestOrderDiffIsland_reEmbedsWhenSelectionChanges(t *testing.T) {
+func TestPacketDiffIsland_reEmbedsWhenSelectionChanges(t *testing.T) {
 	swapFileReader(t)
 	tgt := ledger.Target{BaseRev: "base", FixRev: "fix", Path: "anchor.go"}
 
@@ -69,7 +69,7 @@ func TestOrderDiffIsland_reEmbedsWhenSelectionChanges(t *testing.T) {
 
 // An empty selection falls back to the order's anchored path, so the surface is
 // never blank before the Lead has clicked a leaf.
-func TestOrderDiffIsland_emptySelectionFallsBackToTheAnchor(t *testing.T) {
+func TestPacketDiffIsland_emptySelectionFallsBackToTheAnchor(t *testing.T) {
 	swapFileReader(t)
 	tgt := ledger.Target{BaseRev: "base", FixRev: "fix", Path: "anchor.go"}
 
@@ -80,7 +80,7 @@ func TestOrderDiffIsland_emptySelectionFallsBackToTheAnchor(t *testing.T) {
 }
 
 // The island stays a calm control-room surface — no alarm hues, no gauges.
-func TestOrderDiffIsland_carriesNoAlarmColorsOrGauges(t *testing.T) {
+func TestPacketDiffIsland_carriesNoAlarmColorsOrGauges(t *testing.T) {
 	swapFileReader(t)
 	tgt := ledger.Target{BaseRev: "base", FixRev: "fix", Path: "anchor.go"}
 	body := renderHTML(t, orderDiffIsland(LiveConfig{RepoDir: "."}, tgt, "anchor.go"))

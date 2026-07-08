@@ -48,7 +48,7 @@ func TestLiveCard_needsYouRailShowsAHeldPacketCardWithItsReason(t *testing.T) {
 
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 100, ReasonTag: "catch"}))
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
-	require.NoError(t, log.AppendDispatch("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
+	require.NoError(t, log.AppendSend("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
 	require.NoError(t, log.AppendStatus(1, "failed")) // a run failure — held, blocking
 
 	body := bodyOf(vt.NewClient(t, server, "/?key=needsyou").HTML())
@@ -61,19 +61,19 @@ func TestLiveCard_needsYouRailShowsAHeldPacketCardWithItsReason(t *testing.T) {
 // Blocking holds are the most attention-worthy — they must render ahead of
 // advisory holds regardless of dispatch recency. NOT parallel (shared
 // liveReg/liveFabric).
-func TestLiveCard_needsYouRailOrdersBlockingPacketsBeforeAdvisoryOnes(t *testing.T) {
+func TestLiveCard_needsYouRailPacketsBlockingPacketsBeforeAdvisoryOnes(t *testing.T) {
 	server, _ := bootDefaultServer(t, defaultBootCfg)
 	log := addFundedSession(t, "needsyouorder", app.LiveConfig{BaseRev: "own-b-needsyouorder", FixRev: "own-f", Anchor: anchorForCap()})
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
 
-	// Order 1 (oldest — RecentDispatches is newest-first, so without the
+	// Order 1 (oldest — RecentSends is newest-first, so without the
 	// blocking-before-advisory sort this would render SECOND): a run failure.
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 100, ReasonTag: "catch"}))
-	require.NoError(t, log.AppendDispatch("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 1}, own))
+	require.NoError(t, log.AppendSend("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 1}, own))
 	require.NoError(t, log.AppendStatus(1, "failed"))
 	// Order 2 (newest): done with no catch — an advisory gap, not a failure.
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 101, ReasonTag: "catch"}))
-	require.NoError(t, log.AppendDispatch("d2", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "beta.go", Line: 2}, own))
+	require.NoError(t, log.AppendSend("d2", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "beta.go", Line: 2}, own))
 	require.NoError(t, log.AppendStatus(2, "done"))
 
 	body := bodyOf(vt.NewClient(t, server, "/?key=needsyouorder").HTML())
@@ -94,7 +94,7 @@ func TestLiveCard_needsYouRailCapsFullCardsAndCollapsesTheRestIntoAMoreLine(t *t
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
 	for i := 1; i <= 5; i++ {
 		require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 100 + i, ReasonTag: "catch"}))
-		require.NoError(t, log.AppendDispatch("d", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: i}, own))
+		require.NoError(t, log.AppendSend("d", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: i}, own))
 		require.NoError(t, log.AppendStatus(i, "failed"))
 	}
 
@@ -139,20 +139,20 @@ func TestLiveCard_settledRailShowsLifecycleColoredRows(t *testing.T) {
 
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 100, ReasonTag: "catch"}))
-	require.NoError(t, log.AppendDispatch("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
+	require.NoError(t, log.AppendSend("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
 	require.NoError(t, log.AppendStatus(1, "done"))
-	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "alpha.go", Line: 7, ReasonTag: "catch", Producer: "wo:1"}))
+	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "alpha.go", Line: 7, ReasonTag: "catch", Source: "wo:1"}))
 
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 101, ReasonTag: "catch"}))
-	require.NoError(t, log.AppendDispatch("d2", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "beta.go", Line: 9}, own))
+	require.NoError(t, log.AppendSend("d2", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "beta.go", Line: 9}, own))
 	require.NoError(t, log.AppendStatus(2, "done")) // left with no matching catch — a settled advisory gap
 
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 102, ReasonTag: "catch"}))
-	require.NoError(t, log.AppendDispatch("d3", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "gamma.go", Line: 11}, own))
+	require.NoError(t, log.AppendSend("d3", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "gamma.go", Line: 11}, own))
 	require.NoError(t, log.AppendStatus(3, "failed")) // a run failure — settled, blocking
 
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 103, ReasonTag: "catch"}))
-	require.NoError(t, log.AppendDispatch("d4", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "delta.go", Line: 13}, own))
+	require.NoError(t, log.AppendSend("d4", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "delta.go", Line: 13}, own))
 	require.NoError(t, log.AppendStatus(4, "deployed")) // a real ACK — settled, delivered
 
 	body := bodyOf(vt.NewClient(t, server, "/?key=settledc").HTML())
@@ -196,11 +196,11 @@ func TestLiveCard_heroStatRendersTheVerifiedDoneCount(t *testing.T) {
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 100, ReasonTag: "catch"}))
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 101, ReasonTag: "catch"}))
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
-	require.NoError(t, log.AppendDispatch("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
-	require.NoError(t, log.AppendDispatch("d2", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "beta.go", Line: 9}, own))
+	require.NoError(t, log.AppendSend("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
+	require.NoError(t, log.AppendSend("d2", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "beta.go", Line: 9}, own))
 	require.NoError(t, log.AppendStatus(1, "done"))
 	require.NoError(t, log.AppendStatus(2, "done")) // done but left with no matching catch — NOT verified
-	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "alpha.go", Line: 7, ReasonTag: "catch", Producer: "wo:1"}))
+	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "alpha.go", Line: 7, ReasonTag: "catch", Source: "wo:1"}))
 
 	body := bodyOf(vt.NewClient(t, server, "/?key=heroc").HTML())
 	require.Contains(t, body, `console__hero-stat">1<`, "only the genuinely verified order counts — the done-but-missed one does not")
@@ -227,10 +227,10 @@ func TestLiveCard_inFlightStripShowsPulsingRunningAndGhostQueuedRows(t *testing.
 
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 100, ReasonTag: "catch"}))
-	require.NoError(t, log.AppendDispatch("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
+	require.NoError(t, log.AppendSend("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
 	require.NoError(t, log.AppendStatus(1, "running"))
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 101, ReasonTag: "catch"}))
-	require.NoError(t, log.AppendDispatch("d2", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "beta.go", Line: 9}, own))
+	require.NoError(t, log.AppendSend("d2", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "beta.go", Line: 9}, own))
 	// order 2 gets no status appended — it defaults to "queued" (composing).
 
 	body := bodyOf(vt.NewClient(t, server, "/?key=inflight").HTML())

@@ -12,7 +12,7 @@ import (
 	"github.com/joaomdsg/packets/internal/ledger"
 )
 
-// Every ledger event kind must travel producer → taxonomy → bus → consumer
+// Every ledger event kind must travel peer → taxonomy → bus → consumer
 // intact: it lands on the canonical minted subject for its kind, and its payload
 // decodes back to the same record a projection rebuilds state from. These are the
 // wire primitives the substrate swap rebuilds the economy from, so a lossy
@@ -35,7 +35,7 @@ func TestPublishCatch_roundTripsCatchRecordThroughTheBus(t *testing.T) {
 		ReasonTag:         "boundary",
 		SelfFlagged:       true,
 		WouldHaveShipped:  true,
-		Producer:          "wo:3",
+		Source:            "wo:3",
 	}
 
 	seq, err := ledger.PublishCatch(ctx, f, "s1", "i1", want)
@@ -72,24 +72,24 @@ func TestPublishSpend_roundTripsSpendRecordThroughTheBus(t *testing.T) {
 	assert.Equal(t, want, got)
 }
 
-func TestPublishWorkOrder_roundTripsWorkOrderRecordThroughTheBus(t *testing.T) {
+func TestPublishWorkPacket_roundTripsWorkPacketRecordThroughTheBus(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
 	f := startFabric(t)
-	want := ledger.WorkOrderRecord{
-		Kind:     "workorder",
-		ID:       2,
-		Producer: "in-process",
-		Status:   "queued",
-		Reason:   "fund distinct work",
+	want := ledger.PacketRecord{
+		Kind:   "workorder",
+		ID:     2,
+		Source: "in-process",
+		Status: "queued",
+		Reason: "fund distinct work",
 		Target: ledger.Target{
 			BaseRev: "base", FixRev: "fix", TipRev: "fix",
 			Path: "adult.go", Line: 5, LineHash: "abc",
 		},
 	}
 
-	seq, err := ledger.PublishWorkOrder(ctx, f, "s1", "i1", want)
+	seq, err := ledger.PublishPacket(ctx, f, "s1", "i1", want)
 	require.NoError(t, err)
 
 	events, err := f.ReplaySubject(ctx, fabric.EventSubject("s1", "i1", fabric.StatusMinted, "workorder"))
@@ -97,7 +97,7 @@ func TestPublishWorkOrder_roundTripsWorkOrderRecordThroughTheBus(t *testing.T) {
 	require.Len(t, events, 1)
 	assert.Equal(t, seq, events[0].Seq)
 
-	got, err := ledger.DecodeWorkOrder(events[0].Data)
+	got, err := ledger.DecodePacket(events[0].Data)
 	require.NoError(t, err)
 	assert.Equal(t, want, got)
 }
@@ -122,12 +122,12 @@ func TestPublishStatus_roundTripsStatusTransitionThroughTheBus(t *testing.T) {
 	assert.Equal(t, want, got)
 }
 
-func TestPublishRefine_roundTripsRefinedOrderRecordThroughTheBus(t *testing.T) {
+func TestPublishRefine_roundTripsRefinedPacketRecordThroughTheBus(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
 	f := startFabric(t)
-	want := ledger.RefinedOrderRecord{
+	want := ledger.RefinedPacketRecord{
 		Kind:     "worefine",
 		RefineID: 3,
 		Target:   ledger.Target{BaseRev: "base", FixRev: "fix", TipRev: "fix", Path: "pay.go", Line: 8},
@@ -166,11 +166,11 @@ func TestPublishKinds_eachLandsOnlyOnItsOwnKindSubject(t *testing.T) {
 	require.NoError(t, err)
 	_, err = ledger.PublishSpend(ctx, f, "s1", "i1", ledger.SpendRecord{Kind: "spend", Amount: 1})
 	require.NoError(t, err)
-	_, err = ledger.PublishWorkOrder(ctx, f, "s1", "i1", ledger.WorkOrderRecord{Kind: "workorder", ID: 1})
+	_, err = ledger.PublishPacket(ctx, f, "s1", "i1", ledger.PacketRecord{Kind: "workorder", ID: 1})
 	require.NoError(t, err)
 	_, err = ledger.PublishStatus(ctx, f, "s1", "i1", ledger.StatusRecord{Kind: "wostatus", ID: 1, Status: "running"})
 	require.NoError(t, err)
-	_, err = ledger.PublishRefine(ctx, f, "s1", "i1", ledger.RefinedOrderRecord{Kind: "worefine", RefineID: 1, Refine: "criteria"})
+	_, err = ledger.PublishRefine(ctx, f, "s1", "i1", ledger.RefinedPacketRecord{Kind: "worefine", RefineID: 1, Refine: "criteria"})
 	require.NoError(t, err)
 
 	for _, kind := range []string{"catch", "spend", "workorder", "wostatus", "worefine"} {
@@ -189,7 +189,7 @@ func TestDecoders_returnErrorOnMalformedPayload(t *testing.T) {
 		{"catch", func(b []byte) error { _, err := ledger.DecodeCatch(b); return err }},
 		{"claim", func(b []byte) error { _, err := ledger.DecodeClaim(b); return err }},
 		{"spend", func(b []byte) error { _, err := ledger.DecodeSpend(b); return err }},
-		{"workorder", func(b []byte) error { _, err := ledger.DecodeWorkOrder(b); return err }},
+		{"workorder", func(b []byte) error { _, err := ledger.DecodePacket(b); return err }},
 		{"wostatus", func(b []byte) error { _, err := ledger.DecodeStatus(b); return err }},
 		{"worefine", func(b []byte) error { _, err := ledger.DecodeRefine(b); return err }},
 	}

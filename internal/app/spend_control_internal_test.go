@@ -35,7 +35,7 @@ func TestLiveCard_rendersASpendControlWhenThereIsBalanceToSpend(t *testing.T) {
 	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: logPath,
-		DispatchBacklog: []ledger.Target{woDispatchTarget()},
+		SendBacklog: []ledger.Target{sendTarget()},
 	})
 	require.NoError(t, err)
 	server = httptest.NewServer(viaApp)
@@ -73,7 +73,7 @@ func TestLiveCard_hidesTheSpendControlWhenBalanceIsZero(t *testing.T) {
 	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: logPath,
-		DispatchBacklog: []ledger.Target{woDispatchTarget()},
+		SendBacklog: []ledger.Target{sendTarget()},
 	})
 	require.NoError(t, err)
 	server = httptest.NewServer(viaApp)
@@ -104,7 +104,7 @@ func TestLiveCard_spendControlRetractsLiveWhenTheLastCatchIsSpent(t *testing.T) 
 	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: logPath,
-		DispatchBacklog: []ledger.Target{woDispatchTarget()},
+		SendBacklog: []ledger.Target{sendTarget()},
 	})
 	require.NoError(t, err)
 	server = httptest.NewServer(viaApp)
@@ -125,7 +125,7 @@ func TestLiveCard_spendControlRetractsLiveWhenTheLastCatchIsSpent(t *testing.T) 
 	// on one chunk of a large card would pass or fail by chunk boundary, not by
 	// behavior.
 	require.Equal(t, 200, tc.Action((&LiveCard{}).Spend).Fire())
-	vt.AwaitFrame(t, frames, 10*time.Second, "WO#1")
+	vt.AwaitFrame(t, frames, 10*time.Second, "PKT#1")
 	body := bodyOf(vt.NewClient(t, server, "/").HTML())
 	require.NotContains(t, body, "/_action/Spend",
 		"the spend control must retract once the last catch is spent — no dead button")

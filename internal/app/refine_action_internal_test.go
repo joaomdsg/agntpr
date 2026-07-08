@@ -16,14 +16,14 @@ func TestBuildRefinement_turnsTheLeadsInputIntoTheRightSharpeningFact(t *testing
 		kind    string
 		text    string
 		wantOK  bool
-		wantRec ledger.RefinedOrderRecord
+		wantRec ledger.RefinedPacketRecord
 	}{
 		{
 			name:   "criteria splits into one fact per non-blank line",
 			kind:   "criteria",
 			text:   "rejects a negative amount\n\n  caps at the daily ceiling  \n",
 			wantOK: true,
-			wantRec: ledger.RefinedOrderRecord{Target: tgt, Refine: "criteria",
+			wantRec: ledger.RefinedPacketRecord{Target: tgt, Refine: "criteria",
 				Criteria: []string{"rejects a negative amount", "caps at the daily ceiling"}},
 		},
 		{
@@ -37,7 +37,7 @@ func TestBuildRefinement_turnsTheLeadsInputIntoTheRightSharpeningFact(t *testing
 			kind:   "convention",
 			text:   "  wrap errors with an origin prefix  ",
 			wantOK: true,
-			wantRec: ledger.RefinedOrderRecord{Target: tgt, Refine: "convention",
+			wantRec: ledger.RefinedPacketRecord{Target: tgt, Refine: "convention",
 				Note: "wrap errors with an origin prefix"},
 		},
 		{

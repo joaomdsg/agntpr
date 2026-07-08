@@ -21,7 +21,7 @@ import (
 // funds, instead of a blind auto-FIFO pick. Funding a chosen bench item must
 // dispatch THAT target — even when it is not the FIFO head — turning dispatch into
 // a real management-sim decision. NOT parallel (shared globals).
-func TestLiveCard_fundChosenDispatchesThePickedBenchTarget(t *testing.T) {
+func TestLiveCard_fundChosenSendsThePickedBenchTarget(t *testing.T) {
 	restore := resolveCycle
 	t.Cleanup(func() { resolveCycle = restore })
 	resolveCycle = func(_ context.Context, _, _, _, _ string, _ reanchor.Anchor, _ []string, _, _ bool, _ chan<- pipe.TraceEvent) (Resolution, error) {
@@ -33,7 +33,7 @@ func TestLiveCard_fundChosenDispatchesThePickedBenchTarget(t *testing.T) {
 	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: logPath,
-		DispatchBacklog: []ledger.Target{
+		SendBacklog: []ledger.Target{
 			{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, // FIFO head
 			{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "beta.go", Line: 9},  // the chosen one
 		},
@@ -48,7 +48,7 @@ func TestLiveCard_fundChosenDispatchesThePickedBenchTarget(t *testing.T) {
 	require.Equal(t, 200, tc.Action((&LiveCard{}).FundChosen).WithSignal("fundtarget", "beta.go:9").Fire())
 
 	require.Eventually(t, func() bool {
-		ds, e := log.RecentDispatches(10)
+		ds, e := log.RecentSends(10)
 		if e != nil {
 			return false
 		}
@@ -61,7 +61,7 @@ func TestLiveCard_fundChosenDispatchesThePickedBenchTarget(t *testing.T) {
 	}, 10*time.Second, 10*time.Millisecond, "funding a chosen bench item dispatches THAT target, not the FIFO head")
 
 	// The FIFO head was NOT funded — only the chosen target.
-	ds, err := log.RecentDispatches(10)
+	ds, err := log.RecentSends(10)
 	require.NoError(t, err)
 	for _, d := range ds {
 		require.False(t, d.Target.Path == "alpha.go", "the un-chosen FIFO head was not dispatched")
@@ -83,7 +83,7 @@ func TestLiveCard_fundChosenRefusesATargetNotOnTheBench(t *testing.T) {
 	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: logPath,
-		DispatchBacklog: []ledger.Target{{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}},
+		SendBacklog: []ledger.Target{{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}},
 	})
 	require.NoError(t, err)
 	server = httptest.NewServer(viaApp)
@@ -95,7 +95,7 @@ func TestLiveCard_fundChosenRefusesATargetNotOnTheBench(t *testing.T) {
 
 	// Nothing was dispatched — the off-bench target was refused.
 	require.Never(t, func() bool {
-		ds, e := log.RecentDispatches(10)
+		ds, e := log.RecentSends(10)
 		return e == nil && len(ds) > 0
 	}, 1*time.Second, 50*time.Millisecond, "an off-bench target funds nothing")
 }

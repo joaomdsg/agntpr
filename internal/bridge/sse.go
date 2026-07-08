@@ -23,8 +23,8 @@ func encodeFrame(p ledger.Projection) []byte {
 	b, _ := json.Marshal(snapshot{
 		Balance: p.Balance(),
 		Catches: len(p.Records()),
-		Orders:  len(p.WorkOrders()),
-		Queued:  len(p.QueuedWorkOrders()),
+		Orders:  len(p.Packets()),
+		Queued:  len(p.QueuedPackets()),
 	})
 	return append(append([]byte("data: "), b...), '\n', '\n')
 }

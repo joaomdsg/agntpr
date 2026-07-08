@@ -12,7 +12,7 @@ import (
 	"github.com/joaomdsg/packets/internal/translate"
 )
 
-// The live agent's activity must travel producer → taxonomy → bus → consumer
+// The live agent's activity must travel peer → taxonomy → bus → consumer
 // intact so the surface can show a real run as it happens: it lands on the
 // scratch/activity subject (non-authoritative — never the minted economy) and
 // its payload decodes back to the same events the agent emitted.

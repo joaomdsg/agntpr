@@ -23,10 +23,10 @@ import (
 // just after it finishes. As the harness streams thinking→editing, the session's
 // activity snapshot must reflect the latest beat each time — so the card can show
 // the agent working in real time.
-func TestRunLiveOrder_updatesTheActivitySnapshotLiveAsTheHarnessStreams(t *testing.T) {
+func TestRunLivePacket_updatesTheActivitySnapshotLiveAsTheHarnessStreams(t *testing.T) {
 	resetConsumersForTest()
-	repo := initGitRepoForOrder(t)
-	base := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	base := gitPacket(t, repo, "rev-parse", "HEAD")
 
 	restoreHarness := runHarness
 	t.Cleanup(func() { runHarness = restoreHarness })
@@ -48,9 +48,9 @@ func TestRunLiveOrder_updatesTheActivitySnapshotLiveAsTheHarnessStreams(t *testi
 		seen = append(seen, lookupLiveEntry("liveact").activitySnapshot())
 
 		require.NoError(t, os.WriteFile(filepath.Join(repoDir, "auth.go"), []byte("package main\n"), 0o644))
-		gitOrder(t, repoDir, "add", "-A")
-		gitOrder(t, repoDir, "commit", "-qm", "live fix")
-		sha := gitOrder(t, repoDir, "rev-parse", "HEAD")
+		gitPacket(t, repoDir, "add", "-A")
+		gitPacket(t, repoDir, "commit", "-qm", "live fix")
+		sha := gitPacket(t, repoDir, "rev-parse", "HEAD")
 		return []harness.Turn{{Outcome: orchestrator.TurnOutcome{Minted: true, SHA: sha}}}, nil
 	}
 
@@ -69,10 +69,10 @@ func TestRunLiveOrder_updatesTheActivitySnapshotLiveAsTheHarnessStreams(t *testi
 
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
 	live := ledger.Target{BaseRev: base, Path: "target.go", Line: 42, Prompt: "fix the bug"}
-	require.NoError(t, log.AppendDispatch("d1", live, own))
+	require.NoError(t, log.AppendSend("d1", live, own))
 	registerSession("liveact", LiveConfig{RepoDir: repo, BaseRev: base, Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 
-	drainQueuedOrders("liveact")
+	drainQueuedPackets("liveact")
 
 	assert.Equal(t, []string{"thinking", "editing auth.go", "running go test ./..."}, seen,
 		"the per-session activity snapshot updates live to the LATEST streamed beat of each batch")

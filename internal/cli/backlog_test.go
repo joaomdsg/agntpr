@@ -9,7 +9,7 @@ import (
 	"github.com/joaomdsg/packets/internal/ledger"
 )
 
-func TestBacklogSpecSeedsAFundableWorkOrderTarget(t *testing.T) {
+func TestBacklogSpecSeedsAFundablePacketTarget(t *testing.T) {
 	t.Parallel()
 	// The whole point of -backlog: a spec on the CLI becomes a fundable work-order
 	// target so the dispatch→fund→fill→review loop is runnable without test fixtures.

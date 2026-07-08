@@ -12,7 +12,7 @@ import (
 var base = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 
 // The bucket admits a burst of claims immediately, then refuses once drained:
-// a producer can spend its burst at once but not exceed it in a single instant.
+// a peer can spend its burst at once but not exceed it in a single instant.
 func TestTokenBucket_admitsTheBurstThenRefusesWhenDrained(t *testing.T) {
 	t.Parallel()
 	b := newTokenBucket(12, 0.1, base)
@@ -38,7 +38,7 @@ func TestTokenBucket_refillsExactlyTheElapsedTokens(t *testing.T) {
 }
 
 // A long idle does NOT accumulate unbounded credit: refill is capped at burst,
-// so a producer can't bank an hour of silence into a giant flood.
+// so a peer can't bank an hour of silence into a giant flood.
 func TestTokenBucket_capsRefillAtBurstAfterLongIdle(t *testing.T) {
 	t.Parallel()
 	b := newTokenBucket(12, 0.1, base)
@@ -64,7 +64,7 @@ func TestTokenBucket_refusesUntilAWholeTokenHasAccrued(t *testing.T) {
 }
 
 // Refills accrued in many small steps accumulate float error: ten 0.1-token
-// increments sum to 0.9999999999999998, not 1.0. A producer that has genuinely
+// increments sum to 0.9999999999999998, not 1.0. A peer that has genuinely
 // waited a full token's worth of time, polled second by second, must STILL be
 // admitted — a bare `>= 1` would perpetually starve it. This is exactly what the
 // epsilon rescues; the test fails without it (verified by mutation).

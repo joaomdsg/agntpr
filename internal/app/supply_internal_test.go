@@ -54,7 +54,7 @@ func TestFundableBacklog_dedupsAConfigTargetThatAlsoDerivesFromACatch(t *testing
 	// BacklogRemaining double-counts the same distinct work.
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "x.go", Line: 49, BeforeRev: "b0", AfterRev: "f0", ReasonTag: "catch"}))
 	dup := ledger.Target{BaseRev: "b0", FixRev: "f0", TipRev: "f0", Path: "x.go", Line: 50}
-	cfg := LiveConfig{BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), DispatchBacklog: []ledger.Target{dup}}
+	cfg := LiveConfig{BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), SendBacklog: []ledger.Target{dup}}
 
 	count := 0
 	for _, tgt := range fundableBacklog(cfg, log) {
@@ -85,7 +85,7 @@ func TestLiveCard_supplyRefillsFromItsOwnCatchesSoSpendNeverSilentlyDeadEnds(t *
 	var server *httptest.Server
 	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, LedgerPath: logPath, // NO DispatchBacklog — config supply is empty
+		TestCmd: []string{"true"}, LedgerPath: logPath, // NO SendBacklog — config supply is empty
 	})
 	require.NoError(t, err)
 	server = httptest.NewServer(viaApp)
@@ -141,7 +141,7 @@ func TestLiveCard_aDerivedCandidateReproducingASeenCatchIsAnHonestLoss(t *testin
 
 	require.Equal(t, 200, tc.Action((&LiveCard{}).Spend).Fire())
 	require.Eventually(t, func() bool {
-		c, e := log.DispatchStatusCounts()
+		c, e := log.SendStatusCounts()
 		return e == nil && c.Done == 1
 	}, 10*time.Second, 10*time.Millisecond, "the derived candidate ran to done")
 

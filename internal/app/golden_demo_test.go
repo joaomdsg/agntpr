@@ -94,7 +94,7 @@ func TestGoldenReplay_realLoopShowsAWinTwoCompoundsAndAnHonestMissAndReplaysCons
 	stock := ledger.ConfirmedCatches(recs)
 	assert.Equal(t, r.Confirmed, stock.Count, "Confirmed replays identically from the persisted log")
 	assert.Equal(t, r.Reinvested, stock.Reinvested, "Reinvested replays identically")
-	counts, err := log.DispatchStatusCounts()
+	counts, err := log.SendStatusCounts()
 	require.NoError(t, err)
 	assert.Equal(t, r.Done, counts.Done, "Done replays identically")
 

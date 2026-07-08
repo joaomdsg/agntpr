@@ -10,8 +10,8 @@ import (
 
 // nextUnconsumedTarget returns the first backlog target a Spend can still fund —
 // head-first (FIFO), skipping targets already CONSUMED (carried by a funded
-// work-order, projected purely from the log so it survives a reopen) and the
-// card's OWN caught cycle (which AppendDispatch would refuse, so leaving it in
+// packet, projected purely from the log so it survives a reopen) and the
+// card's OWN caught cycle (which AppendSend would refuse, so leaving it in
 // would stall the head forever, starving the targets behind it). ok=false when
 // the backlog is empty or fully drawn down — the honest scarcity signal.
 func nextUnconsumedTarget(cfg LiveConfig, log *ledger.Log) (ledger.Target, bool) {
@@ -23,15 +23,15 @@ func nextUnconsumedTarget(cfg LiveConfig, log *ledger.Log) (ledger.Target, bool)
 
 // fundableBacklog is the targets a Spend can still fund, in head-first order: the
 // hand-seeded config list THEN the card's own catches' neighborhoods (from-catch
-// supply), each filtered to those NOT yet CONSUMED (carried by a funded work-order,
+// supply), each filtered to those NOT yet CONSUMED (carried by a funded packet,
 // projected purely from the log) and NOT the card's OWN caught cycle (which
-// AppendDispatch refuses). Its length is the board's BacklogRemaining — the honest
+// AppendSend refuses). Its length is the board's BacklogRemaining — the honest
 // "distinct work left." A drained config still yields derived candidates, so supply
 // is a going concern; it returns empty only when neither source has fundable work.
 func fundableBacklog(cfg LiveConfig, log *ledger.Log) []ledger.Target {
 	consumed := map[ledger.Target]bool{}
-	if orders, err := log.WorkOrders(); err == nil {
-		for _, o := range orders {
+	if pkts, err := log.Packets(); err == nil {
+		for _, o := range pkts {
 			consumed[o.Target] = true
 		}
 	}
@@ -56,7 +56,7 @@ func fundableBacklog(cfg LiveConfig, log *ledger.Log) []ledger.Target {
 	// that is STILL fundable — once the parent's work is bought (consumed), its
 	// sub-regions are not re-drawable, so a consumed parent falls through to add (which
 	// filters it) rather than re-opening its splits.
-	for _, t := range append(append([]ledger.Target{}, cfg.DispatchBacklog...), candidatesFromCatches(log)...) {
+	for _, t := range append(append([]ledger.Target{}, cfg.SendBacklog...), candidatesFromCatches(log)...) {
 		if subs, ok := splits[t]; ok && !consumed[t] {
 			for _, s := range subs {
 				add(s)
@@ -171,7 +171,7 @@ func spendButtonLabel(cfg LiveConfig, log *ledger.Log) string {
 	return "Compose a packet → target the next gap"
 }
 
-// ownTargetOf is the card's OWN caught cycle as a Target — what a dispatch must
+// ownTargetOf is the card's OWN caught cycle as a Target — what a send must
 // NOT re-run (it is already caught; re-running it mints nothing).
 func ownTargetOf(cfg LiveConfig) ledger.Target {
 	return ledger.Target{

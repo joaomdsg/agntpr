@@ -34,7 +34,7 @@ func TestLiveCard_spendControlPreviewsTheNextTargetItWouldFund(t *testing.T) {
 	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: logPath,
-		DispatchBacklog: []ledger.Target{{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "preview.go", Line: 42}},
+		SendBacklog: []ledger.Target{{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "preview.go", Line: 42}},
 	})
 	require.NoError(t, err)
 	server = httptest.NewServer(viaApp)
@@ -61,7 +61,7 @@ func TestSpendButtonLabel_namesTheNextTargetOrFallsBackWhenNoneFundable(t *testi
 	require.Equal(t, "Compose a packet → target the next gap", spendButtonLabel(LiveConfig{}, empty))
 
 	// A fundable target present → the label names it exactly.
-	cfg := LiveConfig{DispatchBacklog: []ledger.Target{{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 8}}}
+	cfg := LiveConfig{SendBacklog: []ledger.Target{{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 8}}}
 	withWork := ledger.Bind(f, "withwork", "i")
 	require.Equal(t, "Compose a packet → target alpha.go:8", spendButtonLabel(cfg, withWork))
 }

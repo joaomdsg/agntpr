@@ -28,20 +28,20 @@ type CardRow struct {
 	Key              string
 	Confirmed        int
 	Reinvested       int
-	InFlight         int                   // claims submitted but not yet minted — producers' pending BETS, never confirmed catches (two-scores)
-	Rejected         int                   // verified-lost: bets the host verified and found no catch — a RESOLVED loss, distinct from a pending in-flight bet and from a confirmed catch (two-scores)
-	Dispatches       []ledger.DispatchView // this session's recent funded work-orders + their caught/missed outcome — honest per-order round-trip legibility, never a fabricated rank
+	InFlight         int               // claims submitted but not yet minted — peers' pending BETS, never confirmed catches (two-scores)
+	Rejected         int               // verified-lost: bets the host verified and found no catch — a RESOLVED loss, distinct from a pending in-flight bet and from a confirmed catch (two-scores)
+	Sends            []ledger.SendView // this session's recent funded packets + their caught/missed outcome — honest per-packet round-trip legibility, never a fabricated rank
 	Balance          int
 	Queued           int
 	Running          int
 	Done             int
-	Caught           int // done orders whose run minted a confirmed catch — the exact ledger.ScoutingReport count (gated on the SAME order being done), the first-pass-hit numerator
-	Misses           int // done orders that minted NOTHING (Done − Caught) — honest losses made visible, not silently discarded
+	Caught           int // done packets whose run minted a confirmed catch — the exact ledger.ScoutingReport count (gated on the SAME packet being done), the first-pass-hit numerator
+	Misses           int // done packets that minted NOTHING (Done − Caught) — honest losses made visible, not silently discarded
 	BacklogRemaining int
 	OpenQuestions    int    // the session's latest-cycle open review questions (surviving mutants) — test debt the green verdict hides, made visible across the fleet; a diagnostic, never scored (off the economy)
 	Land             string // the session's latest-cycle integration verdict (clean/conflict/checks_red) — surfaced on the board only when BLOCKED, so "Landed ≠ Merged" is visible across the fleet
 	LandLifecycle    string // the opened PR's post-land lifecycle (§29.2: landed/merged/bounced) — surfaced on the fleet board only for the TERMINAL merged/bounced outcomes (the board stays calm on the routine landed-not-merged transient)
-	Activity         string // the agent's latest live activity beat (e.g. "editing auth.go") while an order fills — the cross-session "watch the shop" ticker; "" when idle, so an idle row stays calm
+	Activity         string // the agent's latest live activity beat (e.g. "editing auth.go") while a packet fills — the cross-session "watch the shop" ticker; "" when idle, so an idle row stays calm
 	seq              int    // registration ordinal — the deterministic tie-break, not rendered
 }
 
@@ -64,7 +64,7 @@ func BoardRows() []CardRow {
 			if b, err := e.log.Balance(); err == nil {
 				row.Balance = b
 			}
-			// Claims in flight are producers' pending bets, projected from the claim
+			// Claims in flight are peers' pending bets, projected from the claim
 			// subtree alone — kept off Confirmed/Balance (two-scores). Degrade to 0 on
 			// a read error, like every other field.
 			if n, err := e.log.ClaimsInFlight(); err == nil {
@@ -76,18 +76,18 @@ func BoardRows() []CardRow {
 			if n, err := e.log.ClaimsRejected(); err == nil {
 				row.Rejected = n
 			}
-			// Recent funded work-orders + their caught/missed outcome — the
+			// Recent funded packets + their caught/missed outcome — the
 			// round-trip made legible. Degrade to nil on a read error like the rest.
-			if ds, err := e.log.RecentDispatches(5); err == nil {
-				row.Dispatches = ds
+			if ds, err := e.log.RecentSends(5); err == nil {
+				row.Sends = ds
 			}
-			if c, err := e.log.DispatchStatusCounts(); err == nil {
+			if c, err := e.log.SendStatusCounts(); err == nil {
 				row.Queued, row.Running, row.Done = c.Queued, c.Running, c.Done
 			}
-			// First-pass hits: the EXACT count of done orders whose own run minted a
-			// catch (ledger.ScoutingReport gates Caught on the SAME order being done, so
-			// a catch on a still-running order can't be misattributed). Misses are the
-			// rest of the done orders — Caught ≤ Done by construction, so no clamp.
+			// First-pass hits: the EXACT count of done packets whose own run minted a
+			// catch (ledger.ScoutingReport gates Caught on the SAME packet being done, so
+			// a catch on a still-running packet can't be misattributed). Misses are the
+			// rest of the done packets — Caught ≤ Done by construction, so no clamp.
 			if sr, err := e.log.ScoutingReport(); err == nil {
 				row.Caught = sr.Caught
 				row.Misses = row.Done - sr.Caught
@@ -105,7 +105,7 @@ func BoardRows() []CardRow {
 		// board only for terminal merged/bounced outcomes (see View + boardLifecycle).
 		row.LandLifecycle = e.landLifecycleSnapshot()
 		// The agent's live activity beat (in-process, read straight from the session's
-		// fill buffer) — the cross-session ticker, surfaced only while an order fills.
+		// fill buffer) — the cross-session ticker, surfaced only while a packet fills.
 		row.Activity = e.activitySnapshot()
 		rows = append(rows, row)
 		return true
@@ -176,7 +176,7 @@ func (c *BoardCard) OnConnect(ctx *via.Ctx) error {
 // fleetFingerprint folds the board's mutable per-row state into one string, so
 // OnConnect can re-render only when the board would actually look different. It
 // covers the fields View renders and that change over time (membership, stock,
-// balance, the bet lifecycle, dispatch activity, hit/miss, backlog, open questions,
+// balance, the bet lifecycle, send activity, hit/miss, backlog, open questions,
 // land, the terminal merge lifecycle, the live activity beat).
 func fleetFingerprint(rows []CardRow) string {
 	var b strings.Builder
@@ -228,9 +228,9 @@ func (c *BoardCard) RetireSession(ctx *via.Ctx) {
 // CreateSession starts a new session economy from the fleet view: it registers the
 // typed key (inheriting the default session's config) so the Lead can work it
 // immediately via the in-process card flow — no boot edit, no claim consumer needed
-// (consumers serve only the untrusted-producer POST /claim path). An invalid
+// (consumers serve only the untrusted-peer POST /claim path). An invalid
 // subject token or a key that already exists is an honest no-op: a create never
-// forges a bad token nor clobbers a live economy's log. (Producer claims for a
+// forges a bad token nor clobbers a live economy's log. (Peer claims for a
 // runtime-created session are unsupported in V1 — the card flow works fully.)
 func (c *BoardCard) CreateSession(ctx *via.Ctx) {
 	key := strings.TrimSpace(c.NewKey.Read(ctx))
@@ -252,14 +252,14 @@ func (c *BoardCard) CreateSession(ctx *via.Ctx) {
 	cfg.Anchor = reanchor.Anchor{} // prompt-first: no inherited anchor / catch-cycle
 	cfg.BaseRev, cfg.FixRev, cfg.TipRev = "", "", ""
 	slog, _ := AddSession(key, cfg) // validated above; a bind error leaves the registry unchanged
-	// Seed starting attention bandwidth so the Lead can place a prompt order
+	// Seed starting attention bandwidth so the Lead can place a prompt packet
 	// immediately — a prompt-first session has no anchored catch flow to earn bandwidth
-	// from, so without this the place-order control would never appear (chicken-and-egg).
+	// from, so without this the place-packet control would never appear (chicken-and-egg).
 	if slog != nil {
 		seedStartingBandwidth(slog)
 	}
 	// Start the long-lived harness exploring the repo NOW, so this session's first
-	// analyze/order resumes a warm context (DESIGN §6's resumed-per-session harness).
+	// analyze/packet resumes a warm context (DESIGN §6's resumed-per-session harness).
 	if e := lookupLiveEntry(key); e != nil && cfg.RepoDir != "" {
 		startWarmHarness(e, cfg.RepoDir)
 	}
@@ -429,12 +429,12 @@ func browseStart(cfg LiveConfig) string {
 
 // startingBandwidthSeeds is how many cleared attention intervals a new session is
 // seeded with. Each interval clears instantly (latency ≈ 0 → the fast-clear bonus),
-// so the meter starts well above the live-dispatch cost and a few prompt orders can
+// so the meter starts well above the live-send cost and a few prompt packets can
 // be placed before the Lead earns more by answering review questions.
 const startingBandwidthSeeds = 3
 
 // seedStartingBandwidth credits a new session with startingBandwidthSeeds cleared
-// intervals (block→unblock pairs) so a prompt order is fundable on first load —
+// intervals (block→unblock pairs) so a prompt packet is fundable on first load —
 // using only the public ledger primitives, so the events are real cleared-attention
 // facts, just pre-seeded. A write error is best-effort: a session with no seeded
 // bandwidth simply shows no place control until the Lead earns some.
@@ -452,21 +452,21 @@ func seedStartingBandwidth(log *ledger.Log) {
 }
 
 // hitRateLabel is the card's standing — the ONE honest progression number: Caught
-// (orders whose own run minted a confirmed catch, the exact ledger.ScoutingReport
-// count) over Done (resolved dispatched orders). A pure COUNT ratio of logged
+// (packets whose own run minted a confirmed catch, the exact ledger.ScoutingReport
+// count) over Done (resolved sent packets). A pure COUNT ratio of logged
 // events, never an inferred probability or forecast, so it redeems against the
 // mint/miss the Lead actually earned. Done==0 reads a calm "hit-rate 0/0" — a
 // string ratio, never a divide-by-zero.
 //
-// No clamp is needed: ScoutingReport gates a hit on the SAME order being done, so
-// Caught ≤ Done by construction (a "wo:" catch on a still-running order is not
+// No clamp is needed: ScoutingReport gates a hit on the SAME packet being done, so
+// Caught ≤ Done by construction (a "wo:" catch on a still-running packet is not
 // counted — the misattribution the old Reinvested-stock heuristic could leak).
 func hitRateLabel(r CardRow) string {
 	return "hit-rate " + strconv.Itoa(r.Caught) + "/" + strconv.Itoa(r.Done)
 }
 
 // View renders one row per registered session: its confirmed/reinvested stock,
-// the producers' bet lifecycle (in-flight bets and verified-losses, each its own
+// the peers' bet lifecycle (in-flight bets and verified-losses, each its own
 // span, never folded into the confirmed stock — two-scores), spendable balance,
 // queued/running/done activity, the distinct work still awaiting a spend, and the
 // hit-rate standing. Calm spans in the stock idiom — no gauges, no priority, no
@@ -527,7 +527,7 @@ func (c *BoardCard) View(ctx *via.CtxR) h.H {
 			// and target the WRONG session — QueryEscape makes the link round-trip.
 			h.A(h.Href("/?key="+url.QueryEscape(r.Key)), h.Class("board-row__key"), h.Text(r.Key)),
 			h.Span(h.Class("board-row__stock"), h.Text(strconv.Itoa(r.Confirmed)+" confirmed, "+strconv.Itoa(r.Reinvested)+" reinvested")),
-			// The producers' BET lifecycle, sealed into one explicitly-labelled
+			// The peers' BET lifecycle, sealed into one explicitly-labelled
 			// cluster so a pending/lost bet can't blend into the confirmed stock at a
 			// glance — the two-scores separation carried by STRUCTURE, not by hoping a
 			// reader parses each label. The inner spans keep their class hooks so a
@@ -574,16 +574,16 @@ func (c *BoardCard) View(ctx *via.CtxR) h.H {
 				h.Text(label),
 			))
 		}
-		// What the agent is doing RIGHT NOW — a calm dim ticker, surfaced only while an
-		// order fills (a beat exists), so the Lead watches the shop across sessions
+		// What the agent is doing RIGHT NOW — a calm dim ticker, surfaced only while a
+		// packet fills (a beat exists), so the Lead watches the shop across sessions
 		// without opening each card. Absent on an idle row (no dead "·").
 		if r.Activity != "" {
 			row = append(row, h.Span(h.Class("board-row__activity-beat"), h.Text("· "+r.Activity)))
 		}
-		// The funded work-order round-trip made legible: recent dispatches with their
+		// The funded packet round-trip made legible: recent sends with their
 		// caught/missed outcome, in their own cluster (omitted when there are none).
-		// Honest per-order outcomes, never a fabricated rank.
-		if d := renderDispatches(r.Key, r.Dispatches); d != nil {
+		// Honest per-packet outcomes, never a fabricated rank.
+		if d := renderSends(r.Key, r.Sends); d != nil {
 			row = append(row, d)
 		}
 		// A retire control on every NON-default row — the default is the "/" route's
@@ -646,20 +646,20 @@ func blockedLandCount(rows []CardRow) int {
 	return n
 }
 
-// renderDispatches renders a session's recent work-orders as a calm cluster —
-// one span per order: "WO#<id> <path>:<line> <status>[ caught|missed]". The
-// caught/missed outcome is shown only for a done order (a queued/running order
+// renderSends renders a session's recent packets as a calm cluster —
+// one span per packet: "PKT#<id> <path>:<line> <status>[ caught|missed]". The
+// caught/missed outcome is shown only for a done packet (a queued/running packet
 // has no outcome yet). Returns nil when there are none, so the cluster is omitted.
-func renderDispatches(key string, views []ledger.DispatchView) h.H {
+func renderSends(key string, views []ledger.SendView) h.H {
 	if len(views) == 0 {
 		return nil
 	}
-	spans := []h.H{h.Class("board-row__dispatches"), h.Span(h.Class("pk-section-label board-row__dispatches-label"), h.Text("dispatches:"))}
+	spans := []h.H{h.Class("board-row__sends"), h.Span(h.Class("pk-section-label board-row__sends-label"), h.Text("sends:"))}
 	for _, v := range views {
-		text := "WO#" + strconv.Itoa(v.ID) + " " + v.Target.Path + ":" + strconv.Itoa(v.Target.Line) + " " + v.Status
-		span := []h.H{h.Class("pk-chip board-row__dispatch")}
-		// A resolved order carries its outcome as a hook so the calm palette can
-		// color caught vs missed at a glance (a queued/running order has no outcome
+		text := "PKT#" + strconv.Itoa(v.ID) + " " + v.Target.Path + ":" + strconv.Itoa(v.Target.Line) + " " + v.Status
+		span := []h.H{h.Class("pk-chip board-row__send")}
+		// A resolved packet carries its outcome as a hook so the calm palette can
+		// color caught vs missed at a glance (a queued/running packet has no outcome
 		// yet, so no hook — it stays neutral).
 		if v.Status == "done" {
 			if v.Caught {
@@ -671,30 +671,30 @@ func renderDispatches(key string, views []ledger.DispatchView) h.H {
 			}
 		}
 		span = append(span, h.Text(text))
-		// The oracle's verdict for a resolved order — the WHY behind a catch/miss
+		// The oracle's verdict for a resolved packet — the WHY behind a catch/miss
 		// (no-catch vs lost-via-rename vs no-oracle-signal …) — as a calm secondary
 		// detail. Omitted when none is persisted (never an empty "why" tag).
 		if v.Status == "done" && v.Verdict != "" {
-			span = append(span, h.Span(h.Class("board-row__dispatch-why"), h.Text(" "+surface.VerdictLabel(v.Verdict))))
+			span = append(span, h.Span(h.Class("board-row__send-why"), h.Text(" "+surface.VerdictLabel(v.Verdict))))
 		}
-		// A DRILL link into the order's review (/review?wo=<id>), the dispatch→review
-		// tie. A filled order that left surviving mutants frames it as its open-question
-		// count (the reviewable test-debt). A SETTLED order that left none still links —
-		// to inspect the producer's edits (the base→fix diff) — so a clean fill (caught
-		// or missed) is never a dead end. Queued/running orders have produced no diff
+		// A DRILL link into the packet's review (/review?wo=<id>), the send→review
+		// tie. A filled packet that left surviving mutants frames it as its open-question
+		// count (the reviewable test-debt). A SETTLED packet that left none still links —
+		// to inspect the peer's edits (the base→fix diff) — so a clean fill (caught
+		// or missed) is never a dead end. Queued/running packets have produced no diff
 		// yet, so they carry no link. A calm accent, never an alarm.
 		href := "/review?key=" + url.QueryEscape(key) + "&wo=" + strconv.Itoa(v.ID)
 		switch {
 		case v.Questions > 0:
 			span = append(span, h.A(
 				h.Href(href),
-				h.Class("board-row__dispatch-questions"),
+				h.Class("board-row__send-questions"),
 				h.Text(" • "+strconv.Itoa(v.Questions)+" open questions"),
 			))
 		case v.Status == "done":
 			span = append(span, h.A(
 				h.Href(href),
-				h.Class("board-row__dispatch-inspect"),
+				h.Class("board-row__send-inspect"),
 				h.Text(" • inspect diffs"),
 			))
 		}

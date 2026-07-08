@@ -12,7 +12,7 @@ import (
 	"github.com/joaomdsg/packets/internal/fabric"
 )
 
-func startListening(t *testing.T, grants ...fabric.ProducerGrant) *fabric.Fabric {
+func startListening(t *testing.T, grants ...fabric.Grant) *fabric.Fabric {
 	t.Helper()
 	f, err := fabric.StartListening(context.Background(), t.TempDir(), "127.0.0.1:0", grants...)
 	require.NoError(t, err)
@@ -20,13 +20,13 @@ func startListening(t *testing.T, grants ...fabric.ProducerGrant) *fabric.Fabric
 	return f
 }
 
-// producerPublish connects as a credentialed producer over the listen socket and
+// peerPublish connects as a credentialed peer over the listen socket and
 // JetStream-publishes to subject, returning the publish error (a denied subject
 // gets no ack → error). A JS publish needs to receive its ack on the client's
-// _INBOX, so an ALLOWED publish only succeeds if the producer is also granted
+// _INBOX, so an ALLOWED publish only succeeds if the peer is also granted
 // subscribe on _INBOX.> — that narrow grant (and nothing broader) is what makes
 // the allowed-publish assertion pass while the subscribe-confinement test holds.
-func producerPublish(t *testing.T, f *fabric.Fabric, user, pass, subject string) error {
+func peerPublish(t *testing.T, f *fabric.Fabric, user, pass, subject string) error {
 	t.Helper()
 	pc, err := nats.Connect(f.Addr(), nats.UserInfo(user, pass))
 	require.NoError(t, err)
@@ -39,35 +39,35 @@ func producerPublish(t *testing.T, f *fabric.Fabric, user, pass, subject string)
 	return err
 }
 
-func TestStartListening_confinesAProducerToItsOwnClaimSubtree(t *testing.T) {
+func TestStartListening_confinesAPeerToItsOwnClaimSubtree(t *testing.T) {
 	t.Parallel()
-	f := startListening(t, fabric.ProducerGrant{User: "prodA", Pass: "pwA", Session: "A", Instance: "i"})
+	f := startListening(t, fabric.Grant{User: "prodA", Pass: "pwA", Session: "A", Instance: "i"})
 
-	// Allowed: its own claim subtree — claims are what a producer may publish.
-	assert.NoError(t, producerPublish(t, f, "prodA", "pwA",
+	// Allowed: its own claim subtree — claims are what a peer may publish.
+	assert.NoError(t, peerPublish(t, f, "prodA", "pwA",
 		fabric.EventSubject("A", "i", fabric.StatusClaim, "diff")))
 
-	// Denied: minting is reserved to the host (the verifier mints, not the producer).
-	assert.Error(t, producerPublish(t, f, "prodA", "pwA",
+	// Denied: minting is reserved to the host (the verifier mints, not the peer).
+	assert.Error(t, peerPublish(t, f, "prodA", "pwA",
 		fabric.EventSubject("A", "i", fabric.StatusMinted, "catch")))
 
 	// Denied: another session's subtree (no cross-session forgery).
-	assert.Error(t, producerPublish(t, f, "prodA", "pwA",
+	assert.Error(t, peerPublish(t, f, "prodA", "pwA",
 		fabric.EventSubject("B", "i", fabric.StatusClaim, "diff")))
 
 	// Denied: the VERDICT kind — even within its own subtree. A verdict resolves a bet
 	// (drops it from in-flight, counts it a verified-loss); it is the host verifier's to
-	// publish. A producer forging one would self-resolve its bets, bypassing the cage.
-	assert.Error(t, producerPublish(t, f, "prodA", "pwA",
+	// publish. A peer forging one would self-resolve its bets, bypassing the cage.
+	assert.Error(t, peerPublish(t, f, "prodA", "pwA",
 		fabric.EventSubject("A", "i", fabric.StatusClaim, fabric.ClaimVerdictKind)),
-		"a producer must not forge a claim verdict on its own subtree")
+		"a peer must not forge a claim verdict on its own subtree")
 }
 
-func TestStartListening_deniesAProducerSubscribingBeyondItsInbox(t *testing.T) {
+func TestStartListening_deniesAPeerSubscribingBeyondItsInbox(t *testing.T) {
 	t.Parallel()
-	f := startListening(t, fabric.ProducerGrant{User: "prodA", Pass: "pwA", Session: "A", Instance: "i"})
+	f := startListening(t, fabric.Grant{User: "prodA", Pass: "pwA", Session: "A", Instance: "i"})
 
-	// A producer that could subscribe to the whole fabric could exfiltrate every
+	// A peer that could subscribe to the whole fabric could exfiltrate every
 	// session's economy. Its subscribe grant must be confined to its own reply
 	// inbox; attempting to read packets.> must raise a permissions violation.
 	violations := make(chan error, 4)
@@ -90,7 +90,7 @@ func TestStartListening_deniesAProducerSubscribingBeyondItsInbox(t *testing.T) {
 
 func TestStartListening_rejectsAWrongCredentialConnection(t *testing.T) {
 	t.Parallel()
-	f := startListening(t, fabric.ProducerGrant{User: "prodA", Pass: "pwA", Session: "A", Instance: "i"})
+	f := startListening(t, fabric.Grant{User: "prodA", Pass: "pwA", Session: "A", Instance: "i"})
 
 	_, err := nats.Connect(f.Addr(), nats.UserInfo("prodA", "wrong"))
 	assert.Error(t, err, "a wrong credential must be rejected at connect")
@@ -106,7 +106,7 @@ func TestStartListening_rejectsAMalformedListenAddr(t *testing.T) {
 
 func TestStartListening_deniesAnAnonymousExternalClientHostPrivileges(t *testing.T) {
 	t.Parallel()
-	f := startListening(t, fabric.ProducerGrant{User: "prodA", Pass: "pwA", Session: "A", Instance: "i"})
+	f := startListening(t, fabric.Grant{User: "prodA", Pass: "pwA", Session: "A", Instance: "i"})
 
 	// NoAuthUser=hostUser maps the credential-less in-process connection to the
 	// full-perms host. An EXTERNAL socket client presenting no credentials must
@@ -131,13 +131,13 @@ func TestStartListening_deniesAnAnonymousExternalClientHostPrivileges(t *testing
 
 func TestStartListening_keepsMintingAvailableToTheInProcessHost(t *testing.T) {
 	t.Parallel()
-	f := startListening(t, fabric.ProducerGrant{User: "prodA", Pass: "pwA", Session: "A", Instance: "i"})
+	f := startListening(t, fabric.Grant{User: "prodA", Pass: "pwA", Session: "A", Instance: "i"})
 
 	_, err := f.Publish(context.Background(),
 		fabric.EventSubject("A", "i", fabric.StatusMinted, "catch"), []byte("m"))
 	assert.NoError(t, err, "the in-process host retains full minting publish")
 
-	// The verdict kind is denied to producers but remains the host verifier's to publish.
+	// The verdict kind is denied to peers but remains the host verifier's to publish.
 	_, verr := f.Publish(context.Background(),
 		fabric.EventSubject("A", "i", fabric.StatusClaim, fabric.ClaimVerdictKind), []byte("v"))
 	assert.NoError(t, verr, "the in-process host retains verdict publish (the verifier resolves bets)")

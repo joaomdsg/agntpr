@@ -162,7 +162,7 @@ func TestBuildFileTree_repeatedPathYieldsASingleLeaf(t *testing.T) {
 	assert.Equal(t, []string{"b.go"}, childNames(a), "the duplicate collapses to one leaf")
 }
 
-func TestBuildFileTree_ordersDirectoriesBeforeFilesEachAlphabetical(t *testing.T) {
+func TestBuildFileTree_PacketsDirectoriesBeforeFilesEachAlphabetical(t *testing.T) {
 	t.Parallel()
 	root := buildFileTree([]string{"z.go", "m.go", "a/b.go", "a/a.go"}, diff.Diff{})
 	// Directories sort ahead of files; within each group, alphabetical — a stable

@@ -33,31 +33,31 @@ func PublishSpend(ctx context.Context, f *fabric.Fabric, session, instance strin
 	return publish(ctx, f, session, instance, kindSpend, s)
 }
 
-// PublishWorkOrder emits a funded work-order record on the canonical
+// PublishPacket emits a funded packet record on the canonical
 // minted-workorder subject and returns its stream sequence.
-func PublishWorkOrder(ctx context.Context, f *fabric.Fabric, session, instance string, w WorkOrderRecord) (uint64, error) {
-	return publish(ctx, f, session, instance, kindWorkOrder, w)
+func PublishPacket(ctx context.Context, f *fabric.Fabric, session, instance string, w PacketRecord) (uint64, error) {
+	return publish(ctx, f, session, instance, kindPacket, w)
 }
 
-// PublishStatus emits a work-order status transition on the canonical
+// PublishStatus emits a packet status transition on the canonical
 // minted-wostatus subject and returns its stream sequence.
 func PublishStatus(ctx context.Context, f *fabric.Fabric, session, instance string, s StatusRecord) (uint64, error) {
-	return publish(ctx, f, session, instance, kindWOStatus, s)
+	return publish(ctx, f, session, instance, kindPacketStatus, s)
 }
 
-// PublishWorkOrderVerdict emits a per-order oracle-verdict record on the canonical
+// PublishPacketVerdict emits a per-packet oracle-verdict record on the canonical
 // minted-woverdict subject and returns its stream sequence. It targets StatusMinted
-// like the work-order/status lines (the dispatch subtree), NOT a catch — it is
+// like the packet/status lines (the send subtree), NOT a catch — it is
 // diagnostic metadata, never an economic event.
-func PublishWorkOrderVerdict(ctx context.Context, f *fabric.Fabric, session, instance string, v WorkOrderVerdictRecord) (uint64, error) {
-	return publish(ctx, f, session, instance, kindWOVerdict, v)
+func PublishPacketVerdict(ctx context.Context, f *fabric.Fabric, session, instance string, v PacketVerdictRecord) (uint64, error) {
+	return publish(ctx, f, session, instance, kindPacketVerdict, v)
 }
 
-// PublishRefine emits a refined-work-order record on the canonical minted-worefine
+// PublishRefine emits a refined-packet record on the canonical minted-worefine
 // subject and returns its stream sequence. Like the status/verdict lines it targets
-// the dispatch subtree, never a catch — sharpening is not an economic event.
-func PublishRefine(ctx context.Context, f *fabric.Fabric, session, instance string, r RefinedOrderRecord) (uint64, error) {
-	return publish(ctx, f, session, instance, kindWORefine, r)
+// the send subtree, never a catch — sharpening is not an economic event.
+func PublishRefine(ctx context.Context, f *fabric.Fabric, session, instance string, r RefinedPacketRecord) (uint64, error) {
+	return publish(ctx, f, session, instance, kindPacketRefine, r)
 }
 
 // PublishAnnotation emits a durable annotation (or reply) on the canonical
@@ -102,16 +102,16 @@ func DecodeSpend(data []byte) (SpendRecord, error) {
 	return s, nil
 }
 
-// DecodeWorkOrder decodes a funded work-order event payload from the bus.
-func DecodeWorkOrder(data []byte) (WorkOrderRecord, error) {
-	var w WorkOrderRecord
+// DecodePacket decodes a funded packet event payload from the bus.
+func DecodePacket(data []byte) (PacketRecord, error) {
+	var w PacketRecord
 	if err := json.Unmarshal(data, &w); err != nil {
-		return WorkOrderRecord{}, fmt.Errorf("ledger: decode work-order: %v", err)
+		return PacketRecord{}, fmt.Errorf("ledger: decode packet: %v", err)
 	}
 	return w, nil
 }
 
-// DecodeStatus decodes a work-order status-transition event payload from the bus.
+// DecodeStatus decodes a packet status-transition event payload from the bus.
 func DecodeStatus(data []byte) (StatusRecord, error) {
 	var s StatusRecord
 	if err := json.Unmarshal(data, &s); err != nil {
@@ -120,20 +120,20 @@ func DecodeStatus(data []byte) (StatusRecord, error) {
 	return s, nil
 }
 
-// DecodeWorkOrderVerdict decodes a per-order oracle-verdict event payload from the bus.
-func DecodeWorkOrderVerdict(data []byte) (WorkOrderVerdictRecord, error) {
-	var v WorkOrderVerdictRecord
+// DecodePacketVerdict decodes a per-packet oracle-verdict event payload from the bus.
+func DecodePacketVerdict(data []byte) (PacketVerdictRecord, error) {
+	var v PacketVerdictRecord
 	if err := json.Unmarshal(data, &v); err != nil {
-		return WorkOrderVerdictRecord{}, fmt.Errorf("ledger: decode work-order verdict: %v", err)
+		return PacketVerdictRecord{}, fmt.Errorf("ledger: decode packet verdict: %v", err)
 	}
 	return v, nil
 }
 
-// DecodeRefine decodes a refined-work-order event payload from the bus.
-func DecodeRefine(data []byte) (RefinedOrderRecord, error) {
-	var r RefinedOrderRecord
+// DecodeRefine decodes a refined-packet event payload from the bus.
+func DecodeRefine(data []byte) (RefinedPacketRecord, error) {
+	var r RefinedPacketRecord
 	if err := json.Unmarshal(data, &r); err != nil {
-		return RefinedOrderRecord{}, fmt.Errorf("ledger: decode refine: %v", err)
+		return RefinedPacketRecord{}, fmt.Errorf("ledger: decode refine: %v", err)
 	}
 	return r, nil
 }

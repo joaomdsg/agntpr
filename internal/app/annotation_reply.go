@@ -27,7 +27,7 @@ func findAnnotation(anns []ledger.AnnotationRecord, id string) (ledger.Annotatio
 // durable reply (ParentID set, inheriting the parent's file/line anchor) and
 // re-triggers the harness with the reply as the turn — the human's answer both
 // joins the thread and tells the agent what to change. Like AddAdjustment, the
-// reply is persisted BEFORE the dispatch, so it stays on the log even when the
+// reply is persisted BEFORE the send, so it stays on the log even when the
 // re-trigger is refused for budget. An empty reply, a missing parent, or a
 // treeless session is a silent no-op.
 func (c *ReviewCard) ReplyToAnnotation(ctx *via.Ctx) {
@@ -70,8 +70,8 @@ func (c *ReviewCard) ReplyToAnnotation(ctx *via.Ctx) {
 	}
 	codeLine := readSourceLine(cfg.RepoDir, parent.File, parent.StartLine)
 	tgt := ledger.Target{BaseRev: head, Prompt: assist.ReviewTurnPrompt(parent.File, parent.StartLine, codeLine, text)}
-	if err := log.AppendLiveDispatch("liveorder", tgt, ownTargetOf(cfg)); err != nil {
+	if err := log.AppendLiveSend("liveorder", tgt, ownTargetOf(cfg)); err != nil {
 		return
 	}
-	go drainQueuedOrders(key)
+	go drainQueuedPackets(key)
 }

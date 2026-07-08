@@ -38,7 +38,7 @@ func claimConsumerServer(t *testing.T) (*httptest.Server, *ledger.Log) {
 }
 
 // The live server actually DRAINS posted claims through its configured verifier
-// and mints: a producer POSTs a claim, the server-spawned consumer runs the
+// and mints: a peer POSTs a claim, the server-spawned consumer runs the
 // verifier, and a confirmed catch appears in the economy while the target leaves
 // the in-flight set. This proves the whole route→publish→consume→verify→mint path
 // with a stub verifier — so the only Docker-needing part is the real CageVerifier

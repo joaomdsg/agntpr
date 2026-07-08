@@ -51,7 +51,7 @@ func TestAnnotationBrowser_selectingARangeInTheDiffPersistsARangedAnnotation(t *
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Close() })
 	log := ledger.Bind(f, "annbrowse", "i")
-	fundDispatch(t, log, "d1", ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1})
+	fundSend(t, log, "d1", ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1})
 	registerSession("annbrowse", LiveConfig{RepoDir: repo, BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")

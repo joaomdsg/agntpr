@@ -36,7 +36,7 @@ func TestLiveCard_splitChosenSplitsTheTargetIntoItsChangedRegions(t *testing.T) 
 	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: dir, BaseRev: "ownb", FixRev: "ownf", TipRev: "ownf", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: logPath,
-		DispatchBacklog: []ledger.Target{{BaseRev: base, FixRev: fix, TipRev: fix, Path: "pay.go", Line: 10}},
+		SendBacklog: []ledger.Target{{BaseRev: base, FixRev: fix, TipRev: fix, Path: "pay.go", Line: 10}},
 	})
 	require.NoError(t, err)
 	server = httptest.NewServer(viaApp)
@@ -67,7 +67,7 @@ func TestLiveCard_splitChosenIsANoOpWhenThereIsNothingToSplitInto(t *testing.T) 
 	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: dir, BaseRev: "ownb", FixRev: "ownf", TipRev: "ownf", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: logPath,
-		DispatchBacklog: []ledger.Target{{BaseRev: base, FixRev: fix, TipRev: fix, Path: "untouched.go", Line: 3}},
+		SendBacklog: []ledger.Target{{BaseRev: base, FixRev: fix, TipRev: fix, Path: "untouched.go", Line: 3}},
 	})
 	require.NoError(t, err)
 	server = httptest.NewServer(viaApp)
@@ -89,7 +89,7 @@ func TestLiveCard_benchCardOffersASplitFromTheDiff(t *testing.T) {
 	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: defLogPath,
-		DispatchBacklog: []ledger.Target{{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 88}},
+		SendBacklog: []ledger.Target{{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 88}},
 	})
 	require.NoError(t, err)
 	server = httptest.NewServer(viaApp)

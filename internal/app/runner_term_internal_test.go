@@ -15,11 +15,11 @@ import (
 	"github.com/joaomdsg/packets/internal/reanchor"
 )
 
-func TestDrainQueuedOrders_terminatesWhenAStatusWriteFailsPermanently(t *testing.T) {
+func TestDrainQueuedPackets_terminatesWhenAStatusWriteFailsPermanently(t *testing.T) {
 	// A funded order whose status can NEVER advance (here: the fabric is torn down,
 	// so every projection/write fails) must not spin the runner forever re-running
 	// the suite under a held runMu. The drain RETURNS rather than looping; the cycle
-	// fires at most maxOrderAttempts times. NOT parallel (shared globals).
+	// fires at most maxPacketAttempts times. NOT parallel (shared globals).
 	restore := resolveCycle
 	t.Cleanup(func() { resolveCycle = restore })
 	var calls int64
@@ -32,19 +32,19 @@ func TestDrainQueuedOrders_terminatesWhenAStatusWriteFailsPermanently(t *testing
 	require.NoError(t, err)
 	log := ledger.BindOwning(f, "term-key", LedgerInstance)
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Line: 1, ReasonTag: "catch"}))
-	require.NoError(t, log.AppendDispatch("dispatch", woTargetN(1), ledger.Target{})) // fund order 1 while the fabric is up
+	require.NoError(t, log.AppendSend("dispatch", woTargetN(1), ledger.Target{})) // fund order 1 while the fabric is up
 	registerSession("term-key", LiveConfig{RepoDir: ".", TestCmd: []string{"true"}, LedgerPath: ""}, log)
 	require.NoError(t, log.Close()) // tearing the fabric down makes every projection/write fail; the drain must still TERMINATE, never spin
 
 	done := make(chan struct{})
 	go func() {
-		drainQueuedOrders("term-key")
+		drainQueuedPackets("term-key")
 		close(done)
 	}()
 	select {
 	case <-done:
 	case <-time.After(3 * time.Second):
-		t.Fatal("drainQueuedOrders did not terminate — the runner spins on a permanently-failing status write")
+		t.Fatal("drainQueuedPackets did not terminate — the runner spins on a permanently-failing status write")
 	}
-	require.LessOrEqual(t, atomic.LoadInt64(&calls), int64(maxOrderAttempts), "the cycle fires at most maxOrderAttempts times for a stuck order — bounded, never an unbounded suite-exec burn")
+	require.LessOrEqual(t, atomic.LoadInt64(&calls), int64(maxPacketAttempts), "the cycle fires at most maxPacketAttempts times for a stuck order — bounded, never an unbounded suite-exec burn")
 }

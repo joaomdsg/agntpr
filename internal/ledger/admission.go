@@ -5,22 +5,22 @@ import (
 	"time"
 )
 
-// Admission is the per-producer rate-limit config for ConsumeClaims: Burst and
-// RatePerSec parameterize a token bucket (one per producer, since a producer is
+// Admission is the per-peer rate-limit config for ConsumeClaims: Burst and
+// RatePerSec parameterize a token bucket (one per peer, since a peer is
 // one session+instance), and Now is an injectable clock (nil → time.Now). A nil
 // *Admission means no rate limit. The global concurrency cap is added in B3b.
 type Admission struct {
 	Burst, RatePerSec float64
 	Now               func() time.Time
 	// Concurrency is a SHARED counting semaphore (buffered channel) bounding the
-	// total number of concurrent verifies across ALL producers — the wiring passes
-	// the SAME channel in every producer's Admission, so the cap is process-wide.
+	// total number of concurrent verifies across ALL peers — the wiring passes
+	// the SAME channel in every peer's Admission, so the cap is process-wide.
 	// nil → no concurrency cap.
 	Concurrency chan struct{}
 	// OnResolved, when set, is called with the session key AFTER a claim reaches a
 	// durable verdict (minted, or rejected via a no-catch/unverifiable marker) —
 	// NOT on a transient error that leaves the claim in flight. It is the
-	// post-verdict hook the producer-GC uses to reclaim a now-idle producer's
+	// post-verdict hook the peer-GC uses to reclaim a now-idle peer's
 	// objects the moment its last claim resolves, rather than waiting for the
 	// periodic sweep. nil → no hook.
 	OnResolved func(session string)
@@ -41,10 +41,10 @@ func (a *Admission) clock() func() time.Time {
 // is still refused.
 const tokenBucketEpsilon = 1e-9
 
-// tokenBucket is a per-producer admission rate limiter: it starts full (burst
+// tokenBucket is a per-peer admission rate limiter: it starts full (burst
 // tokens), refills at ratePerSec up to burst, and admits a claim by consuming one
 // token. It is pure given an injected `now` — no wall clock — so admission is
-// deterministic and unit-testable. The wiring (B3) holds one bucket per producer
+// deterministic and unit-testable. The wiring (B3) holds one bucket per peer
 // (session,instance) and ack-drops a claim when allow returns false.
 //
 // allow is NOT goroutine-safe (it read-modify-writes tokens/last): a bucket must

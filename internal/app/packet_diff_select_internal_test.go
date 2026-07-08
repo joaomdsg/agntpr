@@ -14,7 +14,7 @@ import (
 // files, not a blank pane: an anchorless order whose diff defaults to "" renders
 // an empty editor, hiding the very edits the Lead came to inspect. Default to the
 // first changed file so there is always something to see.
-func TestSelectedFile_anchorlessOrderDefaultsToAChangedFile(t *testing.T) {
+func TestSelectedFile_anchorlessPacketDefaultsToAChangedFile(t *testing.T) {
 	swapTreeSeams(t, nil, nil,
 		diff.Diff{Files: []diff.FileDiff{{Path: "internal/app/live.go"}, {Path: "internal/app/board.go"}}})
 	tgt := ledger.Target{BaseRev: "b", FixRev: "f", Path: ""} // anchorless
@@ -40,7 +40,7 @@ func TestSelectedFile_anExplicitPickAlwaysWins(t *testing.T) {
 // When the order IS anchored on a path, that anchor is the natural default (the
 // reviewed line lives there) — the changed-file default only kicks in for the
 // anchorless case, so an anchored order must not be redirected to some other file.
-func TestSelectedFile_anchoredOrderDefaultsToItsAnchorNotAChangedFile(t *testing.T) {
+func TestSelectedFile_anchoredPacketDefaultsToItsAnchorNotAChangedFile(t *testing.T) {
 	swapTreeSeams(t, nil, nil,
 		diff.Diff{Files: []diff.FileDiff{{Path: "internal/app/other.go"}}})
 	tgt := ledger.Target{BaseRev: "b", FixRev: "f", Path: "internal/app/anchored.go"}

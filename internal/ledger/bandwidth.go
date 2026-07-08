@@ -12,16 +12,16 @@ import (
 // kindBlock tags a "the Lead's input is needed" event; kindUnblock tags the
 // matching "the Lead provided it" event. Together they are the attention economy's
 // source: a cleared block (a block with a matching unblock) earns bandwidth, the
-// scarce resource that funds dispatching autonomous work.
+// scarce resource that funds sending autonomous work.
 const (
-	kindBlock        = "block"
-	kindUnblock      = "unblock"
-	kindBWSpend      = "bwspend"
-	liveDispatchCost = 1 // bandwidth a UI-authored live order costs to dispatch
+	kindBlock    = "block"
+	kindUnblock  = "unblock"
+	kindBWSpend  = "bwspend"
+	liveSendCost = 1 // bandwidth a UI-authored live packet costs to send
 )
 
 // BandwidthSpendRecord is a debit against the earned attention bandwidth — the
-// meter's SINK, mirroring SpendRecord for the catch balance. A live order authored
+// meter's SINK, mirroring SpendRecord for the catch balance. A live packet authored
 // from the UI is funded here, not from a catch, so the two meters stay distinct.
 type BandwidthSpendRecord struct {
 	Kind   string `json:"kind"`
@@ -29,8 +29,8 @@ type BandwidthSpendRecord struct {
 	Reason string `json:"reason,omitempty"`
 }
 
-// BlockRecord marks the moment a producer needed the Lead's input (a raised
-// question, an order awaiting review) for the work identified by ID, stamped with
+// BlockRecord marks the moment a peer needed the Lead's input (a raised
+// question, a packet awaiting review) for the work identified by ID, stamped with
 // the wall-clock time so the matching unblock's latency is a logged fact, never an
 // inference.
 type BlockRecord struct {
@@ -40,7 +40,7 @@ type BlockRecord struct {
 }
 
 // UnblockRecord marks the moment the Lead cleared the block identified by ID
-// (answered the question, reviewed the order). Its latency from the block is the
+// (answered the question, reviewed the packet). Its latency from the block is the
 // awarded bandwidth's grounding.
 type UnblockRecord struct {
 	Kind     string `json:"kind"`
@@ -165,14 +165,14 @@ func (l *Log) AppendBandwidthSpend(amount int, reason string) error {
 	return nil
 }
 
-// AppendLiveDispatch funds a UI-authored LIVE order from the attention-bandwidth
+// AppendLiveSend funds a UI-authored LIVE packet from the attention-bandwidth
 // meter (not a catch) and queues it in one write under the lock: the bandwidth
-// debit and the work-order are two publishes no other writer interleaves, so the
-// meter can never fund more orders than it held. It refuses its own target (the
-// distinct-work guard) and any dispatch the bandwidth cannot cover.
-func (l *Log) AppendLiveDispatch(reason string, target, own Target) error {
+// debit and the packet are two publishes no other writer interleaves, so the
+// meter can never fund more packets than it held. It refuses its own target (the
+// distinct-work guard) and any send the bandwidth cannot cover.
+func (l *Log) AppendLiveSend(reason string, target, own Target) error {
 	if target == own {
-		return fmt.Errorf("ledger: refusing to dispatch the card's own work — fund DISTINCT work")
+		return fmt.Errorf("ledger: refusing to send the card's own work — fund DISTINCT work")
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -180,23 +180,23 @@ func (l *Log) AppendLiveDispatch(reason string, target, own Target) error {
 	if err != nil {
 		return err
 	}
-	if p.Bandwidth() < liveDispatchCost {
-		return fmt.Errorf("ledger: cannot dispatch — only %d attention bandwidth, need %d", p.Bandwidth(), liveDispatchCost)
+	if p.Bandwidth() < liveSendCost {
+		return fmt.Errorf("ledger: cannot send — only %d attention bandwidth, need %d", p.Bandwidth(), liveSendCost)
 	}
 	ctx := context.Background()
 	if _, err := PublishBandwidthSpend(ctx, l.f, l.session, l.instance,
-		BandwidthSpendRecord{Kind: kindBWSpend, Amount: liveDispatchCost, Reason: reason}); err != nil {
-		return fmt.Errorf("ledger: append live dispatch debit: %w", err)
+		BandwidthSpendRecord{Kind: kindBWSpend, Amount: liveSendCost, Reason: reason}); err != nil {
+		return fmt.Errorf("ledger: append live send debit: %w", err)
 	}
-	if _, err := PublishWorkOrder(ctx, l.f, l.session, l.instance, WorkOrderRecord{
-		Kind:     kindWorkOrder,
-		ID:       len(p.WorkOrders()) + 1,
-		Producer: inProcessProducer,
-		Status:   "queued",
-		Reason:   reason,
-		Target:   target,
+	if _, err := PublishPacket(ctx, l.f, l.session, l.instance, PacketRecord{
+		Kind:   kindPacket,
+		ID:     len(p.Packets()) + 1,
+		Source: inProcessSource,
+		Status: "queued",
+		Reason: reason,
+		Target: target,
 	}); err != nil {
-		return fmt.Errorf("ledger: append live work-order: %w", err)
+		return fmt.Errorf("ledger: append live packet: %w", err)
 	}
 	return nil
 }

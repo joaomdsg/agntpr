@@ -9,41 +9,41 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAppendDispatch_fundsExactlyOneWorkOrderPerDebitConserved(t *testing.T) {
+func TestAppendSend_fundsExactlyOneWorkPacketPerDebitConserved(t *testing.T) {
 	t.Parallel()
 	l, _ := openLog(t)
 	require.NoError(t, l.Append(distinctRecord(0)))
 	require.NoError(t, l.Append(distinctRecord(1)))
 
-	require.NoError(t, l.AppendDispatch("dispatch", distinctTarget(), ownTarget()))
-	require.NoError(t, l.AppendDispatch("dispatch", distinctTarget(), ownTarget()))
+	require.NoError(t, l.AppendSend("dispatch", distinctTarget(), ownTarget()))
+	require.NoError(t, l.AppendSend("dispatch", distinctTarget(), ownTarget()))
 
 	bal, err := l.Balance()
 	require.NoError(t, err)
 	assert.Equal(t, 0, bal, "two dispatches each debit one catch — the balance drains exactly like two spends")
 
-	pending, err := l.PendingDispatches()
+	pending, err := l.PendingSends()
 	require.NoError(t, err)
 	assert.Equal(t, 2, pending, "one debit funds exactly one work-order — conserved, debits==orders")
 
-	orders, err := l.WorkOrders()
+	orders, err := l.Packets()
 	require.NoError(t, err)
 	require.Len(t, orders, 2)
 	assert.NotEqual(t, orders[0].ID, orders[1].ID, "work-order ids are distinct and monotonic")
 	assert.Less(t, orders[0].ID, orders[1].ID, "ids increase in funding order")
 	for _, o := range orders {
-		assert.NotEmpty(t, o.Producer, "each order carries a producer (pre-paid for the cross-process fan-out the log schema needs)")
+		assert.NotEmpty(t, o.Source, "each order carries a peer (pre-paid for the cross-process fan-out the log schema needs)")
 		assert.Equal(t, "queued", o.Status, "a funded order is queued — it does not run")
 	}
 }
 
-func TestAppendDispatch_workOrdersReplayFromThePersistedLogAlone(t *testing.T) {
+func TestAppendSend_workPacketsReplayFromThePersistedLogAlone(t *testing.T) {
 	t.Parallel()
 	l, _ := openLog(t)
 	require.NoError(t, l.Append(distinctRecord(0)))
 	require.NoError(t, l.Append(distinctRecord(1)))
-	require.NoError(t, l.AppendDispatch("dispatch-a", distinctTarget(), ownTarget()))
-	require.NoError(t, l.AppendDispatch("dispatch-b", distinctTarget(), ownTarget()))
+	require.NoError(t, l.AppendSend("dispatch-a", distinctTarget(), ownTarget()))
+	require.NoError(t, l.AppendSend("dispatch-b", distinctTarget(), ownTarget()))
 	require.NoError(t, l.Close())
 
 	reopened := boundLog(t)
@@ -52,47 +52,47 @@ func TestAppendDispatch_workOrdersReplayFromThePersistedLogAlone(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 0, bal, "the debits replay from disk — the projection holds no in-memory counter, and a work-order line never inflates the balance")
 
-	pending, err := reopened.PendingDispatches()
+	pending, err := reopened.PendingSends()
 	require.NoError(t, err)
 	assert.Equal(t, 2, pending, "both funded work-orders survive a reopen — pure projection")
 
-	orders, err := reopened.WorkOrders()
+	orders, err := reopened.Packets()
 	require.NoError(t, err)
 	require.Len(t, orders, 2)
 	assert.Less(t, orders[0].ID, orders[1].ID, "monotonic ids survive the reopen — they are derived from the persisted log, not a process-local counter")
 	assert.Equal(t, "dispatch-a", orders[0].Reason, "the funding reason is a persisted audit fact")
 	assert.Equal(t, "dispatch-b", orders[1].Reason)
 	for _, o := range orders {
-		assert.NotEmpty(t, o.Producer, "the producer survives the reopen — the field the cross-process fan-out will key on")
+		assert.NotEmpty(t, o.Source, "the peer survives the reopen — the field the cross-process fan-out will key on")
 	}
 }
 
-func TestPendingDispatches_doesNotPolluteTheConfirmedCatchCount(t *testing.T) {
+func TestPendingSends_doesNotPolluteTheConfirmedCatchCount(t *testing.T) {
 	t.Parallel()
 	l, _ := openLog(t)
 	require.NoError(t, l.Append(sampleRecord()))
-	require.NoError(t, l.AppendDispatch("dispatch", distinctTarget(), ownTarget()))
+	require.NoError(t, l.AppendSend("dispatch", distinctTarget(), ownTarget()))
 
 	recs, err := l.Records()
 	require.NoError(t, err)
 	assert.Len(t, recs, 1, "Records stays catch-only — the work-order line is skipped like a spend line")
 }
 
-func TestAppendDispatch_overBudgetFundsNoOrderAndWritesNothing(t *testing.T) {
+func TestAppendSend_overBudgetFundsNoPacketAndWritesNothing(t *testing.T) {
 	t.Parallel()
 	l, _ := openLog(t)
 
-	require.Error(t, l.AppendDispatch("dispatch", distinctTarget(), ownTarget()), "a dispatch with nothing to fund is refused — you cannot dispatch what you did not catch")
+	require.Error(t, l.AppendSend("dispatch", distinctTarget(), ownTarget()), "a dispatch with nothing to fund is refused — you cannot dispatch what you did not catch")
 
 	bal, err := l.Balance()
 	require.NoError(t, err)
 	assert.Equal(t, 0, bal, "the refused dispatch left no debit")
-	pending, err := l.PendingDispatches()
+	pending, err := l.PendingSends()
 	require.NoError(t, err)
 	assert.Equal(t, 0, pending, "the refused dispatch funded no work-order — nothing was written")
 }
 
-func TestAppendDispatch_isAtomicUnderRaceNeverTearsOrOverFunds(t *testing.T) {
+func TestAppendSend_isAtomicUnderRaceNeverTearsOrOverFunds(t *testing.T) {
 	t.Parallel()
 	l, _ := openLog(t)
 	require.NoError(t, l.Append(sampleRecord())) // a balance of exactly 1: more dispatchers than credit
@@ -106,7 +106,7 @@ func TestAppendDispatch_isAtomicUnderRaceNeverTearsOrOverFunds(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			<-start
-			if err := l.AppendDispatch("dispatch", distinctTarget(), ownTarget()); err == nil {
+			if err := l.AppendSend("dispatch", distinctTarget(), ownTarget()); err == nil {
 				atomic.AddInt64(&ok, 1)
 			}
 		}()
@@ -118,7 +118,7 @@ func TestAppendDispatch_isAtomicUnderRaceNeverTearsOrOverFunds(t *testing.T) {
 	bal, err := l.Balance()
 	require.NoError(t, err)
 	assert.Equal(t, 0, bal, "the balance never overshoots below zero")
-	pending, err := l.PendingDispatches()
+	pending, err := l.PendingSends()
 	require.NoError(t, err)
 	assert.Equal(t, 1, pending, "exactly one work-order was funded — the debit and the order never tear apart")
 }

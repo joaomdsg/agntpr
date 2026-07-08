@@ -48,7 +48,7 @@ func (r blessingRunner) Run(_ context.Context, _ sandbox.Spec) (sandbox.Result, 
 }
 
 // StartCageClaimConsumers wires a WORKING CageVerifier through the live
-// route→publish→consume→verify→mint path: a producer POSTs a claim over a real
+// route→publish→consume→verify→mint path: a peer POSTs a claim over a real
 // repo's revisions, the server-spawned consumer materializes the repo, runs the
 // (faked) cage, re-derives the verdict from the transcript, and mints — proving
 // the production wiring builds a verifier that actually confirms, with Docker

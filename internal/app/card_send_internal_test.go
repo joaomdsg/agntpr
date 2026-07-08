@@ -21,7 +21,7 @@ import (
 // the two are one link with different framing, never both. This locks the
 // existing Questions>0 path against the new settled-link change.
 // NOT parallel (shared liveReg/liveFabric).
-func TestLiveCard_orderWithOpenQuestionsKeepsTheQuestionsLinkNotInspect(t *testing.T) {
+func TestLiveCard_PacketWithOpenQuestionsKeepsTheQuestionsLinkNotInspect(t *testing.T) {
 	ctx := context.Background()
 	f, err := fabric.Start(ctx, t.TempDir())
 	require.NoError(t, err)
@@ -30,12 +30,12 @@ func TestLiveCard_orderWithOpenQuestionsKeepsTheQuestionsLinkNotInspect(t *testi
 
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 100, ReasonTag: "catch"}))
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
-	require.NoError(t, log.AppendDispatch("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
+	require.NoError(t, log.AppendSend("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
 	require.NoError(t, log.AppendStatus(1, "done"))
 	registerSession("qlinkc", LiveConfig{BaseRev: "own-b-qlinkc", FixRev: "own-f", Anchor: anchorForCap()}, log)
 	e := lookupLiveEntry("qlinkc")
 	require.NotNil(t, e)
-	// The filled order left a surviving mutant → one open question for WO#1.
+	// The filled order left a surviving mutant → one open question for PKT#1.
 	e.setOrderFindings(1, []mutation.Finding{{File: "alpha.go", Line: 7, Outcome: mutation.Survived, Message: "mutated >= to >"}})
 
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")

@@ -1,4 +1,4 @@
-// Package assist models the producer's live analysis of a work-order draft — the
+// Package assist models the assist's live analysis of a packet draft — the
 // structured highlights, clarifying questions, and readiness summary the authoring
 // surface renders. The analysis is produced by a Claude Code harness run that
 // prints one JSON object; ParseAnalysis extracts and validates it, so the rest of
@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-// Highlight marks a span of the draft [Start,End) the producer flagged, with a note
+// Highlight marks a span of the draft [Start,End) the assist flagged, with a note
 // and a severity ("question", "gap", "note", …). Offsets are byte offsets into the
 // draft so the editor can anchor a decoration on exactly that range.
 type Highlight struct {
@@ -22,7 +22,7 @@ type Highlight struct {
 	Severity string `json:"severity,omitempty"`
 }
 
-// Question is one clarifying question the producer raised, with up to four suggested
+// Question is one clarifying question the assist raised, with up to four suggested
 // answers the Lead can pick from and a flag for whether several may apply at once
 // (multiselect). Suggestions let the Lead choose instead of free-typing; a question
 // may still carry none (the Lead answers in the notes field the panel renders).
@@ -36,7 +36,7 @@ type Question struct {
 // scannable choice set, not an overwhelming wall. ParseAnalysis trims to this.
 const maxSuggestions = 4
 
-// UnmarshalJSON decodes a question tolerantly: a producer may answer with either a
+// UnmarshalJSON decodes a question tolerantly: a assist may answer with either a
 // bare JSON string (the terse "just the question" shape) or the rich object shape
 // {q, suggestions, multiselect}. A bare string becomes the question text with no
 // suggestions, so a half-structured reply (mixed strings and objects) still decodes
@@ -50,7 +50,7 @@ func (q *Question) UnmarshalJSON(b []byte) error {
 	type alias Question // avoid recursing into this method
 	var a alias
 	if err := json.Unmarshal(b, &a); err != nil {
-		// Neither a string nor an object (a stray number/bool/null/array the producer
+		// Neither a string nor an object (a stray number/bool/null/array the assist
 		// emitted by mistake): decode to a zero Question (empty Q) so ParseAnalysis drops
 		// it, rather than failing the WHOLE analysis on one malformed element.
 		*q = Question{}
@@ -60,10 +60,10 @@ func (q *Question) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// Analysis is the producer's structured read of a draft: a one-line summary, a
+// Analysis is the assist's structured read of a draft: a one-line summary, a
 // readiness verdict (is the goal clear and verifiable enough to run unattended),
 // the flagged spans, and the clarifying questions worth answering before placing
-// the order.
+// the packet.
 type Analysis struct {
 	Summary    string      `json:"summary"`
 	Ready      bool        `json:"ready"`
@@ -71,16 +71,16 @@ type Analysis struct {
 	Questions  []Question  `json:"questions"`
 }
 
-// AnalysisPrompt builds the instruction a producer harness runs to analyze a
-// work-order draft: it carries the draft and pins the exact JSON shape
+// AnalysisPrompt builds the instruction a assist harness runs to analyze a
+// packet draft: it carries the draft and pins the exact JSON shape
 // ParseAnalysis decodes, so the prompt and parser are one contract. The agent is
 // told to print ONLY the JSON object (the parser tolerates surrounding prose, but
 // asking for clean output keeps a run cheap and unambiguous).
 func AnalysisPrompt(draft string) string {
-	return `You are a producer reviewing a work-order draft a Lead is authoring.
+	return `You are a assist reviewing a packet draft a Lead is authoring.
 Analyze it for clarity and whether its goal is verifiable enough to run
 unattended. Identify spans worth flagging (ambiguities, gaps, undefined terms)
-and the clarifying questions worth answering before the work is dispatched.
+and the clarifying questions worth answering before the work is sent.
 
 Respond with ONE JSON object and nothing else, in this exact shape:
 {
@@ -132,21 +132,21 @@ func ReviewTurnPrompt(file string, line int, codeLine, comment string) string {
 
 // Answer is the Lead's response to one clarifying Question: the question text, the
 // suggestions they picked (zero or more), and any free-text note (a different answer,
-// or extra context). RewritePrompt feeds these to the producer to revise the draft.
+// or extra context). RewritePrompt feeds these to the assist to revise the draft.
 type Answer struct {
 	Q       string
 	Answers []string
 	Note    string
 }
 
-// RewritePrompt builds the instruction a producer runs to REVISE a draft using the
+// RewritePrompt builds the instruction a assist runs to REVISE a draft using the
 // Lead's answers to the clarifying questions. It carries the current draft and each
-// answer (question + picked suggestions + free note) and tells the producer to fold
+// answer (question + picked suggestions + free note) and tells the assist to fold
 // them in and return ONLY the rewritten draft — no commentary — so ParseRewrite gets
 // draft text, not a chat reply.
 func RewritePrompt(draft string, answers []Answer) string {
 	var b strings.Builder
-	b.WriteString(`You are a producer revising a work-order draft a Lead is authoring.
+	b.WriteString(`You are a assist revising a packet draft a Lead is authoring.
 The Lead answered your clarifying questions below. Fold their answers into the
 draft: resolve the ambiguities, fill the gaps, and keep the Lead's intent and
 voice. Output ONLY the rewritten draft as plain markdown — no preamble, no
@@ -174,7 +174,7 @@ ANSWERS:
 	return b.String()
 }
 
-// ParseRewrite cleans the producer's rewrite reply into draft text ready for the
+// ParseRewrite cleans the assist's rewrite reply into draft text ready for the
 // editor: it trims surrounding whitespace, and if the WHOLE reply is wrapped in one
 // outer ```fence (a common model habit) it strips just that fence — dropping the
 // opening line's language info-string and the single closing fence — so an inner
@@ -191,7 +191,7 @@ func ParseRewrite(raw string) string {
 	return s
 }
 
-// ParseAnalysis extracts the one JSON object the producer printed from raw (tolerant
+// ParseAnalysis extracts the one JSON object the assist printed from raw (tolerant
 // of surrounding prose and ```json fences) and validates it against draft: a
 // highlight whose range is inverted or falls outside the draft is DROPPED rather
 // than returned as a range the editor can't anchor (an end exactly at len(draft) is
@@ -200,7 +200,7 @@ func ParseRewrite(raw string) string {
 func ParseAnalysis(raw, draft string) (Analysis, error) {
 	obj, ok := extractJSONObject(raw)
 	if !ok {
-		return Analysis{}, fmt.Errorf("assist: no JSON object found in producer output")
+		return Analysis{}, fmt.Errorf("assist: no JSON object found in assist output")
 	}
 	var a Analysis
 	if err := json.Unmarshal([]byte(obj), &a); err != nil {

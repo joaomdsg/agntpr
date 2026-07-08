@@ -10,7 +10,7 @@ import (
 )
 
 // panelFor renders the analysis panel for a set of questions, so the tests can assert
-// the per-question answer form the producer's questions drive.
+// the per-question answer form the assist's questions drive.
 func panelFor(t *testing.T, qs []assist.Question) string {
 	t.Helper()
 	da := &draftAnalysis{Draft: "d", Result: &assist.Analysis{Summary: "s", Questions: qs}}

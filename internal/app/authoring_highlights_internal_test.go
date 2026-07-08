@@ -29,7 +29,7 @@ func TestLineOfOffset_clampsOutOfRangeToARealLine(t *testing.T) {
 
 const flagDraft = "package main\n\nfunc main() {}\n\n// more lines here for offsets\n"
 
-// The producer's flagged spans surface as readable cards, not only as inline
+// The assist's flagged spans surface as readable cards, not only as inline
 // editor decorations a Lead must hover to read — each card carries the real note,
 // its severity, and its line location.
 func TestRenderHighlightCards_showsEachFlagsNoteSeverityAndLine(t *testing.T) {
@@ -99,9 +99,9 @@ func TestRenderHighlightCards_isEmptyForNoFlags(t *testing.T) {
 	assert.Empty(t, renderHighlightCards(flagDraft, nil))
 }
 
-// The analysis panel surfaces the producer's flagged spans as cards beside its
+// The analysis panel surfaces the assist's flagged spans as cards beside its
 // summary and questions — the built composer's take on the exploration's
-// harness-pair panel, from real producer output only.
+// harness-pair panel, from real assist output only.
 func TestAnalysisPanel_surfacesFlaggedSpansAsCards(t *testing.T) {
 	da := &draftAnalysis{Draft: flagDraft, Result: &assist.Analysis{
 		Summary:    "s",

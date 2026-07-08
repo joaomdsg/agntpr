@@ -8,7 +8,7 @@ import (
 	"github.com/joaomdsg/packets/internal/ledger"
 )
 
-// backlogFlag collects repeatable -backlog specs (one fundable work-order target
+// backlogFlag collects repeatable -backlog specs (one fundable packet target
 // each), mirroring sessionFlag.
 type backlogFlag struct{ specs []string }
 
@@ -20,7 +20,7 @@ func (b *backlogFlag) Set(v string) error {
 }
 
 // parseBacklogSpec parses a "base=SHA,fix=SHA,file=F,line=N[,tip=SHA]" spec into a
-// fundable work-order Target. tip defaults to fix (clean integration by
+// fundable packet Target. tip defaults to fix (clean integration by
 // construction), mirroring parseSessionSpec. The LineHash is left unset — the
 // re-anchor identity is computed at wiring time via git, not in this pure parser.
 func parseBacklogSpec(spec string) (ledger.Target, error) {

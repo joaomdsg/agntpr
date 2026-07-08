@@ -30,7 +30,7 @@ func TestPublishClaim_roundTripsFromTheClaimSubtreeWithoutMinting(t *testing.T) 
 	require.NoError(t, err)
 	assert.Equal(t, claim, got)
 
-	// The core safety invariant: a producer's claim mints NOTHING on its own —
+	// The core safety invariant: a peer's claim mints NOTHING on its own —
 	// the minted projection (folded from minted events) is untouched.
 	p, err := ledger.ReplayProjection(ctx, f, "s", "i")
 	require.NoError(t, err)

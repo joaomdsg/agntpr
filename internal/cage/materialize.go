@@ -17,7 +17,7 @@ import (
 )
 
 // ErrUnresolvableRevision marks a PERMANENT materialization failure: a target
-// revision the host cannot resolve (absent, empty, or a producer's commit that
+// revision the host cannot resolve (absent, empty, or a peer's commit that
 // never reached the host). No retry can succeed, so the caller maps it to the
 // ledger's permanent-reject sentinel rather than treating it as a transient
 // clone/IO failure. errors.Is against this distinguishes it from those.

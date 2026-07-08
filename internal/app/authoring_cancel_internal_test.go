@@ -37,13 +37,13 @@ func TestLiveCard_analyzeDraftCancelsASupersededInFlightRun(t *testing.T) {
 
 	go func() {
 		c := vt.NewClient(t, server, "/?key=authcancel")
-		c.Action((&LiveCard{Key: "authcancel"}).AnalyzeDraft).WithSignal("orderprompt", "first draft").Fire()
+		c.Action((&LiveCard{Key: "authcancel"}).AnalyzeDraft).WithSignal("draft", "first draft").Fire()
 	}()
 	<-firstStarted // the first run is in flight, blocked
 
 	tc := vt.NewClient(t, server, "/?key=authcancel")
 	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authcancel"}).AnalyzeDraft).
-		WithSignal("orderprompt", "second draft").Fire())
+		WithSignal("draft", "second draft").Fire())
 
 	select {
 	case <-firstCancelled:

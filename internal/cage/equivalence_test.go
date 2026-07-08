@@ -18,7 +18,7 @@ import (
 // GOROOT` keeps the test harness's GOROOT from leaking into the child go test.
 var equivGoTestCmd = []string{"env", "-u", "GOROOT", "go", "test", "./..."}
 
-// equivClaim carries the base-line content hash a real producer would, so the
+// equivClaim carries the base-line content hash a real peer would, so the
 // in-process re-anchor (which trusts Target.LineHash) and the cage (which
 // recomputes the hash itself) anchor the SAME line — the comparison is then of
 // the verdict, not of an anchoring mismatch.

@@ -13,12 +13,12 @@ import (
 // honest, log-derived "where motion is" signal — so a card with work in flight
 // sorts above an idle one. (Relative order of THIS test's keys; liveReg is a
 // shared global polluted by other tests, so we filter to our own keys.)
-func TestBoardRows_ordersByQueuedActivitySoTheLeadSeesWhereTheWorkIsMoving(t *testing.T) {
+func TestBoardRows_PacketsByQueuedActivitySoTheLeadSeesWhereTheWorkIsMoving(t *testing.T) {
 	_, _ = bootDefaultServer(t, defaultBootCfg)
 	t1, t2 := woTargetN(1), woTargetN(2)
 	logB := boardSession(t, "brd-B", 3, []ledger.Target{t1, t2})
-	require.NoError(t, logB.AppendDispatch("d", t1, ownTargetOf(app.LiveConfig{BaseRev: "own-b-brd-B", FixRev: "own-f", Anchor: anchorForCap()})))
-	require.NoError(t, logB.AppendDispatch("d", t2, ownTargetOf(app.LiveConfig{BaseRev: "own-b-brd-B", FixRev: "own-f", Anchor: anchorForCap()})))
+	require.NoError(t, logB.AppendSend("d", t1, ownTargetOf(app.LiveConfig{BaseRev: "own-b-brd-B", FixRev: "own-f", Anchor: anchorForCap()})))
+	require.NoError(t, logB.AppendSend("d", t2, ownTargetOf(app.LiveConfig{BaseRev: "own-b-brd-B", FixRev: "own-f", Anchor: anchorForCap()})))
 	boardSession(t, "brd-A", 1, nil) // a balance, no dispatch → 0 queued
 
 	rows := app.BoardRows()
@@ -40,8 +40,8 @@ func TestBoardRows_reSortsAsWorkDrainsAndIsFundedElsewhere(t *testing.T) {
 	t1, t2 := woTargetN(1), woTargetN(2)
 	own := ownTargetOf(app.LiveConfig{BaseRev: "own-b-rsB", FixRev: "own-f", Anchor: anchorForCap()})
 	logB := boardSession(t, "rsB", 3, []ledger.Target{t1, t2})
-	require.NoError(t, logB.AppendDispatch("d", t1, own))
-	require.NoError(t, logB.AppendDispatch("d", t2, own))
+	require.NoError(t, logB.AppendSend("d", t1, own))
+	require.NoError(t, logB.AppendSend("d", t2, own))
 	logA := boardSession(t, "rsA", 2, []ledger.Target{t1})
 
 	requireBefore(t, app.BoardRows(), "rsB", "rsA") // rsB leads while it holds the queued work
@@ -49,12 +49,12 @@ func TestBoardRows_reSortsAsWorkDrainsAndIsFundedElsewhere(t *testing.T) {
 	// rsB's orders run to done (no longer queued); rsA funds one.
 	require.NoError(t, logB.AppendStatus(1, "done"))
 	require.NoError(t, logB.AppendStatus(2, "done"))
-	require.NoError(t, logA.AppendDispatch("d", t1, ownTargetOf(app.LiveConfig{BaseRev: "own-b-rsA", FixRev: "own-f", Anchor: anchorForCap()})))
+	require.NoError(t, logA.AppendSend("d", t1, ownTargetOf(app.LiveConfig{BaseRev: "own-b-rsA", FixRev: "own-f", Anchor: anchorForCap()})))
 
 	requireBefore(t, app.BoardRows(), "rsA", "rsB") // attention follows the queued work — rsA now leads
 }
 
-func TestBoardRows_tieBreaksDeterministicallyByRegistrationOrderNotMapRandomness(t *testing.T) {
+func TestBoardRows_tieBreaksDeterministicallyByRegistrationPacketNotMapRandomness(t *testing.T) {
 	// Equal queued counts must NOT order by sync.Map's nondeterministic Range — the
 	// earlier-registered card precedes the later, stably across renders, so the
 	// board never flickers (and never fabricates an order from a missing timestamp).
@@ -67,14 +67,14 @@ func TestBoardRows_tieBreaksDeterministicallyByRegistrationOrderNotMapRandomness
 	}
 }
 
-func TestBoardRows_surfacesADoneOrderThatMintedNothingAsAVisibleMiss(t *testing.T) {
+func TestBoardRows_surfacesADonePacketThatMintedNothingAsAVisibleMiss(t *testing.T) {
 	// The honest loss must be VISIBLE on the board, never a silent discard: a done
 	// order that minted no catch (Done counted it, but no "wo:" catch joined the
 	// stock) shows as a MISS — the spend was a bet that did not pay, and the Lead
 	// can see it. Misses = Done − Caught (the exact ScoutingReport count).
 	_, _ = bootDefaultServer(t, defaultBootCfg)
 	log := boardSession(t, "missK", 1, []ledger.Target{woTargetN(1)})
-	require.NoError(t, log.AppendDispatch("d", woTargetN(1), ownTargetOf(app.LiveConfig{BaseRev: "own-b-missK", FixRev: "own-f", Anchor: anchorForCap()})))
+	require.NoError(t, log.AppendSend("d", woTargetN(1), ownTargetOf(app.LiveConfig{BaseRev: "own-b-missK", FixRev: "own-f", Anchor: anchorForCap()})))
 	require.NoError(t, log.AppendStatus(1, "done")) // the order ran to done but minted NOTHING
 
 	r := rowFor(t, app.BoardRows(), "missK")

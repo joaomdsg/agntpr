@@ -42,7 +42,7 @@ func TestFleetProjection_foldsEachSessionsEconomySeparately(t *testing.T) {
 	assert.Len(t, fleet["beta"].Records(), 1, "beta's single catch is not mixed with alpha's")
 }
 
-// The cross-session board must carry each session's producer claim lifecycle —
+// The cross-session board must carry each session's peer claim lifecycle —
 // pending bets (in-flight) and verified-losses (rejected) — alongside its
 // confirmed economy, computed exactly as the per-Log ClaimsInFlight/ClaimsRejected
 // do (the two-scores invariant on the fleet surface: a bet never inflates the
@@ -108,7 +108,7 @@ func TestFleetBoard_carriesConfirmedAndPendingTogetherOnOneRow(t *testing.T) {
 }
 
 // A session that has ONLY submitted claims (no minted events yet) must still
-// appear on the board with its in-flight count — otherwise a producer's brand-new
+// appear on the board with its in-flight count — otherwise a peer's brand-new
 // bets would be invisible until the host's first mint for that session.
 func TestFleetBoard_includesAClaimOnlySessionWithNoMint(t *testing.T) {
 	t.Parallel()
@@ -170,11 +170,11 @@ func TestFleetProjection_foldsTheSameStateAsReplayProjection(t *testing.T) {
 		return ledger.Target{BaseRev: "base", FixRev: "fix", TipRev: "fix", Path: "a.go", Line: line}
 	}
 	fixture := []evt{
-		{kind: "catch", catch: ledger.CatchRecord{Outcome: catch.Catch, Path: "a.go", Line: 4, BeforeRev: "base", AfterRev: "fix", ReasonTag: "boundary", Producer: "connect"}},
+		{kind: "catch", catch: ledger.CatchRecord{Outcome: catch.Catch, Path: "a.go", Line: 4, BeforeRev: "base", AfterRev: "fix", ReasonTag: "boundary", Source: "connect"}},
 		{kind: "spend", spend: ledger.SpendRecord{Kind: "spend", Amount: 1, Reason: "d1"}},
-		{kind: "workorder", order: ledger.WorkOrderRecord{Kind: "workorder", ID: 1, Producer: "in-process", Status: "queued", Reason: "d1", Target: tgt(5)}},
+		{kind: "workorder", order: ledger.PacketRecord{Kind: "workorder", ID: 1, Source: "in-process", Status: "queued", Reason: "d1", Target: tgt(5)}},
 		{kind: "wostatus", stat: ledger.StatusRecord{Kind: "wostatus", ID: 1, Status: "running"}},
-		{kind: "workorder", order: ledger.WorkOrderRecord{Kind: "workorder", ID: 2, Producer: "in-process", Status: "queued", Reason: "d2", Target: tgt(6)}},
+		{kind: "workorder", order: ledger.PacketRecord{Kind: "workorder", ID: 2, Source: "in-process", Status: "queued", Reason: "d2", Target: tgt(6)}},
 		{kind: "wostatus", stat: ledger.StatusRecord{Kind: "wostatus", ID: 1, Status: "done"}},
 	}
 	for _, e := range fixture {
@@ -191,7 +191,7 @@ func TestFleetProjection_foldsTheSameStateAsReplayProjection(t *testing.T) {
 
 	assert.Equal(t, fromReplay.Balance(), fromFleet.Balance())
 	assert.Equal(t, fromReplay.Records(), fromFleet.Records())
-	assert.Equal(t, fromReplay.WorkOrders(), fromFleet.WorkOrders())
-	assert.Equal(t, fromReplay.DispatchStatusCounts(), fromFleet.DispatchStatusCounts())
-	assert.Equal(t, fromReplay.QueuedWorkOrders(), fromFleet.QueuedWorkOrders())
+	assert.Equal(t, fromReplay.Packets(), fromFleet.Packets())
+	assert.Equal(t, fromReplay.SendStatusCounts(), fromFleet.SendStatusCounts())
+	assert.Equal(t, fromReplay.QueuedPackets(), fromFleet.QueuedPackets())
 }

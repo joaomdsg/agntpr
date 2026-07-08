@@ -14,19 +14,19 @@ import (
 	"github.com/joaomdsg/packets/internal/ledger"
 )
 
-// The producer-auth boundary, proven END TO END over a real socket: an EXTERNAL
+// The peer-auth boundary, proven END TO END over a real socket: an EXTERNAL
 // NATS client authenticates with grant credentials, JetStream-publishes a claim
 // to its grant-confined claim subtree, and the host's consumer drains, verifies,
 // and mints it — while a publish to the MINTED subtree (a forged catch) is denied
 // by the grant. This closes the "tested by contract, not end-to-end" gap left by
 // the earlier connect-only and in-process-publish coverage. NOT parallel (shared globals).
-func TestProducer_authenticatedExternalClaimPublishMintsAndCannotForgeAMint(t *testing.T) {
+func TestPeer_authenticatedExternalClaimPublishMintsAndCannotForgeAMint(t *testing.T) {
 	resetConsumersForTest()
-	grant := NewProducerGrant(defaultSessionKey, "prodA", "pwA")
+	grant := NewGrant(defaultSessionKey, "prodA", "pwA")
 	_, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: filepath.Join(t.TempDir(), "default.jsonl"),
-		ListenAddr: "127.0.0.1:0", Grants: []fabric.ProducerGrant{grant},
+		ListenAddr: "127.0.0.1:0", Grants: []fabric.Grant{grant},
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = log.Close() })
@@ -35,7 +35,7 @@ func TestProducer_authenticatedExternalClaimPublishMintsAndCannotForgeAMint(t *t
 	t.Cleanup(cancel)
 	StartClaimConsumers(ctx, func(LiveConfig) ledger.Verifier { return confirmingVerifier }, 30*time.Second, nil)
 
-	// An external producer authenticates over the real listen socket.
+	// An external peer authenticates over the real listen socket.
 	pc, err := nats.Connect(liveFabric.Addr(), nats.UserInfo("prodA", "pwA"))
 	require.NoError(t, err)
 	t.Cleanup(pc.Close)
@@ -45,22 +45,22 @@ func TestProducer_authenticatedExternalClaimPublishMintsAndCannotForgeAMint(t *t
 	data, err := json.Marshal(ledger.ClaimRecord{Target: validClaimTarget})
 	require.NoError(t, err)
 
-	// ALLOWED: a claim to the producer's own claim subtree ("work" is the claim
+	// ALLOWED: a claim to the peer's own claim subtree ("work" is the claim
 	// kind subjectKindClaim publishes under). It is consumed, verified, and minted.
 	pubCtx, pcancel := context.WithTimeout(ctx, 3*time.Second)
 	defer pcancel()
 	_, err = pjs.Publish(fabric.EventSubject(defaultSessionKey, LedgerInstance, fabric.StatusClaim, "work"), data, nats.Context(pubCtx))
-	require.NoError(t, err, "a granted producer may publish to its own claim subtree")
+	require.NoError(t, err, "a granted peer may publish to its own claim subtree")
 
 	require.Eventually(t, func() bool {
 		b, err := log.Balance()
 		return err == nil && b == 1
 	}, 5*time.Second, 25*time.Millisecond,
-		"an authenticated external producer's claim is consumed and minted by the host")
+		"an authenticated external peer's claim is consumed and minted by the host")
 
-	// DENIED: a producer cannot publish to the MINTED subtree — only the host mints.
+	// DENIED: a peer cannot publish to the MINTED subtree — only the host mints.
 	forgeCtx, fcancel := context.WithTimeout(ctx, 2*time.Second)
 	defer fcancel()
 	_, ferr := pjs.Publish(fabric.EventSubject(defaultSessionKey, LedgerInstance, fabric.StatusMinted, "catch"), data, nats.Context(forgeCtx))
-	require.Error(t, ferr, "a producer publishing to the minted subtree must be denied — it can never forge a catch")
+	require.Error(t, ferr, "a peer publishing to the minted subtree must be denied — it can never forge a catch")
 }

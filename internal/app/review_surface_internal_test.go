@@ -53,7 +53,7 @@ func TestReviewCard_rendersOpenQuestionThreadsForASession(t *testing.T) {
 // the SAME order's revisions/anchor — otherwise the Inspector renders a packet with no
 // diff to show, a silent split between "found" and "inspectable" for the same order.
 // NOT parallel (shared liveReg/liveFabric).
-func TestOrderTarget_resolvesTheOldestOrderEvenPastTheRecentDispatchWindow(t *testing.T) {
+func TestPacketTarget_resolvesTheOldestPacketEvenPastTheRecentSendWindow(t *testing.T) {
 	resetConsumersForTest()
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	_, log, err := NewServer(LiveConfig{
@@ -71,9 +71,9 @@ func TestOrderTarget_resolvesTheOldestOrderEvenPastTheRecentDispatchWindow(t *te
 		require.NoError(t, log.AppendUnblock(id, now))
 	}
 
-	require.NoError(t, log.AppendLiveDispatch("liveorder", ledger.Target{BaseRev: "b", FixRev: "oldest-fix", Path: "old.go", Line: 1}, ledger.Target{}))
+	require.NoError(t, log.AppendLiveSend("liveorder", ledger.Target{BaseRev: "b", FixRev: "oldest-fix", Path: "old.go", Line: 1}, ledger.Target{}))
 	for i := 0; i < 55; i++ {
-		require.NoError(t, log.AppendLiveDispatch("liveorder", ledger.Target{BaseRev: "b", FixRev: "later-fix", Path: "later.go", Line: 1}, ledger.Target{}))
+		require.NoError(t, log.AppendLiveSend("liveorder", ledger.Target{BaseRev: "b", FixRev: "later-fix", Path: "later.go", Line: 1}, ledger.Target{}))
 	}
 
 	tgt, ok := orderTarget(log, 1)

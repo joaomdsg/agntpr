@@ -18,10 +18,10 @@ import (
 	"github.com/joaomdsg/packets/internal/sandbox"
 )
 
-// producerTwoCommitBundle builds a real producer repo with two commits (base then
+// peerTwoCommitBundle builds a real peer repo with two commits (base then
 // fix) on refs/heads/main and returns the base+fix SHAs plus a `git bundle --all`.
-// Offline, no network — the shape a cross-process producer would upload.
-func producerTwoCommitBundle(t *testing.T) (base, fix string, bundle []byte) {
+// Offline, no network — the shape a cross-process peer would upload.
+func peerTwoCommitBundle(t *testing.T) (base, fix string, bundle []byte) {
 	t.Helper()
 	repo := t.TempDir()
 	pgit := func(args ...string) string {
@@ -52,26 +52,26 @@ func producerTwoCommitBundle(t *testing.T) (base, fix string, bundle []byte) {
 	return base, fix, b
 }
 
-// THE SLICE-A PAYOFF: a cross-process producer's commits, delivered ONLY as an
+// THE SLICE-A PAYOFF: a cross-process peer's commits, delivered ONLY as an
 // ingested bundle (never present in the host repo otherwise), are verifiable by
-// the cage. ingest confines the producer's refs to refs/producers/<id>/* in a
+// the cage. ingest confines the peer's refs to refs/producers/<id>/* in a
 // host store; cage.Materialize then resolves the claim's SHAs against THAT store
 // (by content-address — the objects are present even though no branch in the
 // disposable clone points at them) and the oracle can check them out. This proves
 // the bundle-over-channel transport actually delivers verifiable
 // claims, end to end minus the wire.
-func TestIngestThenMaterialize_aProducersBundledCommitsAreVerifiableInTheCage(t *testing.T) {
+func TestIngestThenMaterialize_aPeersBundledCommitsAreVerifiableInTheCage(t *testing.T) {
 	t.Parallel()
-	base, fix, bundle := producerTwoCommitBundle(t)
+	base, fix, bundle := peerTwoCommitBundle(t)
 
-	// The host store starts WITHOUT the producer's commits; ingest is the only way
+	// The host store starts WITHOUT the peer's commits; ingest is the only way
 	// they arrive.
 	store := t.TempDir()
 	runGit(t, store, "init", "-q")
-	require.False(t, hasObject(t, store, base), "the host must not already hold the producer's commit")
+	require.False(t, hasObject(t, store, base), "the host must not already hold the peer's commit")
 
-	require.NoError(t, ingest.IngestProducerObjects(context.Background(), store, "alice", bundle, 1<<20))
-	require.True(t, hasObject(t, store, base), "after ingest the host store holds the producer's base commit")
+	require.NoError(t, ingest.IngestPeerObjects(context.Background(), store, "alice", bundle, 1<<20))
+	require.True(t, hasObject(t, store, base), "after ingest the host store holds the peer's base commit")
 	require.True(t, hasObject(t, store, fix), "and its fix commit")
 
 	target := ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "adult.go", Line: 2}
@@ -80,7 +80,7 @@ func TestIngestThenMaterialize_aProducersBundledCommitsAreVerifiableInTheCage(t 
 	// whose clone actually CONTAINS them (checkout-able by SHA) — the precondition
 	// for the cage oracle to run.
 	wd, cleanup, err := cage.Materialize(context.Background(), store, target)
-	require.NoError(t, err, "Materialize must resolve a claim against the producer's ingested objects")
+	require.NoError(t, err, "Materialize must resolve a claim against the peer's ingested objects")
 	t.Cleanup(cleanup)
 	for _, rev := range []string{base, fix} {
 		out, err := exec.Command("git", "-C", wd.Repo, "worktree", "add", "--detach",
@@ -94,7 +94,7 @@ func TestIngestThenMaterialize_aProducersBundledCommitsAreVerifiableInTheCage(t 
 	fake := &fakeRunner{result: sandbox.Result{Output: catchTranscriptJSON(t, "adult.go", 2)}}
 	rec, err := cage.CageVerifier(fake, store, "img", 30*time.Second)(ledger.ClaimRecord{Target: target})
 	require.NoError(t, err)
-	require.NotNil(t, rec, "the ingested producer claim verifies into a confirmed catch")
+	require.NotNil(t, rec, "the ingested peer claim verifies into a confirmed catch")
 	assert.Equal(t, base, rec.BeforeRev)
 	assert.Equal(t, fix, rec.AfterRev)
 }

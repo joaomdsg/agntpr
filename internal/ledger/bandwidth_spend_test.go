@@ -45,10 +45,10 @@ func TestLog_bandwidthSpendRefusesOverdraft(t *testing.T) {
 }
 
 // A live order authored from the UI is funded by ATTENTION bandwidth, not a catch:
-// AppendLiveDispatch debits the bandwidth meter and queues the prompt-carrying
+// AppendLiveSend debits the bandwidth meter and queues the prompt-carrying
 // order in one write, leaving the catch balance untouched (the two meters, both
 // used — the division the Lead chose).
-func TestLog_appendLiveDispatchSpendsBandwidthAndQueuesTheOrder(t *testing.T) {
+func TestLog_appendLiveSendSpendsBandwidthAndQueuesThePacket(t *testing.T) {
 	t.Parallel()
 	log := bandwidthLog(t)
 	earnBandwidth(t, log, "q1") // +3 bandwidth
@@ -56,7 +56,7 @@ func TestLog_appendLiveDispatchSpendsBandwidthAndQueuesTheOrder(t *testing.T) {
 
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
 	live := ledger.Target{BaseRev: "head", Prompt: "do the task"}
-	require.NoError(t, log.AppendLiveDispatch("liveorder", live, own))
+	require.NoError(t, log.AppendLiveSend("liveorder", live, own))
 
 	bw, err := log.Bandwidth()
 	require.NoError(t, err)
@@ -65,32 +65,32 @@ func TestLog_appendLiveDispatchSpendsBandwidthAndQueuesTheOrder(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, bal, "the catch balance is untouched — a live order is funded by attention, not a catch")
 
-	queued, err := log.QueuedWorkOrders()
+	queued, err := log.QueuedPackets()
 	require.NoError(t, err)
 	require.Len(t, queued, 1)
 	assert.Equal(t, "do the task", queued[0].Target.Prompt, "the order carries the authored prompt")
 }
 
-func TestLog_appendLiveDispatchRefusesWithoutBandwidth(t *testing.T) {
+func TestLog_appendLiveSendRefusesWithoutBandwidth(t *testing.T) {
 	t.Parallel()
 	log := bandwidthLog(t)
 
 	own := ledger.Target{BaseRev: "ob", Path: "own.go", Line: 1}
 	live := ledger.Target{BaseRev: "head", Prompt: "do the task"}
-	require.Error(t, log.AppendLiveDispatch("liveorder", live, own),
+	require.Error(t, log.AppendLiveSend("liveorder", live, own),
 		"with no earned bandwidth there is no attention to fund a live order")
 
-	queued, err := log.QueuedWorkOrders()
+	queued, err := log.QueuedPackets()
 	require.NoError(t, err)
 	assert.Empty(t, queued, "a refused live dispatch queues no order")
 }
 
-func TestLog_appendLiveDispatchRefusesItsOwnTarget(t *testing.T) {
+func TestLog_appendLiveSendRefusesItsOwnTarget(t *testing.T) {
 	t.Parallel()
 	log := bandwidthLog(t)
 	earnBandwidth(t, log, "q1")
 
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
-	require.Error(t, log.AppendLiveDispatch("liveorder", own, own),
+	require.Error(t, log.AppendLiveSend("liveorder", own, own),
 		"a live order can no more fund the card's own work than a catch-funded one")
 }

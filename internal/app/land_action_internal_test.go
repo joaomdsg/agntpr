@@ -24,8 +24,8 @@ import (
 func approveServer(t *testing.T, key string) (*ledger.Log, *httptest.Server) {
 	t.Helper()
 	resetConsumersForTest()
-	repo := initGitRepoForOrder(t)
-	head := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	head := gitPacket(t, repo, "rev-parse", "HEAD")
 	ctx := context.Background()
 	f, err := fabric.Start(ctx, t.TempDir())
 	require.NoError(t, err)
@@ -82,7 +82,7 @@ func TestApprove_overrideOpensThePRDespiteABlock(t *testing.T) {
 
 	log, server := approveServer(t, "appovr")
 	lookupLiveEntry("appovr").setLand("checks_red")
-	require.NoError(t, log.AppendLiveDispatch("liveorder", ledger.Target{BaseRev: "h", Prompt: "Add the widget."}, ledger.Target{}))
+	require.NoError(t, log.AppendLiveSend("liveorder", ledger.Target{BaseRev: "h", Prompt: "Add the widget."}, ledger.Target{}))
 
 	tc := vt.NewClient(t, server, "/?key=appovr")
 	require.Equal(t, 200, tc.Action((&LiveCard{Key: "appovr"}).Approve).
@@ -101,7 +101,7 @@ func TestApprove_cleanTreeOpensPRAndSurfacesTheURL(t *testing.T) {
 	}
 
 	log, server := approveServer(t, "appok")
-	require.NoError(t, log.AppendLiveDispatch("liveorder", ledger.Target{BaseRev: "h", Prompt: "Do the task."}, ledger.Target{}))
+	require.NoError(t, log.AppendLiveSend("liveorder", ledger.Target{BaseRev: "h", Prompt: "Do the task."}, ledger.Target{}))
 
 	tc := vt.NewClient(t, server, "/?key=appok")
 	require.Equal(t, 200, tc.Action((&LiveCard{Key: "appok"}).Approve).Fire())
@@ -175,7 +175,7 @@ func TestApprove_dropsAConcurrentReLandRatherThanRacingTheSharedWorktree(t *test
 	}
 
 	log, server := approveServer(t, "applock")
-	require.NoError(t, log.AppendLiveDispatch("liveorder", ledger.Target{BaseRev: "h", Prompt: "Do it."}, ledger.Target{}))
+	require.NoError(t, log.AppendLiveSend("liveorder", ledger.Target{BaseRev: "h", Prompt: "Do it."}, ledger.Target{}))
 
 	done := make(chan struct{})
 	go func() {
@@ -236,7 +236,7 @@ func TestCheckMergeState_refreshesLifecycleOnlyForAnOpenedPR(t *testing.T) {
 	}
 
 	log, server := approveServer(t, "appmerge")
-	require.NoError(t, log.AppendLiveDispatch("liveorder", ledger.Target{BaseRev: "h", Prompt: "Do it."}, ledger.Target{}))
+	require.NoError(t, log.AppendLiveSend("liveorder", ledger.Target{BaseRev: "h", Prompt: "Do it."}, ledger.Target{}))
 	tc := vt.NewClient(t, server, "/?key=appmerge")
 	require.Equal(t, 200, tc.Action((&LiveCard{Key: "appmerge"}).Approve).Fire())
 	// A freshly opened PR is landed-not-merged immediately.
@@ -279,7 +279,7 @@ func TestRenderLandControl_surfacesLandedNotMergedOnAnOpenedPR(t *testing.T) {
 		return "https://example/pr/9", "shaY", nil
 	}
 	log, server := approveServer(t, "applife")
-	require.NoError(t, log.AppendLiveDispatch("liveorder", ledger.Target{BaseRev: "h", Prompt: "Do it."}, ledger.Target{}))
+	require.NoError(t, log.AppendLiveSend("liveorder", ledger.Target{BaseRev: "h", Prompt: "Do it."}, ledger.Target{}))
 	tc := vt.NewClient(t, server, "/?key=applife")
 	require.Equal(t, 200, tc.Action((&LiveCard{Key: "applife"}).Approve).Fire())
 
@@ -297,7 +297,7 @@ func TestApprove_clearsLifecycleWhenAReLandIsBlocked(t *testing.T) {
 		return "https://example/pr/3", "shaZ", nil
 	}
 	log, server := approveServer(t, "appclear")
-	require.NoError(t, log.AppendLiveDispatch("liveorder", ledger.Target{BaseRev: "h", Prompt: "Do it."}, ledger.Target{}))
+	require.NoError(t, log.AppendLiveSend("liveorder", ledger.Target{BaseRev: "h", Prompt: "Do it."}, ledger.Target{}))
 	tc := vt.NewClient(t, server, "/?key=appclear")
 	require.Equal(t, 200, tc.Action((&LiveCard{Key: "appclear"}).Approve).Fire())
 	require.Equal(t, string(lifecycleLanded), lookupLiveEntry("appclear").landLifecycleSnapshot())
@@ -320,7 +320,7 @@ func TestRenderLandControl_surfacesMergedAndBouncedLifecycle(t *testing.T) {
 			return "https://example/pr/1", "s", nil
 		}
 		log, server := approveServer(t, key)
-		require.NoError(t, log.AppendLiveDispatch("liveorder", ledger.Target{BaseRev: "h", Prompt: "Do it."}, ledger.Target{}))
+		require.NoError(t, log.AppendLiveSend("liveorder", ledger.Target{BaseRev: "h", Prompt: "Do it."}, ledger.Target{}))
 		tc := vt.NewClient(t, server, "/?key="+key)
 		require.Equal(t, 200, tc.Action((&LiveCard{Key: key}).Approve).Fire())
 		mergeState = func(_ context.Context, _, _ string) (string, error) { return ghState, nil }

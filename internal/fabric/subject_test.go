@@ -91,7 +91,7 @@ func TestFleetMintedSubject_isTheWildcardedMintedPath(t *testing.T) {
 }
 
 // The fleet claim filter is the minted filter's counterpart on the claim subtree
-// — it matches every session's producer submissions and verdicts, the source the
+// — it matches every session's peer submissions and verdicts, the source the
 // cross-session board's claim lifecycle (in-flight, verified-lost) folds from. A
 // wrong filter would silently miss claims or pull in unrelated subjects.
 func TestFleetClaimSubject_isTheWildcardedClaimPath(t *testing.T) {
@@ -112,7 +112,7 @@ func TestFleetEventsSubject_matchesEverySessionEventOfAnyStatus(t *testing.T) {
 // The whole point of the scratch/minted split: a consumer rebuilding the
 // source-of-truth projection must replay ONLY minted events and never see
 // discarded fan-out (scratch) activity — and the surviving events must keep
-// their original global sequences, since seq is the authoritative cross-producer
+// their original global sequences, since seq is the authoritative cross-peer
 // order, not a per-filter renumbering.
 func TestReplaySubject_demuxesScratchFanoutFromMintedSourceOfTruth(t *testing.T) {
 	t.Parallel()

@@ -83,7 +83,7 @@ func TestRunDeploy_theAckLandsWhereARealServerSessionWouldFoldIt(t *testing.T) {
 	seedLog := ledger.Bind(f, "default", app.LedgerInstance)
 	require.NoError(t, seedLog.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 1, ReasonTag: "catch"}))
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
-	require.NoError(t, seedLog.AppendDispatch("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
+	require.NoError(t, seedLog.AppendSend("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
 	require.NoError(t, f.Close())
 
 	// The real CLI subcommand — exactly what an operator's deploy hook runs.
@@ -95,7 +95,7 @@ func TestRunDeploy_theAckLandsWhereARealServerSessionWouldFoldIt(t *testing.T) {
 	fOld, err := fabric.Start(ctx, ledgerBase+"-fabric")
 	require.NoError(t, err)
 	oldLog := ledger.Bind(fOld, "default", "cli")
-	oldViews, err := oldLog.RecentDispatches(0)
+	oldViews, err := oldLog.RecentSends(0)
 	require.NoError(t, err)
 	assert.Empty(t, oldViews, "the retired \"cli\" instance must carry no dispatch at all — confirming it is a genuinely separate subject, not an aliased or shared one")
 	require.NoError(t, fOld.Close())
@@ -106,7 +106,7 @@ func TestRunDeploy_theAckLandsWhereARealServerSessionWouldFoldIt(t *testing.T) {
 	require.NoError(t, err)
 	defer f2.Close()
 	verifyLog := ledger.Bind(f2, "default", app.LedgerInstance)
-	views, err := verifyLog.RecentDispatches(0)
+	views, err := verifyLog.RecentSends(0)
 	require.NoError(t, err)
 	require.Len(t, views, 1)
 	assert.Equal(t, "deployed", views[0].Status,

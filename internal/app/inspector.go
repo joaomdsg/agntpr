@@ -39,7 +39,7 @@ func shortRev(rev string) string {
 }
 
 // renderInspectorTitlebar renders the Inspector's identity strip: the scope
-// name (wo#<id> or the raw session key — honest, never a display alias), the
+// name (pkt#<id> or the raw session key — honest, never a display alias), the
 // packet's own Name beside it when the scope folds to one (packetName ""
 // omits it), a base→fix rev chip in short SHAs (omitted entirely when either
 // rev is unknown — the Inspector never fabricates a revision), a neutral lane
@@ -82,7 +82,7 @@ func renderInspectorGrid(left, main h.H, rail []h.H) h.H {
 }
 
 // renderInspectorEmptyTree is the honest left-rail empty state for a review
-// that isn't scoped to one work-order: there is no single base→fix diff to
+// that isn't scoped to one packet: there is no single base→fix diff to
 // scope a tree to, so the Inspector says so rather than showing an arbitrary
 // tree — the open threads still list on the annotation rail.
 func renderInspectorEmptyTree() h.H {
@@ -99,7 +99,7 @@ func renderInspectorEmptyTree() h.H {
 // inline on the IntentFidelity row while that gate is still NotRun (the G1
 // human residual — a real action, never a computed gate); orderID<=0 (the
 // session-scoped review, which has no single packet to gauntlet) omits it,
-// since there is no order to confirm against.
+// since there is no packet to confirm against.
 func renderInspectorTimeline(navKey string, orderID int, g packet.Gauntlet) h.H {
 	var rows []h.H
 	for _, row := range gauntletGateRows(g) {

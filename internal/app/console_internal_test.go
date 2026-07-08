@@ -41,7 +41,7 @@ func TestLiveCard_heroStatRefreshesLiveWhenACatchMintsWithoutAStatusOrQuestionCh
 
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 1, ReasonTag: "catch"}))
-	require.NoError(t, log.AppendDispatch("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
+	require.NoError(t, log.AppendSend("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
 	require.NoError(t, log.AppendStatus(1, "done")) // done, not yet caught — held, not verified
 
 	tc := vt.NewClient(t, server, "/")
@@ -49,7 +49,7 @@ func TestLiveCard_heroStatRefreshesLiveWhenACatchMintsWithoutAStatusOrQuestionCh
 	defer cancel()
 	vt.AwaitFrame(t, frames, 10*time.Second, `console__hero-stat">0<`)
 
-	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "alpha.go", Line: 7, ReasonTag: "catch", Producer: "wo:1"}))
+	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "alpha.go", Line: 7, ReasonTag: "catch", Source: "wo:1"}))
 
 	vt.AwaitFrame(t, frames, 10*time.Second, `console__hero-stat">1<`)
 }

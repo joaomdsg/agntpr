@@ -19,9 +19,9 @@ func cardReturnCrumb(key string) h.H {
 	)
 }
 
-// reviewSessionCrumb is the per-order review's UP-link to the SESSION review (drop
-// the wo scope), closing the per-order→session leg of the symmetric review nav so a
-// funded order's test-debt isn't a dead end.
+// reviewSessionCrumb is the per-packet review's UP-link to the SESSION review (drop
+// the wo scope), closing the per-packet→session leg of the symmetric review nav so a
+// funded packet's test-debt isn't a dead end.
 func reviewSessionCrumb(key string) h.H {
 	return h.A(
 		h.Href("/review?key="+url.QueryEscape(key)),

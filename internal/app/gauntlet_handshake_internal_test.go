@@ -27,14 +27,14 @@ import (
 func initHandshakeRepo(t *testing.T, passing bool) (dir, base, fix, handshakeContent string) {
 	t.Helper()
 	dir = t.TempDir()
-	gitOrder(t, dir, "init", "-q")
-	gitOrder(t, dir, "config", "user.email", "t@t")
-	gitOrder(t, dir, "config", "user.name", "t")
+	gitPacket(t, dir, "init", "-q")
+	gitPacket(t, dir, "config", "user.email", "t@t")
+	gitPacket(t, dir, "config", "user.name", "t")
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module fixture.test/handshake\n\ngo 1.21\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\n\nfunc main() {}\n"), 0o644))
-	gitOrder(t, dir, "add", "-A")
-	gitOrder(t, dir, "commit", "-qm", "base")
-	base = gitOrder(t, dir, "rev-parse", "HEAD")
+	gitPacket(t, dir, "add", "-A")
+	gitPacket(t, dir, "commit", "-qm", "base")
+	base = gitPacket(t, dir, "rev-parse", "HEAD")
 
 	body := "_ = t"
 	if !passing {
@@ -43,16 +43,16 @@ func initHandshakeRepo(t *testing.T, passing bool) (dir, base, fix, handshakeCon
 	handshakeContent = "package handshake\n\nimport \"testing\"\n\nfunc TestSpec(t *testing.T) { " + body + " }\n"
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, "handshake"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "handshake", "spec_test.go"), []byte(handshakeContent), 0o644))
-	gitOrder(t, dir, "add", "-A")
-	gitOrder(t, dir, "commit", "-qm", "fix with handshake")
-	fix = gitOrder(t, dir, "rev-parse", "HEAD")
+	gitPacket(t, dir, "add", "-A")
+	gitPacket(t, dir, "commit", "-qm", "fix with handshake")
+	fix = gitPacket(t, dir, "rev-parse", "HEAD")
 	return dir, base, fix, handshakeContent
 }
 
 // Once an order's ledger.Target carries a HandshakePath/Hash,
 // G2 becomes a REAL exec seam (RunHandshakeGate), not the earlier placeholder.
 // NOT parallel (shared liveReg/liveFabric).
-func TestReviewCard_gauntletRunsARealG2WhenTheOrderHasAnAuthoredPassingHandshake(t *testing.T) {
+func TestReviewCard_gauntletRunsARealG2WhenThePacketHasAnAuthoredPassingHandshake(t *testing.T) {
 	resetConsumersForTest()
 	repo, base, fix, content := initHandshakeRepo(t, true)
 	handshakePath := filepath.Join(repo, "handshake", "spec_test.go")
@@ -62,7 +62,7 @@ func TestReviewCard_gauntletRunsARealG2WhenTheOrderHasAnAuthoredPassingHandshake
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Close() })
 	log := ledger.Bind(f, "gauntlethsok", "i")
-	fundDispatch(t, log, "d1", ledger.Target{
+	fundSend(t, log, "d1", ledger.Target{
 		BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1,
 		HandshakePath: handshakePath, HandshakeHash: reanchor.HashLines(content),
 	})
@@ -96,7 +96,7 @@ func TestReviewCard_gauntletReportsG2FailedWhenTheAuthoredHandshakeTestsFail(t *
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Close() })
 	log := ledger.Bind(f, "gauntlethsfail", "i")
-	fundDispatch(t, log, "d1", ledger.Target{
+	fundSend(t, log, "d1", ledger.Target{
 		BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1,
 		HandshakePath: handshakePath, HandshakeHash: reanchor.HashLines(content),
 	})
@@ -140,7 +140,7 @@ func TestReviewCard_gauntletOverridesG2ToFailedWhenTheHandshakeChangedAfterAutho
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Close() })
 	log := ledger.Bind(f, "gauntlethstamper", "i")
-	fundDispatch(t, log, "d1", ledger.Target{
+	fundSend(t, log, "d1", ledger.Target{
 		BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1,
 		HandshakePath: handshakePath, HandshakeHash: recordedHash,
 	})
@@ -169,10 +169,10 @@ func TestReviewCard_gauntletOverridesG2ToFailedWhenTheHandshakeChangedAfterAutho
 // to the "no handshake yet" sentinel now that one actually exists — the
 // live handshake file lives directly under repoDir, independent of any
 // particular fix revision. NOT parallel (shared liveReg/liveFabric).
-func TestReviewCard_gauntletReportsG2HonestlyForAHandshakeBearingOrderWithNoFixRevYet(t *testing.T) {
+func TestReviewCard_gauntletReportsG2HonestlyForAHandshakeBearingPacketWithNoFixRevYet(t *testing.T) {
 	resetConsumersForTest()
-	repo := initGitRepoForOrder(t)
-	head := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	head := gitPacket(t, repo, "rev-parse", "HEAD")
 
 	handshakePath := filepath.Join(repo, "handshake", "spec_test.go")
 	require.NoError(t, os.MkdirAll(filepath.Dir(handshakePath), 0o755))
@@ -186,7 +186,7 @@ func TestReviewCard_gauntletReportsG2HonestlyForAHandshakeBearingOrderWithNoFixR
 	log := ledger.Bind(f, "gauntlethsnorev", "i")
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: "catch", Path: "c.go", Line: 1, ReasonTag: "catch"}))
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
-	require.NoError(t, log.AppendDispatch("d1", ledger.Target{
+	require.NoError(t, log.AppendSend("d1", ledger.Target{
 		BaseRev: head, Prompt: "do the thing",
 		HandshakePath: handshakePath, HandshakeHash: reanchor.HashLines(content),
 	}, own))
@@ -235,7 +235,7 @@ func TestReviewCard_secondVisitServesTheCachedG2WithoutRecomputing(t *testing.T)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Close() })
 	log := ledger.Bind(f, "gauntlethscache", "i")
-	fundDispatch(t, log, "d1", ledger.Target{
+	fundSend(t, log, "d1", ledger.Target{
 		BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1,
 		HandshakePath: handshakePath, HandshakeHash: reanchor.HashLines(content),
 	})
@@ -278,7 +278,7 @@ func TestReviewCard_gauntletFallsBackToTheTestRunResultWhenTheLiveHandshakeFileI
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Close() })
 	log := ledger.Bind(f, "gauntlethsgone", "i")
-	fundDispatch(t, log, "d1", ledger.Target{
+	fundSend(t, log, "d1", ledger.Target{
 		BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1,
 		HandshakePath: handshakePath, HandshakeHash: recordedHash,
 	})
@@ -305,7 +305,7 @@ func TestReviewCard_gauntletFallsBackToTheTestRunResultWhenTheLiveHandshakeFileI
 // G3/G4 — proven here with an order that DOES carry a real,
 // runnable handshake, so an errant poll-time computation would be caught.
 // NOT parallel (shared liveReg/liveFabric).
-func TestLiveCard_streamPollNeverComputesG2ForAnOrderWithARealHandshake(t *testing.T) {
+func TestLiveCard_streamPollNeverComputesG2ForAPacketWithARealHandshake(t *testing.T) {
 	resetConsumersForTest()
 	repo, base, fix, content := initHandshakeRepo(t, true)
 	handshakePath := filepath.Join(repo, "handshake", "spec_test.go")
@@ -315,7 +315,7 @@ func TestLiveCard_streamPollNeverComputesG2ForAnOrderWithARealHandshake(t *testi
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Close() })
 	log := ledger.Bind(f, "gauntlethspoll", "i")
-	fundDispatch(t, log, "d1", ledger.Target{
+	fundSend(t, log, "d1", ledger.Target{
 		BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1,
 		HandshakePath: handshakePath, HandshakeHash: reanchor.HashLines(content),
 	})

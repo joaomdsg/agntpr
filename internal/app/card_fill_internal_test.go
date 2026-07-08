@@ -20,7 +20,7 @@ import (
 // buffered per-session (the background drain has no request ctx, so it writes a
 // buffer the card's Stream polls — mirroring the dispatch-tally poll). NOT parallel
 // (shared liveReg).
-func TestLiveCard_showsAnOrderFillingLiveWithItsBeats(t *testing.T) {
+func TestLiveCard_showsAPacketFillingLiveWithItsBeats(t *testing.T) {
 	resetConsumersForTest()
 	ctx := context.Background()
 	f, err := fabric.Start(ctx, t.TempDir())
@@ -47,11 +47,11 @@ func TestLiveCard_showsAnOrderFillingLiveWithItsBeats(t *testing.T) {
 	t.Cleanup(func() { _ = defLog.Close() })
 
 	body := bodyOf(vt.NewClient(t, server, "/?key=wf").HTML())
-	require.Contains(t, body, "filling WO#3", "the card shows which order is filling, live")
+	require.Contains(t, body, "filling PKT#3", "the card shows which order is filling, live")
 	require.Contains(t, body, "oracle-fix", "with the cycle's beats as the oracle works")
 
 	// Once the fill completes, the live filling row clears.
 	e.endFill()
 	body2 := bodyOf(vt.NewClient(t, server, "/?key=wf").HTML())
-	require.NotContains(t, body2, "filling WO#3", "the filling row clears when the order is done")
+	require.NotContains(t, body2, "filling PKT#3", "the filling row clears when the order is done")
 }

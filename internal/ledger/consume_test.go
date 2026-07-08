@@ -244,11 +244,11 @@ func TestConsumeClaims_skipsVerifyForAnAlreadyMintedTarget(t *testing.T) {
 	require.True(t, balanceIs(log, 1)(), "the economy is unchanged")
 }
 
-// A producer that floods distinct claims must be rate-limited BEFORE the
+// A peer that floods distinct claims must be rate-limited BEFORE the
 // (expensive, sandboxed) verifier: at a single instant only its burst's worth of
-// claims may pass admission and mint; the rest are ack-dropped (the producer
+// claims may pass admission and mint; the rest are ack-dropped (the peer
 // resubmits later). Verification compute is the scarce resource a flood targets.
-func TestConsumeClaims_rateLimitsAProducerToItsBurst(t *testing.T) {
+func TestConsumeClaims_rateLimitsAPeerToItsBurst(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -314,12 +314,12 @@ func TestConsumeClaims_nilAdmissionImposesNoRateLimit(t *testing.T) {
 		3*time.Second, 20*time.Millisecond, "with no admission limit, all five distinct claims mint")
 }
 
-// The global concurrency cap bounds total concurrent verifies ACROSS producers:
-// each producer's consumer verifies serially, but N producers could otherwise run
+// The global concurrency cap bounds total concurrent verifies ACROSS peers:
+// each peer's consumer verifies serially, but N peers could otherwise run
 // N concurrent (expensive) cage runs. A shared semaphore holds the line — even
-// with 3 producers ready, at most `cap` verify at once; the rest queue. This
+// with 3 peers ready, at most `cap` verify at once; the rest queue. This
 // protects the host minter from being swamped.
-func TestConsumeClaims_globalConcurrencyCapBoundsVerifiesAcrossProducers(t *testing.T) {
+func TestConsumeClaims_globalConcurrencyCapBoundsVerifiesAcrossPeers(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -344,7 +344,7 @@ func TestConsumeClaims_globalConcurrencyCapBoundsVerifiesAcrossProducers(t *test
 		return confirmFromClaim(c)
 	}
 
-	for p := 0; p < 3; p++ { // three producers, each its own session → none idempotency-skipped
+	for p := 0; p < 3; p++ { // three peers, each its own session → none idempotency-skipped
 		sess := fmt.Sprintf("p%d", p)
 		log := ledger.Bind(f, sess, "i")
 		adm := &ledger.Admission{Burst: 100, RatePerSec: 1, Concurrency: sem, Now: func() time.Time { return fixed }}
@@ -356,7 +356,7 @@ func TestConsumeClaims_globalConcurrencyCapBoundsVerifiesAcrossProducers(t *test
 	require.Eventually(t, func() bool { return concurrent.Load() == cap },
 		3*time.Second, 20*time.Millisecond, "the cap's worth of verifies must run concurrently (proves overlap — non-vacuous)")
 	require.Never(t, func() bool { return maxConcurrent.Load() > cap },
-		1*time.Second, 50*time.Millisecond, "the global cap bounds concurrent verifies across producers — the 3rd waits on the semaphore")
+		1*time.Second, 50*time.Millisecond, "the global cap bounds concurrent verifies across peers — the 3rd waits on the semaphore")
 
 	close(release) // let the blocked verifies finish so the consumers can tear down on cancel
 }

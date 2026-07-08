@@ -29,23 +29,23 @@ func postBundle(t *testing.T, url, user, pass string, body []byte) int {
 	return resp.StatusCode
 }
 
-// When producers are configured, the HTTP bundle blob is authenticated against
+// When peers are configured, the HTTP bundle blob is authenticated against
 // the SAME grant table as the NATS claim ingress: no credentials and wrong
-// credentials are refused (401); the granted producer's credentials are accepted
-// and the bundle ingests. Producer == session key. NOT parallel (shared globals).
-func TestPostBundle_requiresGrantCredentialsWhenProducersAreConfigured(t *testing.T) {
+// credentials are refused (401); the granted peer's credentials are accepted
+// and the bundle ingests. Peer == session key. NOT parallel (shared globals).
+func TestPostBundle_requiresGrantCredentialsWhenPeersAreConfigured(t *testing.T) {
 	resetBundleGuardsForTest()
 	repoDir := freshGitRepo(t)
 	var server *httptest.Server
 	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: repoDir, BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: filepath.Join(t.TempDir(), "default.jsonl"),
-		Grants: []fabric.ProducerGrant{NewProducerGrant(defaultSessionKey, "prodA", "pw")},
+		Grants: []fabric.Grant{NewGrant(defaultSessionKey, "prodA", "pw")},
 	})
 	require.NoError(t, err)
 	server = httptest.NewServer(viaApp)
 	t.Cleanup(func() { _ = log.Close() })
-	bundle, sha := producerCommitBundle(t)
+	bundle, sha := peerCommitBundle(t)
 
 	require.Equal(t, http.StatusUnauthorized, postBundle(t, server.URL, "", "", bundle),
 		"no credentials must be refused when a grant table is configured")
@@ -55,7 +55,7 @@ func TestPostBundle_requiresGrantCredentialsWhenProducersAreConfigured(t *testin
 		"an unknown user must be refused")
 
 	require.Equal(t, http.StatusAccepted, postBundle(t, server.URL, "prodA", "pw", bundle),
-		"the granted producer's credentials must be accepted")
+		"the granted peer's credentials must be accepted")
 	resolved := exec.Command("git", "-C", repoDir, "rev-parse", "--verify", "--quiet", sha+"^{commit}").Run()
-	require.NoError(t, resolved, "an authenticated upload ingests the producer's commit")
+	require.NoError(t, resolved, "an authenticated upload ingests the peer's commit")
 }

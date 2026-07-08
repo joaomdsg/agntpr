@@ -52,7 +52,7 @@ func awaitFrameContaining(t *testing.T, frames <-chan string, d time.Duration, m
 	}
 }
 
-func TestLiveCard_spendFundsAWorkOrderWhoseRoundTripSurfacesOverSSE(t *testing.T) {
+func TestLiveCard_spendFundsAWorkPacketWhoseRoundTripSurfacesOverSSE(t *testing.T) {
 	// Internal test (package app): swaps resolveCycle so connect mints NOTHING,
 	// isolating the consequence to the Spend verb. NOT parallel (shared globals).
 	// The property: a spend BUYS something visible — the funded work-order
@@ -69,7 +69,7 @@ func TestLiveCard_spendFundsAWorkOrderWhoseRoundTripSurfacesOverSSE(t *testing.T
 	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: logPath,
-		DispatchBacklog: []ledger.Target{woDispatchTarget()},
+		SendBacklog: []ledger.Target{sendTarget()},
 	})
 	require.NoError(t, err)
 	server = httptest.NewServer(viaApp)
@@ -86,24 +86,24 @@ func TestLiveCard_spendFundsAWorkOrderWhoseRoundTripSurfacesOverSSE(t *testing.T
 	require.Equal(t, 200, tc.Action((&LiveCard{}).Spend).Fire())
 	// The spend funds an order; the order then RUNS (its fake target mints
 	// nothing) to done, surfaced live by the dispatch poll on the order list.
-	vt.AwaitFrame(t, frames, 10*time.Second, "WO#1 other.go:9 done")
+	vt.AwaitFrame(t, frames, 10*time.Second, "PKT#1 other.go:9 done")
 
-	pending, err := log.PendingDispatches()
+	pending, err := log.PendingSends()
 	require.NoError(t, err)
 	require.Equal(t, 1, pending, "the spend funded exactly one work-order in this session's ledger")
 
-	// Balance is now 0. A further Spend is over-budget: AppendDispatch must refuse,
+	// Balance is now 0. A further Spend is over-budget: AppendSend must refuse,
 	// so it funds NO second work-order — the consequence honors the over-budget
 	// guard exactly as the balance drain does.
 	require.Equal(t, 200, tc.Action((&LiveCard{}).Spend).Fire())
 	tail := drainFramesFor(frames, 500*time.Millisecond)
-	require.NotContains(t, tail, "WO#2", "an over-budget spend must fund no second work-order")
-	stillOne, err := log.PendingDispatches()
+	require.NotContains(t, tail, "PKT#2", "an over-budget spend must fund no second work-order")
+	stillOne, err := log.PendingSends()
 	require.NoError(t, err)
 	require.Equal(t, 1, stillOne, "the refused dispatch left the work-order count unchanged")
 }
 
-func TestLiveCard_spendDispatchesOnlyIntoItsOwnSessionNotAnother(t *testing.T) {
+func TestLiveCard_spendSendsOnlyIntoItsOwnSessionNotAnother(t *testing.T) {
 	// Internal test (package app): two keyed sessions; a spend on A must fund a
 	// work-order ONLY in A — B's dispatched tally never moves (isolated economies,
 	// carried through the consequence, not just the balance). NOT parallel.
@@ -125,8 +125,8 @@ func TestLiveCard_spendDispatchesOnlyIntoItsOwnSessionNotAnother(t *testing.T) {
 
 	logA := ledger.Bind(liveFabric, "dspA", LedgerInstance)
 	logB := ledger.Bind(liveFabric, "dspB", LedgerInstance)
-	registerSession("dspA", LiveConfig{RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(), TestCmd: []string{"true"}, DispatchBacklog: []ledger.Target{woDispatchTarget()}}, logA)
-	registerSession("dspB", LiveConfig{RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(), TestCmd: []string{"true"}, DispatchBacklog: []ledger.Target{woDispatchTarget()}}, logB)
+	registerSession("dspA", LiveConfig{RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(), TestCmd: []string{"true"}, SendBacklog: []ledger.Target{sendTarget()}}, logA)
+	registerSession("dspB", LiveConfig{RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(), TestCmd: []string{"true"}, SendBacklog: []ledger.Target{sendTarget()}}, logB)
 
 	ca := vt.NewClient(t, server, "/?key=dspA")
 	fa, cancelA := ca.SSE()
@@ -140,11 +140,11 @@ func TestLiveCard_spendDispatchesOnlyIntoItsOwnSessionNotAnother(t *testing.T) {
 
 	require.Equal(t, 200, ca.Action((&LiveCard{Key: "dspA"}).Spend).Fire())
 	require.Eventually(t, func() bool {
-		p, e := logA.PendingDispatches()
+		p, e := logA.PendingSends()
 		return e == nil && p == 1
 	}, 10*time.Second, 5*time.Millisecond, "the spend funded a work-order in session A")
 
-	pB, err := logB.PendingDispatches()
+	pB, err := logB.PendingSends()
 	require.NoError(t, err)
 	require.Equal(t, 0, pB, "session B funded NO work-order — a dispatch on A never touches B")
 }

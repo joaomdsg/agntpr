@@ -31,7 +31,7 @@ const subjectKindClaim = "work"
 // surfaces it per committed event), but is a distinct kind so a verdict is never
 // confused with a fresh claim. Only a rejection is marked; a confirmed claim is
 // already represented by its mint on the minted subtree. It references the shared
-// fabric constant so the publisher's subject and the producer-grant's Deny (which reserves
+// fabric constant so the publisher's subject and the peer-grant's Deny (which reserves
 // this kind to the host) can never drift apart.
 const subjectKindVerdict = fabric.ClaimVerdictKind
 
@@ -69,9 +69,9 @@ func DecodeClaimVerdict(data []byte) (ClaimVerdict, error) {
 	return v, nil
 }
 
-// ClaimRecord is an untrusted producer's work-submission: the revs and anchored
+// ClaimRecord is an untrusted peer's work-submission: the revs and anchored
 // line (a Target) the host must VERIFY before it mints anything. It deliberately
-// carries NO test command — the host fixes what it runs, so a producer cannot
+// carries NO test command — the host fixes what it runs, so a peer cannot
 // choose the command executed on its behalf — and it is published on the claim
 // subtree, never the minted subtree, so a claim credits nothing until a host-run
 // oracle confirms it.
@@ -79,7 +79,7 @@ type ClaimRecord struct {
 	Target Target `json:"target"`
 }
 
-// PublishClaim emits a producer's work-submission on the claim subtree for
+// PublishClaim emits a peer's work-submission on the claim subtree for
 // session+instance and returns its stream sequence. It targets StatusClaim, not
 // StatusMinted, so it never enters the economy projection — the host consumes it,
 // verifies it, and only then mints through the authoritative catch path.
@@ -91,7 +91,7 @@ func PublishClaim(ctx context.Context, f *fabric.Fabric, session, instance strin
 	return f.Publish(ctx, fabric.EventSubject(session, instance, fabric.StatusClaim, subjectKindClaim), data)
 }
 
-// DecodeClaim decodes a producer work-submission payload from the bus.
+// DecodeClaim decodes a peer work-submission payload from the bus.
 func DecodeClaim(data []byte) (ClaimRecord, error) {
 	var c ClaimRecord
 	if err := json.Unmarshal(data, &c); err != nil {
@@ -124,7 +124,7 @@ type Verifier func(ClaimRecord) (*CatchRecord, error)
 func (l *Log) ConsumeClaims(ctx context.Context, verify Verifier, ackWait time.Duration, adm *Admission) error {
 	filter := fabric.EventSubject(l.session, l.instance, fabric.StatusClaim, ">")
 
-	// One token bucket per producer (this log is one session+instance). A nil
+	// One token bucket per peer (this log is one session+instance). A nil
 	// Admission means no rate limit. The clock is the admission's (time.Now in prod).
 	var bucket *tokenBucket
 	var now func() time.Time
@@ -154,13 +154,13 @@ func (l *Log) ConsumeClaims(ctx context.Context, verify Verifier, ackWait time.D
 		if records, rerr := l.Records(); rerr == nil && targetAlreadyMinted(records, claim.Target) {
 			return nil
 		}
-		// Per-producer rate limit: a flood beyond the burst is ack-dropped before
-		// the verifier (the scarce compute), so the producer can't starve the host.
+		// Per-peer rate limit: a flood beyond the burst is ack-dropped before
+		// the verifier (the scarce compute), so the peer can't starve the host.
 		if bucket != nil && !bucket.allow(now()) {
 			return nil
 		}
 		// Global concurrency cap: bound the total concurrent verifies across all
-		// producers. QUEUE (block) for a slot rather than reject — claims are
+		// peers. QUEUE (block) for a slot rather than reject — claims are
 		// durable, so backpressure loses no work; release the slot when the handle
 		// returns (after verify+Append). On ctx cancel, return an error so the
 		// claim is not acked and redelivers later, never lost to a shutdown.
@@ -173,7 +173,7 @@ func (l *Log) ConsumeClaims(ctx context.Context, verify Verifier, ackWait time.D
 			}
 		}
 		// resolved fires the post-verdict hook AFTER a durable verdict (mint or
-		// rejection) is written, so the producer-GC sees the up-to-date in-flight
+		// rejection) is written, so the peer-GC sees the up-to-date in-flight
 		// count. A transient error does NOT resolve the claim, so it does not fire.
 		resolved := func() {
 			if adm != nil && adm.OnResolved != nil {
@@ -237,7 +237,7 @@ func targetAlreadyMinted(records []CatchRecord, t Target) bool {
 }
 
 // ClaimsInFlight counts the DISTINCT claim targets submitted on this log's claim
-// subtree that are not yet minted — the producers' pending "bets". It is kept
+// subtree that are not yet minted — the peers' pending "bets". It is kept
 // strictly separate from the confirmed economy (Balance/Records): a pending claim
 // is never a confirmed catch (the two-scores invariant), and a target moves out
 // of "in flight" the moment it mints. Duplicate replays of one target count once.
@@ -288,7 +288,7 @@ func rejectedIdentities(events []fabric.Event) map[claimIdentity]bool {
 
 // claimsInFlightFrom is the pure projection behind ClaimsInFlight (and the fleet
 // board): the count of DISTINCT work-claim targets on these events that are
-// neither minted nor rejected — producers' pending bets. Verdict (and any
+// neither minted nor rejected — peers' pending bets. Verdict (and any
 // non-claim) events are never counted as claims; a malformed claim is skipped.
 func claimsInFlightFrom(events []fabric.Event, minted []CatchRecord) int {
 	rejected := rejectedIdentities(events)
@@ -348,7 +348,7 @@ func (l *Log) replayClaimSubtree() ([]fabric.Event, []CatchRecord, error) {
 }
 
 // ClaimsRejected counts the DISTINCT claim target identities this log has
-// terminally rejected — producers' bets the host verified and found no catch (a
+// terminally rejected — peers' bets the host verified and found no catch (a
 // "verified-loss"). It is the resolved-loss counterpart to ClaimsInFlight: a
 // pending bet is neither, a confirmed catch leaves both. A target that is BOTH
 // rejected AND minted counts as ZERO losses — a confirmed catch is never also a

@@ -46,10 +46,10 @@ func fundedAuthoringServer(t *testing.T, key string) (*ledger.Log, *httptest.Ser
 }
 
 // The Lead authors a live order's prompt blind today. The authoring assist must run
-// a producer over the draft and surface its structured read — the one-line summary,
+// a assist over the draft and surface its structured read — the one-line summary,
 // the readiness verdict, and the clarifying questions worth answering — on the card,
 // so the Lead sharpens the order before placing it. NOT parallel (shared globals).
-func TestLiveCard_analyzeDraftRendersTheProducersStructuredRead(t *testing.T) {
+func TestLiveCard_analyzeDraftRendersTheAssistsStructuredRead(t *testing.T) {
 	restore := analyzeDraft
 	t.Cleanup(func() { analyzeDraft = restore })
 	var gotPrompt string
@@ -64,23 +64,23 @@ func TestLiveCard_analyzeDraftRendersTheProducersStructuredRead(t *testing.T) {
 
 	tc := vt.NewClient(t, server, "/?key=authz")
 	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authz"}).AnalyzeDraft).
-		WithSignal("orderprompt", "Add retry logic to the uploader.").Fire(),
+		WithSignal("draft", "Add retry logic to the uploader.").Fire(),
 		"analyzing a draft is a calm, valid action")
 
 	assert.Contains(t, gotPrompt, "Add retry logic to the uploader.",
 		"the analysis harness runs on the authored draft")
 
 	body := bodyOf(vt.NewClient(t, server, "/?key=authz").HTML())
-	assert.Contains(t, body, "Clear goal, missing the retry budget.", "the producer's summary is shown")
+	assert.Contains(t, body, "Clear goal, missing the retry budget.", "the assist's summary is shown")
 	assert.Contains(t, body, `data-state="blocked"`, "the not-ready verdict is surfaced as a readiness hook")
 	assert.Contains(t, body, "What is the maximum retry count?", "the clarifying questions are shown")
 	assert.Contains(t, body, "Which errors count as transient?", "every clarifying question is shown")
 }
 
 // The assist auto-triggers on caret movement (past a blank line), which fires even
-// when the draft text is unchanged. Re-running the producer on an identical draft is
+// when the draft text is unchanged. Re-running the assist on an identical draft is
 // pure waste (it can only reproduce the cached read), so a re-analyze of a draft
-// already successfully analyzed must be a no-op — no second producer spawn. NOT
+// already successfully analyzed must be a no-op — no second assist spawn. NOT
 // parallel (shared globals).
 func TestLiveCard_analyzeDraftDoesNotRerunOnUnchangedDraft(t *testing.T) {
 	restore := analyzeDraft
@@ -95,15 +95,15 @@ func TestLiveCard_analyzeDraftDoesNotRerunOnUnchangedDraft(t *testing.T) {
 
 	tc := vt.NewClient(t, server, "/?key=authdedup")
 	const draft = "Add retry logic to the uploader."
-	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authdedup"}).AnalyzeDraft).WithSignal("orderprompt", draft).Fire())
-	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authdedup"}).AnalyzeDraft).WithSignal("orderprompt", draft).Fire())
+	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authdedup"}).AnalyzeDraft).WithSignal("draft", draft).Fire())
+	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authdedup"}).AnalyzeDraft).WithSignal("draft", draft).Fire())
 
-	assert.Equal(t, 1, runs, "an unchanged draft must not re-run the producer")
+	assert.Equal(t, 1, runs, "an unchanged draft must not re-run the assist")
 }
 
 // The unchanged-draft guard must skip only a SUCCESSFUL prior read: a draft whose
 // last analysis FAILED (or was unreadable) must still re-run on retry, else a
-// transient producer failure would strand the draft with no way to recover short of
+// transient assist failure would strand the draft with no way to recover short of
 // editing it. NOT parallel (shared globals).
 func TestLiveCard_analyzeDraftRetriesAfterAFailedRunOnTheSameDraft(t *testing.T) {
 	restore := analyzeDraft
@@ -121,14 +121,14 @@ func TestLiveCard_analyzeDraftRetriesAfterAFailedRunOnTheSameDraft(t *testing.T)
 
 	tc := vt.NewClient(t, server, "/?key=authretry")
 	const draft = "Add retry logic to the uploader."
-	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authretry"}).AnalyzeDraft).WithSignal("orderprompt", draft).Fire())
-	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authretry"}).AnalyzeDraft).WithSignal("orderprompt", draft).Fire())
+	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authretry"}).AnalyzeDraft).WithSignal("draft", draft).Fire())
+	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authretry"}).AnalyzeDraft).WithSignal("draft", draft).Fire())
 
 	assert.Equal(t, 2, runs, "a failed prior analysis on the same draft must still retry")
 }
 
 // The guard must skip only an UNCHANGED draft: once the Lead edits the text, the new
-// draft must re-run the producer (the cached read is stale). NOT parallel (globals).
+// draft must re-run the assist (the cached read is stale). NOT parallel (globals).
 func TestLiveCard_analyzeDraftRerunsWhenTheDraftChanges(t *testing.T) {
 	restore := analyzeDraft
 	t.Cleanup(func() { analyzeDraft = restore })
@@ -141,14 +141,14 @@ func TestLiveCard_analyzeDraftRerunsWhenTheDraftChanges(t *testing.T) {
 	_, server := fundedAuthoringServer(t, "authchg")
 
 	tc := vt.NewClient(t, server, "/?key=authchg")
-	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authchg"}).AnalyzeDraft).WithSignal("orderprompt", "Add retry logic.").Fire())
-	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authchg"}).AnalyzeDraft).WithSignal("orderprompt", "Add retry logic with a budget.").Fire())
+	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authchg"}).AnalyzeDraft).WithSignal("draft", "Add retry logic.").Fire())
+	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authchg"}).AnalyzeDraft).WithSignal("draft", "Add retry logic with a budget.").Fire())
 
-	assert.Equal(t, 2, runs, "a changed draft must re-run the producer")
+	assert.Equal(t, 2, runs, "a changed draft must re-run the assist")
 }
 
 // A warm session whose --resume run fails (the warm harness session is missing or
-// unresumable) must NOT strand authoring as "producer run failed": it retries COLD
+// unresumable) must NOT strand authoring as "assist run failed": it retries COLD
 // (no --resume) before degrading, so a broken warm context falls back to a working
 // fresh read. NOT parallel (shared globals).
 func TestLiveCard_analyzeDraftFallsBackToColdWhenResumeFails(t *testing.T) {
@@ -175,18 +175,18 @@ func TestLiveCard_analyzeDraftFallsBackToColdWhenResumeFails(t *testing.T) {
 
 	tc := vt.NewClient(t, server, "/?key=authcold")
 	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authcold"}).AnalyzeDraft).
-		WithSignal("orderprompt", "Add retry logic to the uploader.").Fire())
+		WithSignal("draft", "Add retry logic to the uploader.").Fire())
 
 	assert.Equal(t, 1, resumeAttempts, "the first attempt resumes the warm session")
 	assert.Equal(t, 1, coldAttempts, "a resume failure retries cold instead of stranding the draft")
 
 	body := bodyOf(vt.NewClient(t, server, "/?key=authcold").HTML())
 	assert.Contains(t, body, "cold read ok", "the cold retry's analysis is surfaced")
-	assert.NotContains(t, body, "the producer run failed", "a recoverable resume failure does not degrade")
+	assert.NotContains(t, body, "the assist run failed", "a recoverable resume failure does not degrade")
 }
 
 // A COLD session (no warm harness, resumeID empty) has no resume to fall back FROM,
-// so a failed run must NOT double-run the producer — it degrades after a single
+// so a failed run must NOT double-run the assist — it degrades after a single
 // attempt. NOT parallel (shared globals).
 func TestLiveCard_analyzeDraftDoesNotRetryAColdFailure(t *testing.T) {
 	restore := analyzeDraft
@@ -201,11 +201,11 @@ func TestLiveCard_analyzeDraftDoesNotRetryAColdFailure(t *testing.T) {
 
 	tc := vt.NewClient(t, server, "/?key=authcoldfail")
 	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authcoldfail"}).AnalyzeDraft).
-		WithSignal("orderprompt", "Add retry logic.").Fire())
+		WithSignal("draft", "Add retry logic.").Fire())
 
 	assert.Equal(t, 1, runs, "a cold failure runs once — there is no resume to retry from")
 	body := bodyOf(vt.NewClient(t, server, "/?key=authcoldfail").HTML())
-	assert.Contains(t, body, "the producer run failed", "a cold failure degrades calmly")
+	assert.Contains(t, body, "the assist run failed", "a cold failure degrades calmly")
 }
 
 // When BOTH the resume attempt and the cold retry fail, authoring degrades calmly
@@ -229,15 +229,15 @@ func TestLiveCard_analyzeDraftDegradesWhenBothResumeAndColdFail(t *testing.T) {
 
 	tc := vt.NewClient(t, server, "/?key=authbothfail")
 	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authbothfail"}).AnalyzeDraft).
-		WithSignal("orderprompt", "Add retry logic.").Fire())
+		WithSignal("draft", "Add retry logic.").Fire())
 
 	assert.Equal(t, 2, runs, "a warm session tries resume, then cold, before degrading")
 	body := bodyOf(vt.NewClient(t, server, "/?key=authbothfail").HTML())
-	assert.Contains(t, body, "the producer run failed", "both attempts failing degrades calmly")
+	assert.Contains(t, body, "the assist run failed", "both attempts failing degrades calmly")
 }
 
 // The analysis feeds Monaco: the analyzed draft + the flagged spans must be emitted
-// as a machine-readable payload the editor decorates against, so the producer's
+// as a machine-readable payload the editor decorates against, so the assist's
 // highlights anchor on exactly the bytes it flagged. NOT parallel (shared globals).
 func TestLiveCard_analyzeDraftEmitsTheHighlightPayloadForMonaco(t *testing.T) {
 	restore := analyzeDraft
@@ -250,7 +250,7 @@ func TestLiveCard_analyzeDraftEmitsTheHighlightPayloadForMonaco(t *testing.T) {
 
 	tc := vt.NewClient(t, server, "/?key=authpay")
 	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authpay"}).AnalyzeDraft).
-		WithSignal("orderprompt", "Add a thing.").Fire())
+		WithSignal("draft", "Add a thing.").Fire())
 
 	body := bodyOf(vt.NewClient(t, server, "/?key=authpay").HTML())
 	assert.Contains(t, body, "authoring-analysis-data", "the Monaco authoring island emits its JSON payload")
@@ -258,7 +258,7 @@ func TestLiveCard_analyzeDraftEmitsTheHighlightPayloadForMonaco(t *testing.T) {
 	assert.Contains(t, body, `data-state="ready"`, "a ready draft surfaces the ready readiness hook")
 }
 
-// A producer run that fails or returns unreadable output must NOT break the card:
+// A assist run that fails or returns unreadable output must NOT break the card:
 // it degrades to a calm "analysis unavailable" state, leaving the draft and the
 // place control intact (the Lead can still place the order). NOT parallel (globals).
 func TestLiveCard_analyzeDraftDegradesCalmlyOnUnreadableOutput(t *testing.T) {
@@ -272,16 +272,16 @@ func TestLiveCard_analyzeDraftDegradesCalmlyOnUnreadableOutput(t *testing.T) {
 
 	tc := vt.NewClient(t, server, "/?key=authbad")
 	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authbad"}).AnalyzeDraft).
-		WithSignal("orderprompt", "Do the task.").Fire(),
+		WithSignal("draft", "Do the task.").Fire(),
 		"an unreadable analysis is still a calm 200, never a crash")
 
 	body := bodyOf(vt.NewClient(t, server, "/?key=authbad").HTML())
 	assert.Contains(t, body, `data-state="unavailable"`, "the card degrades to a calm analysis-unavailable state")
-	assert.Contains(t, body, "/_action/PlaceOrder", "the place control survives a failed analysis")
+	assert.Contains(t, body, "/_action/Send", "the place control survives a failed analysis")
 }
 
 // An empty draft is nothing to analyze: AnalyzeDraft must be a silent no-op, never
-// spawning a producer over a blank prompt. NOT parallel (shared globals).
+// spawning a assist over a blank prompt. NOT parallel (shared globals).
 func TestLiveCard_analyzeDraftIsANoOpOnAnEmptyDraft(t *testing.T) {
 	restore := analyzeDraft
 	t.Cleanup(func() { analyzeDraft = restore })
@@ -294,9 +294,9 @@ func TestLiveCard_analyzeDraftIsANoOpOnAnEmptyDraft(t *testing.T) {
 	_, server := fundedAuthoringServer(t, "authempty")
 
 	tc := vt.NewClient(t, server, "/?key=authempty")
-	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authempty"}).AnalyzeDraft).WithSignal("orderprompt", "   ").Fire())
+	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authempty"}).AnalyzeDraft).WithSignal("draft", "   ").Fire())
 
-	assert.False(t, called, "an empty draft never spawns a producer analysis")
+	assert.False(t, called, "an empty draft never spawns a assist analysis")
 }
 
 // The card must render the analyze control (an action binding) alongside the compose
@@ -308,7 +308,7 @@ func TestLiveCard_rendersTheAnalyzeControlWhenFunded(t *testing.T) {
 	assert.Contains(t, body, "/_action/AnalyzeDraft", "the card renders the analyze-draft action binding")
 }
 
-// The producer should listen as the Lead types, not only on a button press: the
+// The assist should listen as the Lead types, not only on a button press: the
 // compose control must carry the live debounced re-analysis wiring (a pause in
 // typing triggers a fresh analysis) and an analyzing indicator, so the read keeps
 // pace with the draft. Progressive enhancement over the manual button. NOT parallel
@@ -320,8 +320,8 @@ func TestLiveCard_composeWiresLiveDebouncedReanalysis(t *testing.T) {
 	assert.Contains(t, body, "viaanalyze", "the editor carries the debounced live re-analysis bridge")
 }
 
-// The producer's readiness verdict must inform the place decision: when the
-// producer judged the draft ready to run unattended, the place control reflects a
+// The assist's readiness verdict must inform the place decision: when the
+// assist judged the draft ready to run unattended, the place control reflects a
 // ready state; when it flagged open questions, it shows a calm caution (placing is
 // still allowed — the verdict guides, never gates). NOT parallel (shared globals).
 func TestLiveCard_placeReflectsTheAnalysisReadiness(t *testing.T) {
@@ -348,11 +348,11 @@ func TestLiveCard_placeReflectsTheAnalysisReadiness(t *testing.T) {
 			_, server := fundedAuthoringServer(t, sanitizeKey(key))
 			tc := vt.NewClient(t, server, "/?key="+sanitizeKey(key))
 			require.Equal(t, 200, tc.Action((&LiveCard{Key: sanitizeKey(key)}).AnalyzeDraft).
-				WithSignal("orderprompt", "Do the task.").Fire())
+				WithSignal("draft", "Do the task.").Fire())
 
 			body := bodyOf(vt.NewClient(t, server, "/?key="+sanitizeKey(key)).HTML())
 			assert.Contains(t, body, "compose__readiness", "the place control carries a readiness reflection")
-			assert.Contains(t, body, tt.want, "the readiness reflection matches the producer's verdict")
+			assert.Contains(t, body, tt.want, "the readiness reflection matches the assist's verdict")
 		})
 	}
 }

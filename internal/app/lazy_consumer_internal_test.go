@@ -12,9 +12,9 @@ import (
 
 // A Lead can create a session at runtime, but claim consumers were spawned
 // only once at boot (a liveReg snapshot), so a runtime-created session got NO
-// consumer — its producer claims would publish and never verify. A session
+// consumer — its peer claims would publish and never verify. A session
 // registered AFTER the consumers start must still get a consumer, so the create
-// flow isn't a dead end for the producer path. NOT parallel (shared globals).
+// flow isn't a dead end for the peer path. NOT parallel (shared globals).
 func TestClaimConsumers_aRuntimeCreatedSessionStillGetsAConsumer(t *testing.T) {
 	claimConsumerServer(t)
 	ctx, cancel := context.WithCancel(context.Background())

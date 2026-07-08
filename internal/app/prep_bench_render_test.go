@@ -17,8 +17,8 @@ import (
 func TestLiveCard_benchItemRendersAsACardWithFundAndSharpenAffordances(t *testing.T) {
 	server, _ := bootDefaultServer(t, app.LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd:         []string{"true"},
-		DispatchBacklog: []ledger.Target{{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 88}},
+		TestCmd:     []string{"true"},
+		SendBacklog: []ledger.Target{{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 88}},
 	})
 
 	body := bodyOf(vt.NewClient(t, server, "/").HTML())
@@ -40,10 +40,10 @@ func TestLiveCard_benchItemRendersAsACardWithFundAndSharpenAffordances(t *testin
 func TestLiveCard_benchCardShowsAnAttachedCriterion(t *testing.T) {
 	server, log := bootDefaultServer(t, app.LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd:         []string{"true"},
-		DispatchBacklog: []ledger.Target{{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 88}},
+		TestCmd:     []string{"true"},
+		SendBacklog: []ledger.Target{{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 88}},
 	})
-	require.NoError(t, log.AppendRefine(ledger.RefinedOrderRecord{
+	require.NoError(t, log.AppendRefine(ledger.RefinedPacketRecord{
 		Target: ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 88},
 		Refine: "criteria", Criteria: []string{"rejects a negative amount"},
 	}))
@@ -58,10 +58,10 @@ func TestLiveCard_benchCardShowsAnAttachedCriterion(t *testing.T) {
 func TestLiveCard_benchCardShowsAnAttachedConvention(t *testing.T) {
 	server, log := bootDefaultServer(t, app.LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd:         []string{"true"},
-		DispatchBacklog: []ledger.Target{{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 88}},
+		TestCmd:     []string{"true"},
+		SendBacklog: []ledger.Target{{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 88}},
 	})
-	require.NoError(t, log.AppendRefine(ledger.RefinedOrderRecord{
+	require.NoError(t, log.AppendRefine(ledger.RefinedPacketRecord{
 		Target: ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "pay.go", Line: 88},
 		Refine: "convention", Note: "wrap errors with an origin prefix",
 	}))

@@ -19,12 +19,12 @@ import (
 	"github.com/joaomdsg/packets/internal/translate"
 )
 
-func mintedCatchWithProducer(t *testing.T, f *fabric.Fabric, session, producer string) bool {
+func mintedCatchWithSource(t *testing.T, f *fabric.Fabric, session, source string) bool {
 	t.Helper()
 	p, err := ledger.ReplayProjection(context.Background(), f, session, "i")
 	require.NoError(t, err)
 	for _, r := range p.Records() {
-		if r.Producer == producer && r.Outcome == catch.Catch {
+		if r.Source == source && r.Outcome == catch.Catch {
 			return true
 		}
 	}
@@ -36,19 +36,19 @@ func mintedCatchWithProducer(t *testing.T, f *fabric.Fabric, session, producer s
 // from the agent's own diff (that would let the agent name its own denominator
 // and farm confirmed-catches, V§13.5). When the produced revision yields a
 // catch, the live order mints it exactly like a pre-funded order.
-func TestRunLiveOrder_mintsACatchFromTheProducedRevisionAgainstThePreSpecifiedAnchor(t *testing.T) {
+func TestRunLivePacket_mintsACatchFromTheProducedRevisionAgainstThePreSpecifiedAnchor(t *testing.T) {
 	resetConsumersForTest()
-	repo := initGitRepoForOrder(t)
-	base := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	base := gitPacket(t, repo, "rev-parse", "HEAD")
 
 	restoreHarness := runHarness
 	t.Cleanup(func() { runHarness = restoreHarness })
 	var liveHead string
 	runHarness = func(_ context.Context, repoDir, _ string, _ func([]translate.UIEvent)) ([]harness.Turn, error) {
 		require.NoError(t, os.WriteFile(filepath.Join(repoDir, "feature.go"), []byte("package main\n"), 0o644))
-		gitOrder(t, repoDir, "add", "-A")
-		gitOrder(t, repoDir, "commit", "-qm", "live fix")
-		liveHead = gitOrder(t, repoDir, "rev-parse", "HEAD")
+		gitPacket(t, repoDir, "add", "-A")
+		gitPacket(t, repoDir, "commit", "-qm", "live fix")
+		liveHead = gitPacket(t, repoDir, "rev-parse", "HEAD")
 		return []harness.Turn{{Outcome: orchestrator.TurnOutcome{Minted: true, SHA: liveHead}}}, nil
 	}
 
@@ -70,37 +70,37 @@ func TestRunLiveOrder_mintsACatchFromTheProducedRevisionAgainstThePreSpecifiedAn
 
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
 	live := ledger.Target{BaseRev: base, Path: "target.go", Line: 42, Prompt: "fix the bug at target.go:42"}
-	require.NoError(t, log.AppendDispatch("d1", live, own)) // spends the 1 → balance 0
+	require.NoError(t, log.AppendSend("d1", live, own)) // spends the 1 → balance 0
 	registerSession("live", LiveConfig{RepoDir: repo, BaseRev: base, Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 
-	drainQueuedOrders("live")
+	drainQueuedPackets("live")
 
 	assert.Equal(t, base, gotBase, "the catch cycle runs from the order's pre-specified base")
 	assert.Equal(t, liveHead, gotFix, "the catch cycle runs on the agent-PRODUCED revision")
 	assert.Equal(t, "target.go", gotAnchor.Path, "FIREWALL: the anchor is the order's pre-specified path, not the agent's diff")
 	assert.Equal(t, 42, gotAnchor.Start, "FIREWALL: the anchor is the order's pre-specified line, not the agent's diff")
 
-	assert.Equal(t, "done", statusOfOrder(t, log, 1), "the live order runs to done")
+	assert.Equal(t, "done", statusOfPacket(t, log, 1), "the live order runs to done")
 	bal, err := log.Balance()
 	require.NoError(t, err)
 	assert.Equal(t, 1, bal, "the live order's catch minted (the seed was spent, this is the new catch)")
-	assert.True(t, mintedCatchWithProducer(t, f, "live", "wo:1"), "the catch is attributed to the work order (Producer wo:1)")
+	assert.True(t, mintedCatchWithSource(t, f, "live", "wo:1"), "the catch is attributed to the work order (Source wo:1)")
 }
 
 // A live order whose produced revision yields NO catch must mint nothing — the
 // firewall holds when the agent's work doesn't kill the anchored survivor.
-func TestRunLiveOrder_mintsNothingWhenTheLiveRevisionYieldsNoCatch(t *testing.T) {
+func TestRunLivePacket_mintsNothingWhenTheLiveRevisionYieldsNoCatch(t *testing.T) {
 	resetConsumersForTest()
-	repo := initGitRepoForOrder(t)
-	base := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	base := gitPacket(t, repo, "rev-parse", "HEAD")
 
 	restoreHarness := runHarness
 	t.Cleanup(func() { runHarness = restoreHarness })
 	runHarness = func(_ context.Context, repoDir, _ string, _ func([]translate.UIEvent)) ([]harness.Turn, error) {
 		require.NoError(t, os.WriteFile(filepath.Join(repoDir, "feature.go"), []byte("package main\n"), 0o644))
-		gitOrder(t, repoDir, "add", "-A")
-		gitOrder(t, repoDir, "commit", "-qm", "live fix")
-		sha := gitOrder(t, repoDir, "rev-parse", "HEAD")
+		gitPacket(t, repoDir, "add", "-A")
+		gitPacket(t, repoDir, "commit", "-qm", "live fix")
+		sha := gitPacket(t, repoDir, "rev-parse", "HEAD")
 		return []harness.Turn{{Outcome: orchestrator.TurnOutcome{Minted: true, SHA: sha}}}, nil
 	}
 
@@ -119,12 +119,12 @@ func TestRunLiveOrder_mintsNothingWhenTheLiveRevisionYieldsNoCatch(t *testing.T)
 
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
 	live := ledger.Target{BaseRev: base, Path: "target.go", Line: 42, Prompt: "attempt the fix"}
-	require.NoError(t, log.AppendDispatch("d1", live, own))
+	require.NoError(t, log.AppendSend("d1", live, own))
 	registerSession("livenocatch", LiveConfig{RepoDir: repo, BaseRev: base, Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 
-	drainQueuedOrders("livenocatch")
+	drainQueuedPackets("livenocatch")
 
-	assert.Equal(t, "done", statusOfOrder(t, log, 1), "the live order runs to done even with no catch")
+	assert.Equal(t, "done", statusOfPacket(t, log, 1), "the live order runs to done even with no catch")
 	bal, err := log.Balance()
 	require.NoError(t, err)
 	assert.Equal(t, 0, bal, "a live revision that yields no catch mints nothing (balance unchanged)")
@@ -133,10 +133,10 @@ func TestRunLiveOrder_mintsNothingWhenTheLiveRevisionYieldsNoCatch(t *testing.T)
 // A live run that produces NO revision (the agent committed nothing) must skip
 // the catch cycle entirely — there is nothing to check the oracle against — and
 // complete cleanly, minting nothing.
-func TestRunLiveOrder_skipsTheCatchCycleWhenNoRevisionWasProduced(t *testing.T) {
+func TestRunLivePacket_skipsTheCatchCycleWhenNoRevisionWasProduced(t *testing.T) {
 	resetConsumersForTest()
-	repo := initGitRepoForOrder(t)
-	base := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	base := gitPacket(t, repo, "rev-parse", "HEAD")
 
 	restoreHarness := runHarness
 	t.Cleanup(func() { runHarness = restoreHarness })
@@ -161,13 +161,13 @@ func TestRunLiveOrder_skipsTheCatchCycleWhenNoRevisionWasProduced(t *testing.T) 
 
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
 	live := ledger.Target{BaseRev: base, Path: "target.go", Line: 42, Prompt: "do nothing useful"}
-	require.NoError(t, log.AppendDispatch("d1", live, own))
+	require.NoError(t, log.AppendSend("d1", live, own))
 	registerSession("livenorev", LiveConfig{RepoDir: repo, BaseRev: base, Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 
-	drainQueuedOrders("livenorev")
+	drainQueuedPackets("livenorev")
 
 	assert.False(t, cycleCalled, "no produced revision means the oracle cycle must not run")
-	assert.Equal(t, "done", statusOfOrder(t, log, 1), "the order still completes")
+	assert.Equal(t, "done", statusOfPacket(t, log, 1), "the order still completes")
 	bal, err := log.Balance()
 	require.NoError(t, err)
 	assert.Equal(t, 0, bal, "no revision means no catch minted")

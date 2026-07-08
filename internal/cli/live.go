@@ -14,7 +14,7 @@ import (
 // commas and '=') is captured whole rather than comma-split.
 var promptDelim = regexp.MustCompile(`(^|,)\s*prompt\s*=`)
 
-// liveFlag collects repeatable -live specs (one prompt-bearing live work-order
+// liveFlag collects repeatable -live specs (one prompt-bearing live packet
 // target each), mirroring backlogFlag.
 type liveFlag struct{ specs []string }
 
@@ -26,11 +26,11 @@ func (l *liveFlag) Set(v string) error {
 }
 
 // parseLiveSpec parses a "file=F,line=N,base=SHA[,tip=SHA],prompt=<task>" spec into
-// a PROMPT-BEARING live work-order Target — the Lead's task plus the PRE-SPECIFIED
+// a PROMPT-BEARING live packet Target — the Lead's task plus the PRE-SPECIFIED
 // anchor (file/line) the catch is checked against (the anti-farming firewall:
 // the trusted Lead names the target, never the agent's own diff). There is no
 // FixRev — a real Claude Code harness PRODUCES the fix at run time, so tip defaults
-// to base and runLiveOrder diffs against the live HEAD. The LineHash is left unset
+// to base and runLivePacket diffs against the live HEAD. The LineHash is left unset
 // (the re-anchor identity is computed at wiring time via git, like parseBacklogSpec).
 //
 // prompt= is the trailing free-text (everything after it is the task, so a

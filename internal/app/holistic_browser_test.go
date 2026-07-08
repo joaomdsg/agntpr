@@ -96,7 +96,7 @@ func TestHolisticBrowser_composeForwardHoldInspectDeliver(t *testing.T) {
 	viaApp, log, err := app.NewServer(app.LiveConfig{
 		RepoDir: dir, BaseRev: base, FixRev: goodFix, TipRev: goodFix,
 		Anchor: anchor(), TestCmd: goTestCmd, LedgerPath: ledgerPath,
-		DispatchBacklog: []ledger.Target{{BaseRev: base, FixRev: badFix, TipRev: badFix, Path: "adult.go", Line: 4}},
+		SendBacklog: []ledger.Target{{BaseRev: base, FixRev: badFix, TipRev: badFix, Path: "adult.go", Line: 4}},
 	})
 	require.NoError(t, err)
 	server := httptest.NewServer(viaApp)
@@ -156,7 +156,7 @@ func TestHolisticBrowser_composeForwardHoldInspectDeliver(t *testing.T) {
 	assertNoRetiredVocabularyOnPage(t, "/ (settled)", body)
 	assert.Contains(t, body, "held", "the broken-build packet is a real, visible hold — never a silent drop")
 
-	// inspect: open the Inspector for the held packet (wo#1 — the FIRST dispatch;
+	// inspect: open the Inspector for the held packet (pkt#1 — the FIRST dispatch;
 	// the primary session's own cycle mints its packet OUTSIDE the dispatch ledger)
 	// and confirm the page renders with no retired vocabulary either.
 	require.NoError(t, chromedp.Run(bctx,

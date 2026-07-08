@@ -13,7 +13,7 @@ import (
 	"github.com/joaomdsg/packets/internal/settle"
 )
 
-// A minted revision must travel producer → taxonomy → bus → consumer intact:
+// A minted revision must travel peer → taxonomy → bus → consumer intact:
 // it lands on the canonical minted-revision subject and its payload decodes
 // back to the same revision a consumer can rebuild state from.
 func TestPublishRevision_roundTripsMintedRevisionThroughTheBus(t *testing.T) {

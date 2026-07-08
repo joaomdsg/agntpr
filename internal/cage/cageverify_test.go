@@ -70,7 +70,7 @@ func claimOver(base, fix, tip string) ledger.ClaimRecord {
 	return ledger.ClaimRecord{Target: targetOf(base, fix, tip)} // targetOf: Path "adult.go", Line 2
 }
 
-// A claim the host can never resolve (a producer's commit that never reached the
+// A claim the host can never resolve (a peer's commit that never reached the
 // host, or a bogus SHA) is a PERMANENT failure. CageVerifier must surface it as
 // ledger.ErrClaimUnverifiable — the seam the in-package-ledger consumer keys on to
 // durably REJECT the claim — rather than as a plain (transient) error that would

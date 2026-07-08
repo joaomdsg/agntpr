@@ -18,8 +18,8 @@ const kindAnnotation = "annotation"
 // (StartLine..EndLine, EndLine==0 meaning a single line). A reply sets ParentID
 // to the id of the annotation it answers, so the read model can nest a threaded
 // conversation. It is NEVER an economic event — it mints no balance and funds no
-// work-order; a reply that re-triggers the agent does so through a separate live
-// dispatch, not by this record's fold.
+// packet; a reply that re-triggers the agent does so through a separate live
+// send, not by this record's fold.
 type AnnotationRecord struct {
 	Kind      string `json:"kind"`
 	ID        string `json:"id"`

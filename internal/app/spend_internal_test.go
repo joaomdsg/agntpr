@@ -18,7 +18,7 @@ import (
 	"github.com/joaomdsg/packets/internal/reanchor"
 )
 
-func TestLiveCard_spendVerbDrainsTheBalanceAndTheFundedOrderSurfacesOverSSE(t *testing.T) {
+func TestLiveCard_spendVerbDrainsTheBalanceAndTheFundedPacketSurfacesOverSSE(t *testing.T) {
 	// Internal test (package app): swaps resolveCycle so the connect cycle mints
 	// NOTHING, isolating the drain to the Spend verb. NOT parallel (shared globals).
 	// The balance row is retired from the UI, so the drain is
@@ -34,7 +34,7 @@ func TestLiveCard_spendVerbDrainsTheBalanceAndTheFundedOrderSurfacesOverSSE(t *t
 	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: logPath,
-		DispatchBacklog: []ledger.Target{woDispatchTarget()},
+		SendBacklog: []ledger.Target{sendTarget()},
 	})
 	require.NoError(t, err)
 	server = httptest.NewServer(viaApp)
@@ -51,7 +51,7 @@ func TestLiveCard_spendVerbDrainsTheBalanceAndTheFundedOrderSurfacesOverSSE(t *t
 	// the first non-climbing transition the Lead can actually trigger — and the
 	// ledger's balance drains by exactly one.
 	require.Equal(t, 200, tc.Action((&LiveCard{}).Spend).Fire())
-	vt.AwaitFrame(t, frames, 10*time.Second, "WO#1")
+	vt.AwaitFrame(t, frames, 10*time.Second, "PKT#1")
 	bal, err := log.Balance()
 	require.NoError(t, err)
 	require.Equal(t, 1, bal, "the spend debited exactly one catch")
@@ -74,7 +74,7 @@ func TestLiveCard_overBudgetSpendIsASilentNoOpNotASpuriousFrame(t *testing.T) {
 	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: logPath,
-		DispatchBacklog: []ledger.Target{woDispatchTarget()},
+		SendBacklog: []ledger.Target{sendTarget()},
 	})
 	require.NoError(t, err)
 	server = httptest.NewServer(viaApp)
@@ -87,7 +87,7 @@ func TestLiveCard_overBudgetSpendIsASilentNoOpNotASpuriousFrame(t *testing.T) {
 	vt.AwaitFrame(t, frames, 10*time.Second, "/_action/Spend") // the seeded catch renders the spend affordance
 
 	require.Equal(t, 200, tc.Action((&LiveCard{}).Spend).Fire()) // drain 1 → 0
-	vt.AwaitFrame(t, frames, 10*time.Second, "WO#1")             // the funded order surfaces — the drain landed
+	vt.AwaitFrame(t, frames, 10*time.Second, "PKT#1")            // the funded order surfaces — the drain landed
 
 	// Spend past 0: a no-op. The action still returns 200 (never an error to the
 	// Lead). The card may still re-render as the first spend's funded order runs in
@@ -95,12 +95,12 @@ func TestLiveCard_overBudgetSpendIsASilentNoOpNotASpuriousFrame(t *testing.T) {
 	// must never fund a second order.
 	require.Equal(t, 200, tc.Action((&LiveCard{}).Spend).Fire())
 	tail := drainFramesFor(frames, 500*time.Millisecond)
-	require.NotContains(t, tail, "WO#2", "the refused spend must surface no second work-order")
+	require.NotContains(t, tail, "PKT#2", "the refused spend must surface no second work-order")
 
 	bal, err := log.Balance()
 	require.NoError(t, err)
 	require.Equal(t, 0, bal, "the refused spend left no debit in the ledger")
-	pending, err := log.PendingDispatches()
+	pending, err := log.PendingSends()
 	require.NoError(t, err)
 	require.Equal(t, 1, pending, "the over-budget spend funded NO second order — only the first spend's order exists")
 }

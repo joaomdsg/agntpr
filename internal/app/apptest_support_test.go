@@ -73,15 +73,15 @@ func woTargetN(i int) ledger.Target {
 	return ledger.Target{BaseRev: "wo-base-" + s, FixRev: "wo-fix-" + s, TipRev: "wo-fix-" + s, Path: "other.go", Line: 9 + i}
 }
 
-// woDispatchTarget is the single-target counterpart to woTargetN — duplicated
+// sendTarget is the single-target counterpart to woTargetN — duplicated
 // for the external test package (the original helper stays in the internal test
 // package).
-func woDispatchTarget() ledger.Target {
+func sendTarget() ledger.Target {
 	return ledger.Target{BaseRev: "wo-base", FixRev: "wo-fix", TipRev: "wo-fix", Path: "other.go", Line: 9}
 }
 
 // ownTargetOf replicates the production (unexported) supply.ownTargetOf's pure
-// derivation — a session's own cycle expressed as the Target shape AppendDispatch
+// derivation — a session's own cycle expressed as the Target shape AppendSend
 // compares against to refuse re-funding a card's own work. Duplicated because the
 // original lives in production code (supply.go), never exported for callers.
 func ownTargetOf(cfg app.LiveConfig) ledger.Target {
@@ -132,10 +132,10 @@ func freshGitRepo(t *testing.T) string {
 	return dir
 }
 
-// gitOrder runs git in dir, failing the test on error — functionally identical to
+// gitPacket runs git in dir, failing the test on error — functionally identical to
 // the shared runGit helper; kept as a separate name only where the migrated file's
-// own call sites already read gitOrder(...), to keep each file's diff minimal.
-func gitOrder(t *testing.T, dir string, args ...string) string {
+// own call sites already read gitPacket(...), to keep each file's diff minimal.
+func gitPacket(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 	cmd := exec.Command("git", args...)
 	cmd.Dir = dir
@@ -144,27 +144,27 @@ func gitOrder(t *testing.T, dir string, args ...string) string {
 	return strings.TrimSpace(string(out))
 }
 
-// initGitRepoForOrder seeds a minimal one-commit repo for order-fulfillment tests —
+// initGitRepoForPacket seeds a minimal one-commit repo for order-fulfillment tests —
 // duplicated for the external test package (the original helper stays in the
 // internal test package).
-func initGitRepoForOrder(t *testing.T) string {
+func initGitRepoForPacket(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	gitOrder(t, dir, "init", "-q")
-	gitOrder(t, dir, "config", "user.email", "t@t")
-	gitOrder(t, dir, "config", "user.name", "t")
+	gitPacket(t, dir, "init", "-q")
+	gitPacket(t, dir, "config", "user.email", "t@t")
+	gitPacket(t, dir, "config", "user.name", "t")
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "base.txt"), []byte("base\n"), 0o644))
-	gitOrder(t, dir, "add", "-A")
-	gitOrder(t, dir, "commit", "-qm", "base")
+	gitPacket(t, dir, "add", "-A")
+	gitPacket(t, dir, "commit", "-qm", "base")
 	return dir
 }
 
-// statusOfOrder returns a dispatched order's current status ("" if unknown) —
+// statusOfPacket returns a dispatched order's current status ("" if unknown) —
 // duplicated for the external test package (the original helper stays in the
 // internal test package).
-func statusOfOrder(t *testing.T, log *ledger.Log, id int) string {
+func statusOfPacket(t *testing.T, log *ledger.Log, id int) string {
 	t.Helper()
-	views, err := log.RecentDispatches(0)
+	views, err := log.RecentSends(0)
 	require.NoError(t, err)
 	for _, v := range views {
 		if v.ID == id {
@@ -177,16 +177,16 @@ func statusOfOrder(t *testing.T, log *ledger.Log, id int) string {
 // orderRecordFor returns the dispatched work-order with the given id (zero value
 // when absent) — duplicated for the external test package (the original helper
 // stays in the internal test package).
-func orderRecordFor(t *testing.T, log *ledger.Log, id int) ledger.DispatchView {
+func orderRecordFor(t *testing.T, log *ledger.Log, id int) ledger.SendView {
 	t.Helper()
-	views, err := log.RecentDispatches(0)
+	views, err := log.RecentSends(0)
 	require.NoError(t, err)
 	for _, v := range views {
 		if v.ID == id {
 			return v
 		}
 	}
-	return ledger.DispatchView{}
+	return ledger.SendView{}
 }
 
 // fundBandwidth gives a session's attention meter one earned interval (a fast-
@@ -276,7 +276,7 @@ func addFundedSession(t *testing.T, key string, cfg app.LiveConfig) *ledger.Log 
 // the same test.
 func boardSession(t *testing.T, key string, seedCatches int, backlog []ledger.Target) *ledger.Log {
 	t.Helper()
-	log := addFundedSession(t, key, app.LiveConfig{BaseRev: "own-b-" + key, FixRev: "own-f", Anchor: anchorForCap(), DispatchBacklog: backlog})
+	log := addFundedSession(t, key, app.LiveConfig{BaseRev: "own-b-" + key, FixRev: "own-f", Anchor: anchorForCap(), SendBacklog: backlog})
 	for i := 0; i < seedCatches; i++ {
 		require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Line: 100 + i, ReasonTag: "catch"}))
 	}
@@ -310,7 +310,7 @@ func actNowCardBody(t *testing.T) string {
 	log := addFundedSession(t, "actnow", app.LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"},
-		DispatchBacklog: []ledger.Target{
+		SendBacklog: []ledger.Target{
 			{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "deck.go", Line: 9},
 		},
 	})

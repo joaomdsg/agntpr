@@ -59,7 +59,7 @@ func TestReviewCard_rendersTheInspectorGridWithThreeRegionsSessionScoped(t *test
 // The per-order review is the Inspector too — same three regions, now scoped to
 // the funded work-order's own edits and questions. NOT parallel (shared
 // liveReg + the resolveCycle seam).
-func TestReviewCard_rendersTheInspectorGridWithThreeRegionsOrderScoped(t *testing.T) {
+func TestReviewCard_rendersTheInspectorGridWithThreeRegionsPacketScoped(t *testing.T) {
 	resetConsumersForTest()
 	restore := resolveCycle
 	t.Cleanup(func() { resolveCycle = restore })
@@ -79,9 +79,9 @@ func TestReviewCard_rendersTheInspectorGridWithThreeRegionsOrderScoped(t *testin
 	log := ledger.Bind(f, "insp1", "i")
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 1, ReasonTag: "catch"}))
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
-	require.NoError(t, log.AppendDispatch("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
+	require.NoError(t, log.AppendSend("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
 	registerSession("insp1", LiveConfig{RepoDir: ".", BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
-	drainQueuedOrders("insp1")
+	drainQueuedPackets("insp1")
 
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
@@ -101,7 +101,7 @@ func TestReviewCard_rendersTheInspectorGridWithThreeRegionsOrderScoped(t *testin
 	require.Contains(t, body, "file-tree", "the order's changed-files tree renders inside the tree region")
 }
 
-// The identity strip names the scope (wo#<id> or the raw session key) and a
+// The identity strip names the scope (pkt#<id> or the raw session key) and a
 // base→fix rev chip in SHORT (7-char) SHAs when both revs are known — never a
 // second brand mark (navHeader already carries it). NOT parallel.
 func TestReviewCard_identityStripShowsScopeAndShortRevChipWhenRevsAreKnown(t *testing.T) {
@@ -128,8 +128,8 @@ func TestReviewCard_identityStripShowsScopeAndShortRevChipWhenRevsAreKnown(t *te
 // entirely rather than fabricated. NOT parallel.
 func TestReviewCard_identityStripOmitsRevChipWhenARevIsUnknown(t *testing.T) {
 	resetConsumersForTest()
-	repo := initGitRepoForOrder(t)
-	head := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	head := gitPacket(t, repo, "rev-parse", "HEAD")
 	ctx := context.Background()
 	f, err := fabric.Start(ctx, t.TempDir())
 	require.NoError(t, err)
@@ -181,10 +181,10 @@ func TestReviewCard_identityStripShowsTheAddr(t *testing.T) {
 }
 
 // An order-scoped review that folds to a packet shows the
-// packet's own Name beside wo#<id> — the identity the packet model gives the
+// packet's own Name beside pkt#<id> — the identity the packet model gives the
 // order, not just its raw numeric id. NOT parallel (shared liveReg + the
 // resolveCycle seam).
-func TestReviewCard_identityStripShowsThePacketNameWhenOrderScoped(t *testing.T) {
+func TestReviewCard_identityStripShowsThePacketNameWhenPacketScoped(t *testing.T) {
 	resetConsumersForTest()
 	restore := resolveCycle
 	t.Cleanup(func() { resolveCycle = restore })
@@ -208,9 +208,9 @@ func TestReviewCard_identityStripShowsThePacketNameWhenOrderScoped(t *testing.T)
 	log := ledger.Bind(f, "insppkt", "i")
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 1, ReasonTag: "catch"}))
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
-	require.NoError(t, log.AppendDispatch("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
+	require.NoError(t, log.AppendSend("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
 	registerSession("insppkt", LiveConfig{RepoDir: repoDir, BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
-	drainQueuedOrders("insppkt")
+	drainQueuedPackets("insppkt")
 
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server
@@ -224,7 +224,7 @@ func TestReviewCard_identityStripShowsThePacketNameWhenOrderScoped(t *testing.T)
 
 	body := bodyOf(vt.NewClient(t, server, "/review?key=insppkt&wo=1").HTML())
 	require.Contains(t, body, "local/"+filepath.Base(repoDir), "the identity strip's addr slot uses the real repo identity")
-	require.Contains(t, body, "wo-1", "the order's own packet name renders beside wo#<id> once it folds to a packet")
+	require.Contains(t, body, "pkt-1", "the order's own packet name renders beside pkt#<id> once it folds to a packet")
 }
 
 // The annotation rail renders each open thread as an annotation card: an

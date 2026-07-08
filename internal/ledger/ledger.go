@@ -31,13 +31,16 @@ type CatchRecord struct {
 	ReasonTag         string `json:"reason_tag"`
 	SelfFlagged       bool   `json:"self_flagged"`
 	WouldHaveShipped  bool   `json:"would_have_shipped"`
-	// Producer names which producer minted this catch — the connect-cycle
-	// ("connect") or a dispatched work-order ("wo:<id>"). It is NOT part of the
-	// catch identity (a re-mint of the same identity is deduped regardless of
-	// producer); it is provenance, so a catch from a dispatched run reads as
-	// reinvestment, byte-distinguishable from a connect mint, and the field demuxes
-	// the two producers on replay.
-	Producer string `json:"producer,omitempty"`
+	// Source names which source minted this catch — the connect-cycle ("connect")
+	// or a sent packet ("wo:<id>"). It is NOT part of the catch identity
+	// (a re-mint of the same identity is deduped regardless of source); it is
+	// provenance, so a catch from a sent run reads as reinvestment,
+	// byte-distinguishable from a connect mint, and the field demuxes the two
+	// sources on replay.
+	//
+	// The JSON tag keeps the legacy wire name "producer" — durable records
+	// already on disk predate this rename and must decode unchanged.
+	Source string `json:"producer,omitempty"`
 }
 
 // ShouldRecord reports whether an outcome warrants a ledger entry: only a real
@@ -53,7 +56,7 @@ func ShouldRecord(o catch.Outcome) bool {
 // shape (the single-minter invariant). It returns nil when the outcome is not
 // recordable (ShouldRecord), so callers can assign its result unconditionally.
 // MutantsConsidered is the after-revision inventory size (the catch's per-line
-// denominator) and ReasonTag is fixed to the catch tag. Producer provenance is
+// denominator) and ReasonTag is fixed to the catch tag. Source provenance is
 // stamped later, by whichever consumer appends the record.
 func NewCatchRecord(outcome catch.Outcome, path string, line int, beforeRev, afterRev string, beforeInv, afterInv []string, selfFlagged, wouldHaveShipped bool) *CatchRecord {
 	if !ShouldRecord(outcome) {
@@ -74,19 +77,19 @@ func NewCatchRecord(outcome catch.Outcome, path string, line int, beforeRev, aft
 	}
 }
 
-// kindSpend tags a debit line; kindWorkOrder tags a funded work-order line. A
-// catch line carries NO kind field, so logs written before spends/work-orders
+// kindSpend tags a debit line; kindPacket tags a funded packet-send line. A
+// catch line carries NO kind field, so logs written before spends/packets
 // existed re-read byte-identically.
 const (
-	kindSpend     = "spend"
-	kindWorkOrder = "workorder"
-	kindWOStatus  = "wostatus"
-	kindWOVerdict = "woverdict"
+	kindSpend         = "spend"
+	kindPacket        = "workorder" // legacy wire name — durable records predate the rename
+	kindPacketStatus  = "wostatus"  // legacy wire name — durable records predate the rename
+	kindPacketVerdict = "woverdict" // legacy wire name — durable records predate the rename
 )
 
-// Target is the work a funded order will run: the rev/anchor triple a dispatched
-// catch cycle executes. It is bound at funding time so the order is self-describing
-// (the runner needs no other state) and so a dispatch can be refused when it would
+// Target is the work a funded packet will run: the rev/anchor triple a sent
+// catch cycle executes. It is bound at funding time so the packet is self-describing
+// (the runner needs no other state) and so a send can be refused when it would
 // re-run the card's OWN already-caught cycle (a guaranteed loss).
 type Target struct {
 	BaseRev  string `json:"base_rev"`
@@ -95,16 +98,16 @@ type Target struct {
 	Path     string `json:"path"`
 	Line     int    `json:"line"`
 	LineHash string `json:"line_hash,omitempty"`
-	// Prompt, when set, marks a LIVE work order: the natural-language task a real
+	// Prompt, when set, marks a LIVE packet: the natural-language task a real
 	// Claude Code harness runs to PRODUCE the fix revision, instead of the
 	// pre-funded BaseRev→FixRev diff. Empty = the legacy pre-funded target.
 	Prompt string `json:"prompt,omitempty"`
 	// HandshakePath/HandshakeHash/HandshakeStrength record the handshake
-	// authored BEFORE this order was dispatched — set at compose time,
+	// authored BEFORE this packet was sent — set at compose time,
 	// never by the agent. All zero-safe/omitempty: a legacy pre-funded target (no
 	// Prompt) predates the handshake concept and carries none of these.
 	// HandshakeStrength is a plain int (not packet.HandshakeStrength) because
-	// internal/packet already imports internal/ledger (for ledger.DispatchView) —
+	// internal/packet already imports internal/ledger (for ledger.SendView) —
 	// importing the other way would cycle. Callers cast to/from
 	// packet.HandshakeStrength at the boundary.
 	HandshakePath     string `json:"handshake_path,omitempty"`
@@ -112,51 +115,52 @@ type Target struct {
 	HandshakeStrength int    `json:"handshake_strength,omitempty"`
 }
 
-// DispatchCounts is the work-order tally split by current status — the watchable
-// shape the Lead sees move queued→running→done as a dispatched order runs.
-type DispatchCounts struct {
+// SendCounts is the packet tally split by current status — the watchable
+// shape the Lead sees move queued→running→done as a sent packet runs.
+type SendCounts struct {
 	Queued  int
 	Running int
 	Done    int
 }
 
-// inProcessProducer is the producer tag every work-order carries: the single
-// in-process writer. Carrying it explicitly lets a future cross-process producer
-// demux producers on replay without a schema migration.
-const inProcessProducer = "in-process"
+// inProcessSource is the source tag every packet carries: the single
+// in-process writer. Carrying it explicitly lets a future cross-process peer
+// demux sources on replay without a schema migration.
+const inProcessSource = "in-process"
 
-// WorkOrderRecord is the consequence a Spend funds: one unit of dispatched work,
+// PacketRecord is the consequence a Spend funds: one unit of sent work,
 // queued (it is not executed here). It shares the append-only stream and is
-// distinguished by Kind=="workorder". It is paired
+// distinguished by Kind=="workorder" (legacy wire name — durable records
+// predate the rename). It is paired
 // with a debit (a spend line) in one atomic write, so a balance can never fund
-// more orders than it held (conservation: debits == orders, per account).
-type WorkOrderRecord struct {
-	Kind     string `json:"kind"`
-	ID       int    `json:"id"`
-	Producer string `json:"producer"`
-	Status   string `json:"status"`
-	Reason   string `json:"reason,omitempty"`
-	Target   Target `json:"target"`
+// more packets than it held (conservation: debits == packets, per account).
+type PacketRecord struct {
+	Kind   string `json:"kind"`
+	ID     int    `json:"id"`
+	Source string `json:"producer"` // legacy wire name — durable records predate the rename
+	Status string `json:"status"`
+	Reason string `json:"reason,omitempty"`
+	Target Target `json:"target"`
 }
 
-// StatusRecord is one appended status transition for a work-order id. Status is
+// StatusRecord is one appended status transition for a packet id. Status is
 // NEVER mutated in place — each transition is a new line, so the log stays
-// append-only and an order's current status replays as the last status line for
-// its id (defaulting to the order's funded Status when none has been appended).
+// append-only and a packet's current status replays as the last status line for
+// its id (defaulting to the packet's funded Status when none has been appended).
 type StatusRecord struct {
 	Kind   string `json:"kind"`
 	ID     int    `json:"id"`
 	Status string `json:"status"`
 }
 
-// WorkOrderVerdictRecord persists the oracle's honest verdict for one run of a
-// work-order, keyed by id and distinguished by Kind=="woverdict". It is DIAGNOSTIC
-// metadata — the WHY behind a caught/missed order (no-catch, no-oracle-signal,
+// PacketVerdictRecord persists the oracle's honest verdict for one run of a
+// packet, keyed by id and distinguished by Kind=="woverdict". It is DIAGNOSTIC
+// metadata — the WHY behind a caught/missed packet (no-catch, no-oracle-signal,
 // lost-via-rename, tested, …) — and is NEVER an economic event: it shares the
-// append-only stream with the work-order/status lines but mints no balance and is
-// not a confirmed catch (the two-scores invariant). An order's current verdict
+// append-only stream with the packet/status lines but mints no balance and is
+// not a confirmed catch (the two-scores invariant). A packet's current verdict
 // replays as the last verdict line for its id (last-writer-wins, like status).
-type WorkOrderVerdictRecord struct {
+type PacketVerdictRecord struct {
 	Kind    string `json:"kind"`
 	ID      int    `json:"id"`
 	Verdict string `json:"verdict"`
@@ -179,7 +183,7 @@ type SpendRecord struct {
 // session.<session>.events.<instance> subtree, so a mint or spend on one session
 // can never touch another — isolation enforced by the subject token.
 //
-// A Log serializes its writers under mu: Append, AppendSpend, and AppendDispatch
+// A Log serializes its writers under mu: Append, AppendSpend, and AppendSend
 // take the lock across the replay-then-publish step, so the read-then-write
 // balance/dedup check is atomic — no TOCTOU letting two spenders both see
 // "enough" and overshoot below zero, and no two writers both seeing a catch
@@ -313,24 +317,24 @@ func (l *Log) AppendSpend(amount int, reason string) error {
 	return nil
 }
 
-// AppendDispatch funds exactly one work-order against the balance — the
+// AppendSend funds exactly one packet against the balance — the
 // consequence a Spend buys. It refuses if the balance cannot cover one unit
-// (you cannot dispatch what you did not catch), writing NOTHING on refusal.
-// On success it writes the debit (a spend of 1) AND the paired work-order line
+// (you cannot send what you did not catch), writing NOTHING on refusal.
+// On success it writes the debit (a spend of 1) AND the paired packet line
 // as a SINGLE write under the one lock, so the two lines never tear apart and a
-// balance can never fund more orders than it held: one debit ⇒ one order,
-// conserved. The work-order id is monotonic, derived from the persisted log
-// (count of existing work-orders + 1) so it survives a reopen with no in-memory
-// counter. The order is queued — it is not executed here.
+// balance can never fund more packets than it held: one debit ⇒ one packet,
+// conserved. The packet id is monotonic, derived from the persisted log
+// (count of existing packets + 1) so it survives a reopen with no in-memory
+// counter. The packet is queued — it is not executed here.
 //
-// target is the distinct work the order will run; own is the card's OWN caught
-// cycle. A dispatch whose target equals own is refused (writing nothing): it
+// target is the distinct work the packet will run; own is the card's OWN caught
+// cycle. A send whose target equals own is refused (writing nothing): it
 // would re-run already-caught work, reproducing an identity the dedup gate would
 // mint nothing for — a guaranteed loss, so it is rejected up front (the
 // distinct-work requirement; the identity dedup in Append is the backstop).
-func (l *Log) AppendDispatch(reason string, target, own Target) error {
+func (l *Log) AppendSend(reason string, target, own Target) error {
 	if target == own {
-		return fmt.Errorf("ledger: refusing to dispatch the card's own caught work — fund DISTINCT work")
+		return fmt.Errorf("ledger: refusing to send the card's own caught work — fund DISTINCT work")
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -339,67 +343,67 @@ func (l *Log) AppendDispatch(reason string, target, own Target) error {
 		return err
 	}
 	if p.Balance() < 1 {
-		return fmt.Errorf("ledger: cannot dispatch with balance %d — nothing to fund", p.Balance())
+		return fmt.Errorf("ledger: cannot send with balance %d — nothing to fund", p.Balance())
 	}
 	ctx := context.Background()
-	// The debit and its work-order are two publishes under the one lock: no other
-	// writer interleaves, so a balance can never fund more orders than it held (one
-	// debit ⇒ one order, conserved at rest). They are NOT crash-atomic the way the
-	// single file write was — a crash between the two would drop the order, never
+	// The debit and its packet are two publishes under the one lock: no other
+	// writer interleaves, so a balance can never fund more packets than it held (one
+	// debit ⇒ one packet, conserved at rest). They are NOT crash-atomic the way the
+	// single file write was — a crash between the two would drop the packet, never
 	// double-mint — which is acceptable until the durability/hibernation gate is
-	// built. The id is monotonic, derived from the committed order count + 1, so it
+	// built. The id is monotonic, derived from the committed packet count + 1, so it
 	// survives a restart with no in-memory counter.
 	if _, err := PublishSpend(ctx, l.f, l.session, l.instance, SpendRecord{Kind: kindSpend, Amount: 1, Reason: reason}); err != nil {
-		return fmt.Errorf("ledger: append dispatch debit: %w", err)
+		return fmt.Errorf("ledger: append send debit: %w", err)
 	}
-	if _, err := PublishWorkOrder(ctx, l.f, l.session, l.instance, WorkOrderRecord{
-		Kind:     kindWorkOrder,
-		ID:       len(p.WorkOrders()) + 1,
-		Producer: inProcessProducer,
-		Status:   "queued",
-		Reason:   reason,
-		Target:   target,
+	if _, err := PublishPacket(ctx, l.f, l.session, l.instance, PacketRecord{
+		Kind:   kindPacket,
+		ID:     len(p.Packets()) + 1,
+		Source: inProcessSource,
+		Status: "queued",
+		Reason: reason,
+		Target: target,
 	}); err != nil {
-		return fmt.Errorf("ledger: append work-order: %w", err)
+		return fmt.Errorf("ledger: append packet: %w", err)
 	}
 	return nil
 }
 
-// DispatchView is one funded work-order's round-trip, made legible: its id, the
+// SendView is one funded packet's round-trip, made legible: its id, the
 // target it runs, its current status (queued→running→done), whether its run minted
 // a catch (Caught) or not (a missed bet), and the oracle's honest Verdict for that
 // run (the WHY: no-catch, no-oracle-signal, lost-via-rename, tested, … — empty when
-// none persisted). Honest per-order outcome — never a fabricated rank. Caught keys
-// on the order's own "wo:<id>" mint provenance, so an unrelated connect-cycle catch
+// none persisted). Honest per-packet outcome — never a fabricated rank. Caught keys
+// on the packet's own "wo:<id>" mint provenance, so an unrelated connect-cycle catch
 // never falsely credits it.
-type DispatchView struct {
+type SendView struct {
 	ID      int
 	Target  Target
 	Status  string
 	Caught  bool
 	Verdict string
 	// Questions is how many open review questions (surviving mutants) the filled
-	// order left — the order's reviewable test-debt. NOT projected from the ledger
+	// packet left — the packet's reviewable test-debt. NOT projected from the ledger
 	// (the findings are off-ledger diagnostic state); the app layer fills it from the
-	// per-order findings cache before rendering. Zero when none / not yet filled.
+	// per-packet findings cache before rendering. Zero when none / not yet filled.
 	Questions int
 }
 
-// RecentDispatches projects this log's funded work-orders into the most-recent n
-// DispatchViews, NEWEST FIRST (n<=0 returns all) — the data behind the board's
-// "watch a funded order round-trip" surface. A pure projection of the persisted
-// log: status is the order's last status line (default "queued"), Caught is
-// whether a catch with Producer "wo:<id>" was minted.
-func (l *Log) RecentDispatches(n int) ([]DispatchView, error) {
+// RecentSends projects this log's funded packets into the most-recent n
+// SendViews, NEWEST FIRST (n<=0 returns all) — the data behind the board's
+// "watch a funded packet round-trip" surface. A pure projection of the persisted
+// log: status is the packet's last status line (default "queued"), Caught is
+// whether a catch with Source "wo:<id>" was minted.
+func (l *Log) RecentSends(n int) ([]SendView, error) {
 	p, err := l.project()
 	if err != nil {
 		return nil, err
 	}
-	return p.RecentDispatches(n), nil
+	return p.RecentSends(n), nil
 }
 
 // ScoutingReport projects this log's per-session first-pass catch-rate (completed
-// orders and how many caught) — the outward Trust Ledger signal, a pure projection
+// packets and how many caught) — the outward Trust Ledger signal, a pure projection
 // of the persisted log.
 func (l *Log) ScoutingReport() (ScoutReport, error) {
 	p, err := l.project()
@@ -409,74 +413,74 @@ func (l *Log) ScoutingReport() (ScoutReport, error) {
 	return p.ScoutingReport(), nil
 }
 
-// WorkOrders reads back every funded work-order in order, a pure projection of
+// Packets reads back every funded packet in order, a pure projection of
 // the persisted log (catch and spend lines are skipped). The monotonic id and
-// producer/status fields are read straight from the stream, so they replay identically.
-func (l *Log) WorkOrders() ([]WorkOrderRecord, error) {
+// source/status fields are read straight from the stream, so they replay identically.
+func (l *Log) Packets() ([]PacketRecord, error) {
 	p, err := l.project()
 	if err != nil {
 		return nil, err
 	}
-	return p.WorkOrders(), nil
+	return p.Packets(), nil
 }
 
-// PendingDispatches counts the funded work-orders projected purely from the log
-// — the total dispatched-work tally (every funded order, regardless of status).
-func (l *Log) PendingDispatches() (int, error) {
-	orders, err := l.WorkOrders()
+// PendingSends counts the funded packets projected purely from the log
+// — the total sent-work tally (every funded packet, regardless of status).
+func (l *Log) PendingSends() (int, error) {
+	pkts, err := l.Packets()
 	if err != nil {
 		return 0, err
 	}
-	return len(orders), nil
+	return len(pkts), nil
 }
 
-// AppendStatus records a work-order's status transition as a NEW append-only line
-// keyed by id — never mutating the order, so the log stays a pure append-only
-// substrate and an order's current status replays as its last status line.
+// AppendStatus records a packet's status transition as a NEW append-only line
+// keyed by id — never mutating the packet, so the log stays a pure append-only
+// substrate and a packet's current status replays as its last status line.
 func (l *Log) AppendStatus(id int, status string) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	if _, err := PublishStatus(context.Background(), l.f, l.session, l.instance, StatusRecord{Kind: kindWOStatus, ID: id, Status: status}); err != nil {
+	if _, err := PublishStatus(context.Background(), l.f, l.session, l.instance, StatusRecord{Kind: kindPacketStatus, ID: id, Status: status}); err != nil {
 		return fmt.Errorf("ledger: append status: %w", err)
 	}
 	return nil
 }
 
-// AppendWorkOrderVerdict records the oracle's verdict for one run of a work-order
-// as a NEW append-only line keyed by id — never mutating the order or its status,
-// so the log stays a pure append-only substrate and an order's current verdict
+// AppendPacketVerdict records the oracle's verdict for one run of a packet
+// as a NEW append-only line keyed by id — never mutating the packet or its status,
+// so the log stays a pure append-only substrate and a packet's current verdict
 // replays as its last verdict line. Diagnostic only: it mints no balance and is not
 // a confirmed catch.
-func (l *Log) AppendWorkOrderVerdict(id int, verdict string) error {
+func (l *Log) AppendPacketVerdict(id int, verdict string) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	if _, err := PublishWorkOrderVerdict(context.Background(), l.f, l.session, l.instance, WorkOrderVerdictRecord{Kind: kindWOVerdict, ID: id, Verdict: verdict}); err != nil {
-		return fmt.Errorf("ledger: append work-order verdict: %w", err)
+	if _, err := PublishPacketVerdict(context.Background(), l.f, l.session, l.instance, PacketVerdictRecord{Kind: kindPacketVerdict, ID: id, Verdict: verdict}); err != nil {
+		return fmt.Errorf("ledger: append packet verdict: %w", err)
 	}
 	return nil
 }
 
-// DispatchStatusCounts is the work-order tally split by CURRENT status — the
-// watchable shape the Lead sees move queued→running→done. Each order starts at
+// SendStatusCounts is the packet tally split by CURRENT status — the
+// watchable shape the Lead sees move queued→running→done. Each packet starts at
 // its funded Status ("queued") and advances to the last status line appended for
-// its id (last-writer-wins per id), so every order is counted in exactly one
+// its id (last-writer-wins per id), so every packet is counted in exactly one
 // bucket. A pure projection of the persisted log.
-func (l *Log) DispatchStatusCounts() (DispatchCounts, error) {
+func (l *Log) SendStatusCounts() (SendCounts, error) {
 	p, err := l.project()
 	if err != nil {
-		return DispatchCounts{}, err
+		return SendCounts{}, err
 	}
-	return p.DispatchStatusCounts(), nil
+	return p.SendStatusCounts(), nil
 }
 
-// QueuedWorkOrders returns the funded orders whose CURRENT status is queued, in
+// QueuedPackets returns the funded packets whose CURRENT status is queued, in
 // funding (id) order — the runner's input: the work waiting to be executed.
-func (l *Log) QueuedWorkOrders() ([]WorkOrderRecord, error) {
+func (l *Log) QueuedPackets() ([]PacketRecord, error) {
 	p, err := l.project()
 	if err != nil {
 		return nil, err
 	}
-	return p.QueuedWorkOrders(), nil
+	return p.QueuedPackets(), nil
 }
 
 // Close releases the Log. A Log bound with Bind does not own the fabric, so its

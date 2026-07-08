@@ -55,7 +55,7 @@ func renderConsole(c *LiveCard, navKey string, packets []packet.Packet, addr pac
 
 // heldPackets filters to packets a human must look at (Hold != HoldNone),
 // blocking packets first — the most attention-worthy lead the queue. A stable
-// sort keeps each hold kind's own relative (dispatch-recency) order intact.
+// sort keeps each hold kind's own relative (send-recency) order intact.
 func heldPackets(packets []packet.Packet) []packet.Packet {
 	var held []packet.Packet
 	for _, p := range packets {
@@ -175,7 +175,7 @@ func renderNeedsYouCard(navKey string, p packet.Packet) h.H {
 }
 
 // renderHeroStat is the center column's header strip: the count of packets
-// whose State is Verified (done, the order's own catch minted, no open
+// whose State is Verified (done, the packet's own catch minted, no open
 // questions) — distinct from Delivered, which the settled rail names
 // separately once a real ACK exists. Beside it, the interrupt KPI names the
 // session's REAL weekly interrupt count against the locked cap
@@ -195,7 +195,7 @@ func renderHeroStat(navKey string, verifiedCount int, addr packet.Addr) h.H {
 // renderInFlightStrip is the center column's "in flight · N" strip: one
 // pulsing --signal cell per InFlight packet (with a first-words preview of its
 // intent) and one ghost-outline cell per Composing packet — the mark's
-// composing idiom reused for a queued order. Returns nil (omitted entirely)
+// composing idiom reused for a queued packet. Returns nil (omitted entirely)
 // when nothing is in flight or composing, rather than an empty header.
 func renderInFlightStrip(packets []packet.Packet) h.H {
 	var inFlight, composing []packet.Packet
@@ -240,7 +240,7 @@ var laneHealthBuckets = []packet.Lane{
 // renderLaneHealthGrid is the center column's "lane health" section:
 // one kicker+count card per lane bucket, tallied ONLY from lanes
 // ALREADY in the session's lane cache (liveEntry.cachedLane — a pure map
-// read). An order never opened in the Inspector has no cached lane yet and
+// read). A packet never opened in the Inspector has no cached lane yet and
 // counts as unmeasured; this NEVER computes a lane itself, since it renders
 // on every "/" poll tick and the exec-based Measure must stay off that path.
 func renderLaneHealthGrid(navKey string, packets []packet.Packet) h.H {

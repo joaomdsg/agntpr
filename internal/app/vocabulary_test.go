@@ -61,8 +61,8 @@ func vocabularySweepFixture(t *testing.T, log *ledger.Log) {
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
 	fund := func(name, path string, line int) int {
 		require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "cover-" + name + ".go", Line: 1, ReasonTag: "catch"}))
-		require.NoError(t, log.AppendDispatch(name, ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Prompt: name, Path: path, Line: line}, own))
-		rows, err := log.RecentDispatches(0)
+		require.NoError(t, log.AppendSend(name, ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Prompt: name, Path: path, Line: line}, own))
+		rows, err := log.RecentSends(0)
 		require.NoError(t, err)
 		require.NotEmpty(t, rows)
 		return rows[0].ID
@@ -75,7 +75,7 @@ func vocabularySweepFixture(t *testing.T, log *ledger.Log) {
 
 	verified := fund("verified", "verified.go", 3)
 	require.NoError(t, log.AppendStatus(verified, "done"))
-	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "verified.go", Line: 3, ReasonTag: "catch", Producer: "wo:" + strconv.Itoa(verified)}))
+	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "verified.go", Line: 3, ReasonTag: "catch", Source: "wo:" + strconv.Itoa(verified)}))
 
 	missed := fund("missed", "missed.go", 4)
 	require.NoError(t, log.AppendStatus(missed, "done")) // done, no matching catch → held advisory
@@ -85,7 +85,7 @@ func vocabularySweepFixture(t *testing.T, log *ledger.Log) {
 
 	delivered := fund("delivered", "delivered.go", 6)
 	require.NoError(t, log.AppendStatus(delivered, "done"))
-	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "delivered.go", Line: 6, ReasonTag: "catch", Producer: "wo:" + strconv.Itoa(delivered)}))
+	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "delivered.go", Line: 6, ReasonTag: "catch", Source: "wo:" + strconv.Itoa(delivered)}))
 	require.NoError(t, log.AppendStatus(delivered, "deployed"))
 }
 
@@ -114,7 +114,7 @@ func TestSurfaces_perPacketInspectorNeverRendersRetiredVocabulary(t *testing.T) 
 	log := addFundedSession(t, "vocabsweeporder", app.LiveConfig{BaseRev: "own-b-vocabsweeporder", FixRev: "own-f", Anchor: anchorForCap()})
 	vocabularySweepFixture(t, log)
 
-	rows, err := log.RecentDispatches(0)
+	rows, err := log.RecentSends(0)
 	require.NoError(t, err)
 	require.NotEmpty(t, rows)
 	for _, r := range rows {

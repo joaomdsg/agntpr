@@ -70,7 +70,7 @@ func HandshakePath(repoDir string) string {
 // empty is dishonest, not a contract) or a name that isn't
 // safeHandshakeName (never re-slugged). Re-authoring the same name
 // overwrites the prior content, since strengthening a handshake before
-// dispatch is a normal authoring step, not a distinct operation.
+// sending is a normal authoring step, not a distinct operation.
 func WriteHandshake(repoDir, name, content string, strength HandshakeStrength) (Handshake, error) {
 	if content == "" {
 		return Handshake{}, fmt.Errorf("packet: refusing to write an empty handshake %q", name)

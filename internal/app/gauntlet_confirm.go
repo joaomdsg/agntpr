@@ -9,7 +9,7 @@ import (
 // ConfirmIntentFidelity is G1's real human action (one of the gauntlet's six
 // gates — the human residual, an Inspector affordance, never a computed
 // gate): it marks
-// the order named by the ConfirmWO signal as intent-fidelity-confirmed,
+// the packet named by the ConfirmWO signal as intent-fidelity-confirmed,
 // naming the session key as the confirming identity (there is no other
 // authenticated "you" yet — no fabricated identity). A blank, zero, or
 // non-numeric ConfirmWO, or an unknown session, is a calm no-op, mirroring

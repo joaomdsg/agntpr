@@ -99,7 +99,7 @@ func present(verdict string) (state, headline, detail string) {
 // "Anchor lost: file renamed" instead of the raw "lost_via_rename" token. An unknown or
 // empty token (which present maps to the "in-flight" running default) is returned
 // unchanged: forward-compatible with a future verdict kind, and never the misleading
-// "Oracle running…" for a token the board persisted as a done order's verdict.
+// "Oracle running…" for a token the board persisted as a done packet's verdict.
 func VerdictLabel(verdict string) string {
 	state, headline, _ := present(verdict)
 	if state == "in-flight" {

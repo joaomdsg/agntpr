@@ -39,7 +39,7 @@ func targetOf(base, fix, tip string) ledger.Target {
 }
 
 // A claim whose revision the host cannot resolve (a bogus/never-committed SHA, or
-// a producer's commit that never reached the host) is a PERMANENT failure: no
+// a peer's commit that never reached the host) is a PERMANENT failure: no
 // retry can succeed. Materialize must surface it as ErrUnresolvableRevision so the
 // caller can durably reject the claim instead of looping on it forever — distinct
 // from a transient clone/IO failure.

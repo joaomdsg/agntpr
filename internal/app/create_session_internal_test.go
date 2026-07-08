@@ -129,7 +129,7 @@ func TestBoardCard_dottyButRealFolderNameResolvesUnderTheRoot(t *testing.T) {
 // anchored catch flow to earn from — so create seeds starting attention bandwidth,
 // and the card renders the place-order control right away (no chicken-and-egg).
 // NOT parallel (shared globals).
-func TestBoardCard_createdSessionCanPlaceAPromptOrderImmediately(t *testing.T) {
+func TestBoardCard_createdSessionCanPlaceAPromptPacketImmediately(t *testing.T) {
 	resetConsumersForTest()
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server

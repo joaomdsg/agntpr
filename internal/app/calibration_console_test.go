@@ -36,7 +36,7 @@ func TestLiveCard_needsYouRailOmitsTheDryAsideWhenPacketsAreHeld(t *testing.T) {
 
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 100, ReasonTag: "catch"}))
-	require.NoError(t, log.AppendDispatch("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
+	require.NoError(t, log.AppendSend("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
 	require.NoError(t, log.AppendStatus(1, "failed"))
 
 	body := bodyOf(vt.NewClient(t, server, "/?key=dryasideheld").HTML())
@@ -53,9 +53,9 @@ func TestLiveCard_calibrationCardShowsADrawnVerifiedPacketWithASkimLink(t *testi
 
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 100, ReasonTag: "catch"}))
-	require.NoError(t, log.AppendDispatch("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Prompt: "skim me packet", Path: "alpha.go", Line: 7}, own))
+	require.NoError(t, log.AppendSend("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Prompt: "skim me packet", Path: "alpha.go", Line: 7}, own))
 	require.NoError(t, log.AppendStatus(1, "done"))
-	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "alpha.go", Line: 7, ReasonTag: "catch", Producer: "wo:1"}))
+	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "alpha.go", Line: 7, ReasonTag: "catch", Source: "wo:1"}))
 
 	body := bodyOf(vt.NewClient(t, server, "/?key=calibdrawn").HTML())
 	require.Contains(t, body, "calibration", "the calibration kicker still names the region")
@@ -75,13 +75,13 @@ func TestLiveCard_calibrationCardStaysStableAcrossRepeatedRenders(t *testing.T) 
 
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 100, ReasonTag: "catch"}))
-	require.NoError(t, log.AppendDispatch("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
+	require.NoError(t, log.AppendSend("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
 	require.NoError(t, log.AppendStatus(1, "done"))
-	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "alpha.go", Line: 7, ReasonTag: "catch", Producer: "wo:1"}))
+	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "alpha.go", Line: 7, ReasonTag: "catch", Source: "wo:1"}))
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 101, ReasonTag: "catch"}))
-	require.NoError(t, log.AppendDispatch("d2", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "beta.go", Line: 9}, own))
+	require.NoError(t, log.AppendSend("d2", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "beta.go", Line: 9}, own))
 	require.NoError(t, log.AppendStatus(2, "done"))
-	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "beta.go", Line: 9, ReasonTag: "catch", Producer: "wo:2"}))
+	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "beta.go", Line: 9, ReasonTag: "catch", Source: "wo:2"}))
 
 	first := bodyOf(vt.NewClient(t, server, "/?key=calibstable").HTML())
 	firstHref := extractCalibrationHref(t, first)
@@ -102,13 +102,13 @@ func TestLiveCard_calibrationCardCoexistsWithAHeldNeedsYouCard(t *testing.T) {
 
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 100, ReasonTag: "catch"}))
-	require.NoError(t, log.AppendDispatch("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
+	require.NoError(t, log.AppendSend("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
 	require.NoError(t, log.AppendStatus(1, "failed")) // held, blocking
 
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 101, ReasonTag: "catch"}))
-	require.NoError(t, log.AppendDispatch("d2", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "beta.go", Line: 9}, own))
+	require.NoError(t, log.AppendSend("d2", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "beta.go", Line: 9}, own))
 	require.NoError(t, log.AppendStatus(2, "done"))
-	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "beta.go", Line: 9, ReasonTag: "catch", Producer: "wo:2"})) // verified
+	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "beta.go", Line: 9, ReasonTag: "catch", Source: "wo:2"})) // verified
 
 	body := bodyOf(vt.NewClient(t, server, "/?key=calibcoexist").HTML())
 	require.Contains(t, body, "run failed", "the held card's own hold reason still renders")

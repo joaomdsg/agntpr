@@ -13,15 +13,15 @@ import (
 )
 
 // benchCap bounds how many fundable targets the bench shows — the Lead curates the
-// next few, not an unbounded list (mirrors RecentDispatches' recency cap).
+// next few, not an unbounded list (mirrors RecentSends' recency cap).
 const benchCap = 5
 
 // renderBench shows the session's fundable work — "the bench" — as a calm list of
 // the next targets a Spend can fund (path:line), the FIFO-next marked, so the Lead
-// sees what's on deck while compute runs (the dead-air-killer) instead of dispatch
+// sees what's on deck while compute runs (the dead-air-killer) instead of sending
 // being a blind auto-pick. Each item is a FUND-THIS button: clicking it sets the
 // card's FundTarget to that item's key (on.SetSignal) and fires FundChosen, so the
-// Lead dispatches the CHOSEN target — a real curation decision. Returns nil when
+// Lead sends the CHOSEN target — a real curation decision. Returns nil when
 // there is no fundable work, so the caller omits it. Capped at benchCap.
 func renderBench(c *LiveCard, targets []ledger.Target, annos map[ledger.Target]benchAnno) h.H {
 	if len(targets) == 0 {
@@ -161,7 +161,7 @@ func (c *LiveCard) SplitChosen(ctx *via.Ctx) {
 	if len(subs) == 0 {
 		return // nothing to split into: a no-op
 	}
-	if err := log.AppendRefine(ledger.RefinedOrderRecord{Target: tgt, Refine: "split", Splits: subs}); err != nil {
+	if err := log.AppendRefine(ledger.RefinedPacketRecord{Target: tgt, Refine: "split", Splits: subs}); err != nil {
 		return
 	}
 	if refs, err := log.Refinements(); err == nil {
@@ -174,22 +174,22 @@ func (c *LiveCard) SplitChosen(ctx *via.Ctx) {
 // non-blank line; "convention" carries the trimmed note. A split is built elsewhere
 // (it needs harvested sub-targets, not free text), and an unknown kind or empty
 // content is refused so the bench is never polluted with a contentless refinement.
-func buildRefinement(tgt ledger.Target, kind, text string) (ledger.RefinedOrderRecord, bool) {
+func buildRefinement(tgt ledger.Target, kind, text string) (ledger.RefinedPacketRecord, bool) {
 	switch kind {
 	case "criteria":
 		lines := nonEmptyLines(text)
 		if len(lines) == 0 {
-			return ledger.RefinedOrderRecord{}, false
+			return ledger.RefinedPacketRecord{}, false
 		}
-		return ledger.RefinedOrderRecord{Target: tgt, Refine: "criteria", Criteria: lines}, true
+		return ledger.RefinedPacketRecord{Target: tgt, Refine: "criteria", Criteria: lines}, true
 	case "convention":
 		note := strings.TrimSpace(text)
 		if note == "" {
-			return ledger.RefinedOrderRecord{}, false
+			return ledger.RefinedPacketRecord{}, false
 		}
-		return ledger.RefinedOrderRecord{Target: tgt, Refine: "convention", Note: note}, true
+		return ledger.RefinedPacketRecord{Target: tgt, Refine: "convention", Note: note}, true
 	default:
-		return ledger.RefinedOrderRecord{}, false
+		return ledger.RefinedPacketRecord{}, false
 	}
 }
 

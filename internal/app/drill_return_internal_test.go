@@ -91,7 +91,7 @@ func TestDrillReturnCrumb_sitsInsideANavigationLandmark(t *testing.T) {
 // move between the two without dead-ending. Each exposes a link to the other so
 // review navigation is symmetric. NOT parallel (shared liveReg + the resolveCycle
 // seam).
-func TestReviewCard_perOrderAndSessionReviewLinkToEachOther(t *testing.T) {
+func TestReviewCard_perPacketAndSessionReviewLinkToEachOther(t *testing.T) {
 	resetConsumersForTest()
 	restore := resolveCycle
 	t.Cleanup(func() { resolveCycle = restore })
@@ -113,9 +113,9 @@ func TestReviewCard_perOrderAndSessionReviewLinkToEachOther(t *testing.T) {
 	log := ledger.Bind(f, "sym", "i")
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 1, ReasonTag: "catch"}))
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
-	require.NoError(t, log.AppendDispatch("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
+	require.NoError(t, log.AppendSend("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
 	registerSession("sym", LiveConfig{RepoDir: ".", BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
-	drainQueuedOrders("sym")
+	drainQueuedPackets("sym")
 
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
 	var server *httptest.Server

@@ -26,7 +26,7 @@ func TestLiveCard_distinctSessionKeysHaveIsolatedBalances(t *testing.T) {
 	restore := resolveCycle
 	t.Cleanup(func() { resolveCycle = restore })
 	resolveCycle = func(_ context.Context, _, base, _, _ string, _ reanchor.Anchor, _ []string, _, _ bool, _ chan<- pipe.TraceEvent) (Resolution, error) {
-		if base == woDispatchTarget().BaseRev {
+		if base == sendTarget().BaseRev {
 			return Resolution{}, nil // the dispatched run mints nothing here, so the spend's drain stays observable
 		}
 		return Resolution{Verdict: string(catch.Catch), Record: &ledger.CatchRecord{Outcome: catch.Catch, ReasonTag: "catch"}}, nil
@@ -45,8 +45,8 @@ func TestLiveCard_distinctSessionKeysHaveIsolatedBalances(t *testing.T) {
 
 	logA := ledger.Bind(liveFabric, "ssnA", LedgerInstance)
 	logB := ledger.Bind(liveFabric, "ssnB", LedgerInstance)
-	registerSession("ssnA", LiveConfig{RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(), TestCmd: []string{"true"}, DispatchBacklog: []ledger.Target{woDispatchTarget()}}, logA)
-	registerSession("ssnB", LiveConfig{RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(), TestCmd: []string{"true"}, DispatchBacklog: []ledger.Target{woDispatchTarget()}}, logB)
+	registerSession("ssnA", LiveConfig{RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(), TestCmd: []string{"true"}, SendBacklog: []ledger.Target{sendTarget()}}, logA)
+	registerSession("ssnB", LiveConfig{RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(), TestCmd: []string{"true"}, SendBacklog: []ledger.Target{sendTarget()}}, logB)
 
 	ca := vt.NewClient(t, server, "/?key=ssnA")
 	fa, cancelA := ca.SSE()

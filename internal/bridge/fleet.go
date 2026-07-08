@@ -14,8 +14,8 @@ import (
 // stream-derivable economy fields tagged with the session key. It omits the
 // in-process-only BacklogRemaining, and carries no hit-rate string: a renderer
 // derives that from caught/done. caught is the exact first-pass-hit count (done
-// orders whose own run minted a wo:<id> catch — ledger.ScoutingReport); misses is
-// the rest of the done orders (done − caught), mirroring BoardRows.
+// packets whose own run minted a wo:<id> catch — ledger.ScoutingReport); misses is
+// the rest of the done packets (done − caught), mirroring BoardRows.
 type fleetRow struct {
 	Key        string `json:"key"`
 	Balance    int    `json:"balance"`
@@ -26,7 +26,7 @@ type fleetRow struct {
 	Done       int    `json:"done"`
 	Caught     int    `json:"caught"`
 	Misses     int    `json:"misses"`
-	InFlight   int    `json:"in_flight"` // producers' pending bets — never folded into confirmed (two-scores)
+	InFlight   int    `json:"in_flight"` // peers' pending bets — never folded into confirmed (two-scores)
 	Rejected   int    `json:"rejected"`  // verified-losses: bets the host verified and found no catch
 }
 
@@ -34,10 +34,10 @@ func encodeFleetFrame(fleet map[string]ledger.FleetView) []byte {
 	rows := make([]fleetRow, 0, len(fleet))
 	for key, v := range fleet {
 		stock := ledger.ConfirmedCatches(v.Records())
-		counts := v.DispatchStatusCounts()
-		// First-pass hits: the EXACT count of done orders whose own run minted a catch
-		// (ScoutingReport gates a hit on the SAME order being done, so a catch on a
-		// still-running order can't be misattributed). Caught ≤ Done by construction,
+		counts := v.SendStatusCounts()
+		// First-pass hits: the EXACT count of done packets whose own run minted a catch
+		// (ScoutingReport gates a hit on the SAME packet being done, so a catch on a
+		// still-running packet can't be misattributed). Caught ≤ Done by construction,
 		// so misses = done − caught needs no clamp — mirrors BoardRows.
 		sr := v.ScoutingReport()
 		rows = append(rows, fleetRow{
@@ -102,7 +102,7 @@ func FleetHandler(f *fabric.Fabric) http.HandlerFunc {
 // WatchFleet emits a fresh per-session board (ledger.FleetBoard) on every
 // committed event across all sessions — history first (a late subscriber sees
 // current state), then live. It wakes on the WHOLE event taxonomy
-// (FleetEventsSubject: minted ∪ claim ∪ scratch), not only mints, so a producer's
+// (FleetEventsSubject: minted ∪ claim ∪ scratch), not only mints, so a peer's
 // claim submission or the host's rejection verdict drives a live frame carrying
 // the updated claim lifecycle (in-flight bets, verified-losses) — the board is
 // never frozen until the next mint.

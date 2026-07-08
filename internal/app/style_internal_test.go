@@ -9,7 +9,7 @@ import (
 // DRY: .review-answer__submit reuses .pk-btn (which already owns the hairline
 // border). The submit rule must NOT re-declare a full `border:` shorthand — it only
 // reinforces the accent via `border-color`, letting .pk-btn own the border width/style.
-func TestReviewSubmit_doesNotRedeclareTheFullBorderShorthand(t *testing.T) {
+func TestReviewSubmit_doesNotRedeclareTheFullBPacketShorthand(t *testing.T) {
 	require.Contains(t, packetsStyle, "border-color: var(--signal)",
 		".review-answer__submit reinforces the accent via border-color, not a full border shorthand")
 	require.NotContains(t, packetsStyle, "border: 1px solid var(--signal)",

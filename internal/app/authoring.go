@@ -19,7 +19,7 @@ import (
 
 // draftAnalysis is the cached authoring-assist read of one draft: the exact text
 // analyzed (so the editor decorates against the same bytes the offsets index), the
-// producer's structured result, and a degrade reason when the run failed or its
+// assist's structured result, and a degrade reason when the run failed or its
 // output was unreadable (Result nil in that case).
 type draftAnalysis struct {
 	Draft  string
@@ -27,7 +27,7 @@ type draftAnalysis struct {
 	Reason string
 }
 
-// analyzeDraft is the seam the authoring assist runs through: it spawns a producer
+// analyzeDraft is the seam the authoring assist runs through: it spawns a assist
 // harness on the analysis prompt and returns its RAW stdout for ParseAnalysis.
 // Default shells claude (process I/O — verified by build + manual run, not
 // unit-tested, like RunProcess); tests swap it for a scripted reply.
@@ -43,14 +43,14 @@ func analysisArgs(prompt, resumeID string) []string {
 	if resumeID != "" {
 		// Resume the session's WARM explored harness, forking a branch — so the read
 		// reuses the repo context the warm-up built, without colliding with concurrent
-		// reads or an order fill on the one base id.
+		// reads or a packet fill on the one base id.
 		args = append(args, "--resume", resumeID, "--fork-session")
 	}
 	return args
 }
 
 // runAnalysisProcess runs claude headless on prompt in repoDir and returns its
-// stdout text. Unlike the order harness (which reduces a stream into settled
+// stdout text. Unlike the packet harness (which reduces a stream into settled
 // revisions), the authoring assist wants the agent's one-shot textual reply, so it
 // runs in plain text output and never settles anything — analyzing a draft must
 // touch neither the working tree nor the economy. resumeID, when set, resumes the
@@ -65,12 +65,12 @@ func runAnalysisProcess(ctx context.Context, repoDir, prompt, resumeID string) (
 	return string(out), nil
 }
 
-// AnalyzeDraft runs a producer over the draft the Lead is authoring (the OrderPrompt
+// AnalyzeDraft runs a assist over the draft the Lead is authoring (the Draft
 // the compose textarea binds) and caches its structured read — the summary,
 // readiness verdict, flagged spans, and clarifying questions — so the card renders
-// it. An empty draft is a silent no-op (nothing to analyze, no producer spawned). A
+// it. An empty draft is a silent no-op (nothing to analyze, no assist spawned). A
 // failed run or unreadable output degrades to a calm "analysis unavailable" cache,
-// never a broken card — the Lead can still place the order. FIREWALL: it writes only
+// never a broken card — the Lead can still place the packet. FIREWALL: it writes only
 // the off-economy analysis cache, never the ledger — analyzing mints nothing.
 func (c *LiveCard) AnalyzeDraft(ctx *via.Ctx) {
 	cfg, log := readLiveState(c.Key)
@@ -81,12 +81,12 @@ func (c *LiveCard) AnalyzeDraft(ctx *via.Ctx) {
 	if e == nil {
 		return
 	}
-	draft := strings.TrimSpace(c.OrderPrompt.Read(ctx))
+	draft := strings.TrimSpace(c.Draft.Read(ctx))
 	if draft == "" {
 		return // nothing to analyze
 	}
 	// The assist auto-triggers on caret movement (past a blank line), which fires even
-	// when the text is unchanged — re-running the producer on a draft already
+	// when the text is unchanged — re-running the assist on a draft already
 	// successfully analyzed can only reproduce the cached read, so it is a no-op. A
 	// prior FAILED read (Result nil) is NOT skipped, so a transient failure can retry.
 	if prev := e.analysisSnapshot(); prev != nil && prev.Result != nil && prev.Draft == draft {
@@ -101,7 +101,7 @@ func (c *LiveCard) AnalyzeDraft(ctx *via.Ctx) {
 	// A --resume run can fail because the warm harness session is missing or no longer
 	// resumable (a stale/half-established id) — that strands authoring even though a
 	// fresh read would work. Retry COLD (no resume) once before degrading, so a broken
-	// warm context falls back to a working analysis instead of "producer run failed".
+	// warm context falls back to a working analysis instead of "assist run failed".
 	if err != nil && resumeID != "" && runCtx.Err() == nil {
 		stdlog.Printf("authoring: resume analysis failed (%v) — retrying cold", err)
 		raw, err = analyzeDraft(runCtx, cfg.RepoDir, prompt, "")
@@ -111,13 +111,13 @@ func (c *LiveCard) AnalyzeDraft(ctx *via.Ctx) {
 	}
 	if err != nil {
 		stdlog.Printf("authoring: analysis run failed: %v", err)
-		e.setAnalysis(&draftAnalysis{Draft: draft, Reason: "the producer run failed — try again"})
+		e.setAnalysis(&draftAnalysis{Draft: draft, Reason: "the assist run failed — try again"})
 		c.Analysis.Write(ctx, "err")
 		return
 	}
 	a, err := assist.ParseAnalysis(raw, draft)
 	if err != nil {
-		e.setAnalysis(&draftAnalysis{Draft: draft, Reason: "the producer's output was unreadable — try again"})
+		e.setAnalysis(&draftAnalysis{Draft: draft, Reason: "the assist's output was unreadable — try again"})
 		c.Analysis.Write(ctx, "err")
 		return
 	}
@@ -129,7 +129,7 @@ func (c *LiveCard) AnalyzeDraft(ctx *via.Ctx) {
 }
 
 // UpdateDraft folds the Lead's answers to the clarifying questions back into the
-// draft: it runs a producer over the current draft + the answers (the rewrite seam,
+// draft: it runs a assist over the current draft + the answers (the rewrite seam,
 // the same haiku/warm read AnalyzeDraft uses) and swaps the editor to the rewritten
 // text. An empty draft or empty/malformed answer set is a silent no-op (nothing to
 // fold in). A failed or empty rewrite degrades calmly — the draft and the questions
@@ -146,7 +146,7 @@ func (c *LiveCard) UpdateDraft(ctx *via.Ctx) {
 	if e == nil {
 		return
 	}
-	draft := strings.TrimSpace(c.OrderPrompt.Read(ctx))
+	draft := strings.TrimSpace(c.Draft.Read(ctx))
 	if draft == "" {
 		return // nothing to rewrite
 	}
@@ -202,12 +202,12 @@ func parseHandshakeStrength(s string) (packet.HandshakeStrength, bool) {
 // AuthorHandshake writes the handshake the Lead composed in the
 // compose card's handshake control to the protected handshake/ directory —
 // internal/settle's deny-rule then refuses any LATER agent turn that touches it,
-// so the contract is authored independently of, and before, the live order's own
+// so the contract is authored independently of, and before, the live packet's own
 // code. A blank draft or an unrecognized/blank strength pick is a silent no-op —
-// nothing is written, and there is nothing dishonest to fall back to (PlaceOrder
+// nothing is written, and there is nothing dishonest to fall back to (Send
 // simply keeps refusing until one is authored). On success the resulting
 // packet.Handshake (path/hash/self-declared strength) is cached on the session so
-// PlaceOrder can fold it into the next dispatched order's Target. FIREWALL: like
+// Send can fold it into the next sent packet's Target. FIREWALL: like
 // AnalyzeDraft, it never touches the ledger — authoring a handshake mints nothing.
 func (c *LiveCard) AuthorHandshake(ctx *via.Ctx) {
 	cfg, log := readLiveState(c.Key)
@@ -234,8 +234,8 @@ func (c *LiveCard) AuthorHandshake(ctx *via.Ctx) {
 }
 
 // renderAuthoring is the authoring-assist surface: an editable Monaco editor as the
-// single draft source, with the producer's structured read (summary + clarifying
-// questions) beneath it. The producer's flagged spans are decorated INLINE in the
+// single draft source, with the assist's structured read (summary + clarifying
+// questions) beneath it. The assist's flagged spans are decorated INLINE in the
 // editor itself (not a separate mirror), and the readiness verdict reflects beside
 // place. da is the latest cached analysis (nil before the first run).
 func renderAuthoring(c *LiveCard) h.H {
@@ -264,8 +264,8 @@ func renderAuthoring(c *LiveCard) h.H {
 // a plain textarea + a self-declared strength pick, bound directly (data-bind,
 // no CustomEvent bridge — unlike the Monaco draft editor, this is a small plain
 // form) and posted to AuthorHandshake. authored reflects whether the session
-// currently has one cached (PlaceOrder consumes it on a successful placement,
-// so this reverts to "none" after each dispatch). message is PlaceOrder's
+// currently has one cached (Send consumes it on a successful placement,
+// so this reverts to "none" after each send). message is Send's
 // honest inline refusal ("" when there is none to show).
 func renderHandshakeAuthoring(c *LiveCard, authored bool, message string) h.H {
 	state, statusText := "none", "no handshake authored yet"
@@ -297,7 +297,7 @@ func renderHandshakeAuthoring(c *LiveCard, authored bool, message string) h.H {
 // (.compose__live, data-ignore-morph) holds the editor + buttons + indicator so its
 // DOM, the Lead's text, and the JS listeners survive every SSE re-render; the editor
 // is the single draft source. The buttons dispatch CustomEvents the wrapper's
-// data-on bridge lifts into $orderprompt before @posting the action (the maplibre /
+// data-on bridge lifts into $draft before @posting the action (the maplibre /
 // answer-form pattern that works without data-bind and survives morphs). The
 // re-rendering bits (readiness, the highlights payload the editor decorates from) sit
 // OUTSIDE the shield so a fresh analysis updates them in place.
@@ -305,14 +305,14 @@ func composeSurface(da *draftAnalysis, rewrite string) h.H {
 	live := h.Div(
 		h.Class("compose__live"),
 		h.DataIgnoreMorph(),
-		h.Attr("aria-label", "author a live order"),
+		h.Attr("aria-label", "author a live packet"),
 		// The bridge: each button's CustomEvent carries the editor's value, which the
-		// handler assigns to $orderprompt INLINE (so the signal is present at post time)
-		// then @posts the action AnalyzeDraft/PlaceOrder reads. The update bridge also
+		// handler assigns to $draft INLINE (so the signal is present at post time)
+		// then @posts the action AnalyzeDraft/Send reads. The update bridge also
 		// carries the gathered answers into $draftanswers for UpdateDraft.
-		h.Data("on:viaanalyze", "$orderprompt=evt.detail.draft;@post('/_action/AnalyzeDraft')"),
-		h.Data("on:viaplace", "$orderprompt=evt.detail.draft;@post('/_action/PlaceOrder')"),
-		h.Data("on:viaupdatedraft", "$orderprompt=evt.detail.draft;$draftanswers=evt.detail.answers;@post('/_action/UpdateDraft')"),
+		h.Data("on:viaanalyze", "$draft=evt.detail.draft;@post('/_action/AnalyzeDraft')"),
+		h.Data("on:viaplace", "$draft=evt.detail.draft;@post('/_action/Send')"),
+		h.Data("on:viaupdatedraft", "$draft=evt.detail.draft;$draftanswers=evt.detail.answers;@post('/_action/UpdateDraft')"),
 		h.Div(h.ID("authoring-editor"), h.Class("compose__editor")),
 		h.Button(h.Type("button"), h.Class("pk-btn pk-btn--quiet compose__analyze"), h.Text("Analyze intent")),
 		h.Button(h.Type("button"), h.Class("pk-btn compose__place"), h.Text("Compose packet")),
@@ -321,13 +321,13 @@ func composeSurface(da *draftAnalysis, rewrite string) h.H {
 		h.Script(h.Raw(authoringEditorJS)),
 	)
 	parts := []h.H{h.Class("compose"), live}
-	// Once the producer has read the draft, reflect its readiness beside place — a
+	// Once the assist has read the draft, reflect its readiness beside place — a
 	// guide, never a gate (placing stays allowed at any readiness). Outside the shield
 	// so a fresh verdict re-renders in place.
 	if da != nil && da.Result != nil {
-		state, note := "caution", "The producer flagged open questions — placing will run the draft as-is."
+		state, note := "caution", "The assist flagged open questions — placing will run the draft as-is."
 		if da.Result.Ready {
-			state, note = "ready", "The producer judged this ready to run unattended."
+			state, note = "ready", "The assist judged this ready to run unattended."
 		}
 		parts = append(parts, h.Span(h.Class("compose__readiness"), h.Data("state", state), h.Text(note)))
 	}
@@ -342,7 +342,7 @@ func composeSurface(da *draftAnalysis, rewrite string) h.H {
 		Highlights []assist.Highlight `json:"highlights"`
 	}{Highlights: hl})
 	parts = append(parts, h.Script(h.Type("application/json"), h.ID("authoring-analysis-data"), h.Raw(string(payload))))
-	// The rewrite payload the editor swaps to: UpdateDraft stashes the producer's
+	// The rewrite payload the editor swaps to: UpdateDraft stashes the assist's
 	// rewritten draft, and the editor's MutationObserver calls setValue when this
 	// payload changes to a non-empty draft (json.Marshal escapes <,>,& so it is safe
 	// inside the <script>). Empty before any update — the observer ignores empty.
@@ -361,7 +361,7 @@ func composeSurface(da *draftAnalysis, rewrite string) h.H {
 	return h.Div(parts...)
 }
 
-// renderAnalysisPanel renders the producer's structured read beneath the editor: a
+// renderAnalysisPanel renders the assist's structured read beneath the editor: a
 // calm unavailable note when the run failed, otherwise the summary + the clarifying
 // questions to answer before re-analyzing. The flagged spans are decorated in the
 // editor itself; the readiness reflects beside place — so this panel is the prose,
@@ -388,9 +388,9 @@ func renderAnalysisPanel(da *draftAnalysis) h.H {
 		h.Attr("aria-label", "draft analysis"),
 		h.Span(h.Class("analysis__summary"), h.Text(a.Summary)),
 	}
-	// The producer's flagged spans, surfaced as readable cards (not only as inline
+	// The assist's flagged spans, surfaced as readable cards (not only as inline
 	// editor decorations) — the built composer's harness-pair panel, from real
-	// producer output.
+	// assist output.
 	if flags := renderHighlightCards(da.Draft, a.Highlights); len(flags) > 0 {
 		parts = append(parts, h.Span(h.Class("analysis__flags-label"), h.Text("Flagged in the draft:")))
 		parts = append(parts, flags...)
@@ -406,7 +406,7 @@ func renderAnalysisPanel(da *draftAnalysis) h.H {
 			// One Update-draft control at the END (not per question): the Lead answers
 			// all the questions, then this single button gathers the picks + notes and the
 			// current draft into the viaupdatedraft bridge (see authoringEditorJS) so the
-			// producer rewrites the draft incorporating them. It is a plain button (no
+			// assist rewrites the draft incorporating them. It is a plain button (no
 			// data-bind) — the delegated click handler fires it — so it survives morphs.
 			h.Button(h.Type("button"), h.Class("pk-btn analysis__update"), h.Text("Update intent")),
 		)
@@ -428,11 +428,11 @@ func lineOfOffset(draft string, offset int) int {
 	return 1 + strings.Count(draft[:offset], "\n")
 }
 
-// renderHighlightCards renders the producer's flagged spans as cards: each
+// renderHighlightCards renders the assist's flagged spans as cards: each
 // carries the flag's note, its line location (computed from the real draft +
 // offset), and — when present — its severity as a tag. A flag with no readable
 // note (empty or whitespace-only) is skipped rather than shown as a blank card —
-// never a decorative flag with nothing to say. Real producer output only; no
+// never a decorative flag with nothing to say. Real assist output only; no
 // fabricated flag, no invented line.
 func renderHighlightCards(draft string, hs []assist.Highlight) []h.H {
 	var out []h.H

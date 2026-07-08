@@ -13,7 +13,7 @@ import (
 // THE TWO-SCORES INVARIANT: a pending claim is a gray BET in flight, never a
 // confirmed catch. It must count toward ClaimsInFlight and NEVER toward Balance,
 // and on minting it MOVES from one to the other — never double-counted. Getting
-// this wrong would show a producer's unverified bet as a real score.
+// this wrong would show a peer's unverified bet as a real score.
 func TestClaimsInFlight_pendingIsABetNeverCountedAsAConfirmedCatch(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -55,7 +55,7 @@ func TestClaimsInFlight_countsEachDistinctUnmintedTarget(t *testing.T) {
 	require.Equal(t, 2, inflight, "two distinct unminted targets are two bets in flight")
 }
 
-// A producer replaying the SAME target is one unit of work, not two — the
+// A peer replaying the SAME target is one unit of work, not two — the
 // in-flight count must dedupe by target identity, not by raw claim events.
 func TestClaimsInFlight_dedupesReplayedTargets(t *testing.T) {
 	t.Parallel()

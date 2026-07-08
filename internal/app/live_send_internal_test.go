@@ -21,16 +21,16 @@ import (
 // orderRecordFor returns the dispatched work-order with the given id (zero value
 // when absent), so a test can assert on the funded order's target/prompt.
 // duplicated for the external test package (used by the tests that moved there).
-func orderRecordFor(t *testing.T, log *ledger.Log, id int) ledger.DispatchView {
+func orderRecordFor(t *testing.T, log *ledger.Log, id int) ledger.SendView {
 	t.Helper()
-	views, err := log.RecentDispatches(0)
+	views, err := log.RecentSends(0)
 	require.NoError(t, err)
 	for _, v := range views {
 		if v.ID == id {
 			return v
 		}
 	}
-	return ledger.DispatchView{}
+	return ledger.SendView{}
 }
 
 // A Lead must be able to AUTHOR a live order from the card — type a task prompt and
@@ -39,10 +39,10 @@ func orderRecordFor(t *testing.T, log *ledger.Log, id int) ledger.DispatchView {
 // prompt-carrying target so the live harness runs the authored task.
 // A handshake must be authored FIRST — placing without one is refused
 // (proven separately). NOT parallel (shared liveReg/liveFabric).
-func TestLiveCard_placeOrderFundsAndDispatchesTheAuthoredPrompt(t *testing.T) {
+func TestLiveCard_sendFundsAndSendsTheAuthoredPrompt(t *testing.T) {
 	resetConsumersForTest()
-	repo := initGitRepoForOrder(t)
-	head := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	head := gitPacket(t, repo, "rev-parse", "HEAD")
 
 	// Stub the harness so the placed order's background drain neither spawns claude
 	// nor errors — this test's subject is the AUTHORING + dispatch, not the run.
@@ -79,8 +79,8 @@ func TestLiveCard_placeOrderFundsAndDispatchesTheAuthoredPrompt(t *testing.T) {
 		WithSignal("handshakestrengthpick", "examples").
 		Fire(), "a handshake must be authored before a live order can be placed")
 
-	require.Equal(t, 200, tc.Action((&LiveCard{Key: "author"}).PlaceOrder).
-		WithSignal("orderprompt", "add a feature.go file").Fire(),
+	require.Equal(t, 200, tc.Action((&LiveCard{Key: "author"}).Send).
+		WithSignal("draft", "add a feature.go file").Fire(),
 		"authoring a live order is a calm, valid action")
 
 	got := orderRecordFor(t, log, 1)
@@ -95,10 +95,10 @@ func TestLiveCard_placeOrderFundsAndDispatchesTheAuthoredPrompt(t *testing.T) {
 
 // Once a handshake exists, placing succeeds and the refusal message from an
 // earlier attempt clears. NOT parallel (shared liveReg/liveFabric).
-func TestLiveCard_placeOrderSucceedsOnceAHandshakeExists(t *testing.T) {
+func TestLiveCard_sendSucceedsOnceAHandshakeExists(t *testing.T) {
 	resetConsumersForTest()
-	repo := initGitRepoForOrder(t)
-	head := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	head := gitPacket(t, repo, "rev-parse", "HEAD")
 
 	restoreHarness := runHarness
 	t.Cleanup(func() { runHarness = restoreHarness })
@@ -127,8 +127,8 @@ func TestLiveCard_placeOrderSucceedsOnceAHandshakeExists(t *testing.T) {
 	t.Cleanup(func() { _ = defLog.Close() })
 
 	tc := vt.NewClient(t, server, "/?key=authorretry")
-	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authorretry"}).PlaceOrder).
-		WithSignal("orderprompt", "add a feature.go file").Fire(), "the first attempt is refused")
+	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authorretry"}).Send).
+		WithSignal("draft", "add a feature.go file").Fire(), "the first attempt is refused")
 	require.Empty(t, orderRecordFor(t, log, 1).Target.Prompt)
 
 	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authorretry"}).AuthorHandshake).
@@ -136,23 +136,23 @@ func TestLiveCard_placeOrderSucceedsOnceAHandshakeExists(t *testing.T) {
 		WithSignal("handshakestrengthpick", "properties").
 		Fire())
 
-	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authorretry"}).PlaceOrder).
-		WithSignal("orderprompt", "add a feature.go file").Fire(), "the retry succeeds now that a handshake exists")
+	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authorretry"}).Send).
+		WithSignal("draft", "add a feature.go file").Fire(), "the retry succeeds now that a handshake exists")
 
 	got := orderRecordFor(t, log, 1)
 	assert.Equal(t, "add a feature.go file", got.Target.Prompt)
 
 	body := bodyOf(vt.NewClient(t, server, "/?key=authorretry").HTML())
-	assert.NotContains(t, body, "author a handshake before dispatching", "a successful placement clears the earlier refusal message")
+	assert.NotContains(t, body, "author a handshake before sending", "a successful placement clears the earlier refusal message")
 }
 
 // A handshake is CONSUMED by the order it's placed for — a second live order
 // must author its own, never silently reuse a prior one. NOT parallel
 // (shared liveReg/liveFabric).
-func TestLiveCard_placeOrderConsumesTheHandshakeSoASecondOrderMustAuthorItsOwn(t *testing.T) {
+func TestLiveCard_sendConsumesTheHandshakeSoASecondPacketMustAuthorItsOwn(t *testing.T) {
 	resetConsumersForTest()
-	repo := initGitRepoForOrder(t)
-	head := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	head := gitPacket(t, repo, "rev-parse", "HEAD")
 
 	restoreHarness := runHarness
 	t.Cleanup(func() { runHarness = restoreHarness })
@@ -185,12 +185,12 @@ func TestLiveCard_placeOrderConsumesTheHandshakeSoASecondOrderMustAuthorItsOwn(t
 		WithSignal("handshakedraft", "package handshake\n\nfunc TestSpec(t *testing.T) {}\n").
 		WithSignal("handshakestrengthpick", "examples").
 		Fire())
-	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authorconsume"}).PlaceOrder).
-		WithSignal("orderprompt", "first order").Fire(), "the first order consumes the authored handshake")
+	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authorconsume"}).Send).
+		WithSignal("draft", "first order").Fire(), "the first order consumes the authored handshake")
 	require.NotEmpty(t, orderRecordFor(t, log, 1).Target.Prompt)
 
-	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authorconsume"}).PlaceOrder).
-		WithSignal("orderprompt", "second order").Fire(), "a refusal is still a calm 200")
+	require.Equal(t, 200, tc.Action((&LiveCard{Key: "authorconsume"}).Send).
+		WithSignal("draft", "second order").Fire(), "a refusal is still a calm 200")
 
 	assert.Empty(t, orderRecordFor(t, log, 2).Target.Prompt, "the second order has no handshake of its own — it must be refused, not silently reuse the first's")
 }

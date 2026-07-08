@@ -26,10 +26,10 @@ import (
 // Lead needs the accruing TRANSCRIPT — every beat, in order. As the harness streams,
 // the session's activity transcript must accumulate each formatted beat (not just
 // replace the latest). NOT parallel (shared globals).
-func TestRunLiveOrder_accumulatesTheActivityTranscriptAsTheHarnessStreams(t *testing.T) {
+func TestRunLivePacket_accumulatesTheActivityTranscriptAsTheHarnessStreams(t *testing.T) {
 	resetConsumersForTest()
-	repo := initGitRepoForOrder(t)
-	base := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	base := gitPacket(t, repo, "rev-parse", "HEAD")
 
 	restoreHarness := runHarness
 	t.Cleanup(func() { runHarness = restoreHarness })
@@ -44,9 +44,9 @@ func TestRunLiveOrder_accumulatesTheActivityTranscriptAsTheHarnessStreams(t *tes
 			"the transcript accumulates each streamed beat in order")
 
 		require.NoError(t, os.WriteFile(filepath.Join(repoDir, "auth.go"), []byte("package main\n"), 0o644))
-		gitOrder(t, repoDir, "add", "-A")
-		gitOrder(t, repoDir, "commit", "-qm", "live fix")
-		sha := gitOrder(t, repoDir, "rev-parse", "HEAD")
+		gitPacket(t, repoDir, "add", "-A")
+		gitPacket(t, repoDir, "commit", "-qm", "live fix")
+		sha := gitPacket(t, repoDir, "rev-parse", "HEAD")
 		return []harness.Turn{{Outcome: orchestrator.TurnOutcome{Minted: true, SHA: sha}}}, nil
 	}
 
@@ -64,10 +64,10 @@ func TestRunLiveOrder_accumulatesTheActivityTranscriptAsTheHarnessStreams(t *tes
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "seed.go", Line: 1, ReasonTag: "catch"}))
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
 	live := ledger.Target{BaseRev: base, Path: "target.go", Line: 42, Prompt: "fix the bug"}
-	require.NoError(t, log.AppendDispatch("d1", live, own))
+	require.NoError(t, log.AppendSend("d1", live, own))
 	registerSession("transcript", LiveConfig{RepoDir: repo, BaseRev: base, Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 
-	drainQueuedOrders("transcript")
+	drainQueuedPackets("transcript")
 }
 
 // endFill clears the transcript with the rest of the live-fill buffer when the
@@ -94,7 +94,7 @@ func TestLiveEntry_endFillClearsTheActivityTranscript(t *testing.T) {
 // While an order is in flight the card must render the scrolling activity
 // transcript — every beat so far, in order — so the Lead watches the run unfold.
 // NOT parallel (shared liveReg/liveFabric).
-func TestLiveCard_rendersTheScrollingActivityTranscriptForAnInFlightOrder(t *testing.T) {
+func TestLiveCard_rendersTheScrollingActivityTranscriptForAnInFlightPacket(t *testing.T) {
 	resetConsumersForTest()
 	ctx := context.Background()
 	f, err := fabric.Start(ctx, t.TempDir())

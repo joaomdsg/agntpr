@@ -17,8 +17,8 @@ import (
 // handshake/ directory — the one place internal/settle's deny-rule then
 // refuses any later agent turn from touching. NOT parallel (shared globals).
 func TestLiveCard_authorHandshakeWritesToTheProtectedDirectoryAndCachesIt(t *testing.T) {
-	repo := initGitRepoForOrder(t)
-	head := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	head := gitPacket(t, repo, "rev-parse", "HEAD")
 
 	server, _ := bootDefaultServer(t, defaultBootCfg)
 	log := addFundedSession(t, "authorhs", app.LiveConfig{RepoDir: repo, BaseRev: head, Anchor: anchorForCap(), TestCmd: []string{"true"}})
@@ -33,7 +33,7 @@ func TestLiveCard_authorHandshakeWritesToTheProtectedDirectoryAndCachesIt(t *tes
 	got, err := os.ReadFile(filepath.Join(repo, "handshake", "spec_test.go"))
 	require.NoError(t, err)
 	// AuthorHandshake trims the draft like every other compose signal (AnalyzeDraft
-	// does the same to OrderPrompt) — leading/trailing whitespace is authoring
+	// does the same to Draft) — leading/trailing whitespace is authoring
 	// hygiene, not content.
 	assert.Equal(t, "package handshake\n\nfunc TestSpec(t *testing.T) {}", string(got))
 
@@ -44,8 +44,8 @@ func TestLiveCard_authorHandshakeWritesToTheProtectedDirectoryAndCachesIt(t *tes
 // A blank draft is nothing to author — a silent no-op, never an empty
 // handshake file. NOT parallel (shared globals).
 func TestLiveCard_authorHandshakeIsANoOpOnAnEmptyDraft(t *testing.T) {
-	repo := initGitRepoForOrder(t)
-	head := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	head := gitPacket(t, repo, "rev-parse", "HEAD")
 
 	server, _ := bootDefaultServer(t, defaultBootCfg)
 	_ = addFundedSession(t, "authorhsempty", app.LiveConfig{RepoDir: repo, BaseRev: head, Anchor: anchorForCap(), TestCmd: []string{"true"}})
@@ -63,8 +63,8 @@ func TestLiveCard_authorHandshakeIsANoOpOnAnEmptyDraft(t *testing.T) {
 // pick is a silent no-op, not a guess at what the Lead meant. NOT parallel
 // (shared globals).
 func TestLiveCard_authorHandshakeIsANoOpWithoutADeclaredStrength(t *testing.T) {
-	repo := initGitRepoForOrder(t)
-	head := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	head := gitPacket(t, repo, "rev-parse", "HEAD")
 
 	server, _ := bootDefaultServer(t, defaultBootCfg)
 	_ = addFundedSession(t, "authorhsnostrength", app.LiveConfig{RepoDir: repo, BaseRev: head, Anchor: anchorForCap(), TestCmd: []string{"true"}})

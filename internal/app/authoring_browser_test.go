@@ -3,7 +3,7 @@
 // This test drives a REAL headless Chrome (Chrome for Testing) against the live
 // server to verify the one thing unit tests can't: that the editable Monaco editor
 // mounts, typing into it fires the debounced re-analysis through the datastar
-// bridge, the server runs the (stubbed) producer, and the analysis renders back —
+// bridge, the server runs the (stubbed) assist, and the analysis renders back —
 // the full author→analyze loop in a browser. It is build-tagged `browser` so it
 // never runs in normal CI; it needs a Chrome binary and the Monaco assets on disk:
 //
@@ -54,12 +54,12 @@ func TestAuthoringBrowser_editorMountsTypingDrivesAnalysisRendersBack(t *testing
 		t.Skip("set CFT_CHROME and MONACO_VS to run the browser test")
 	}
 
-	// A stubbed producer: the browser test's subject is the editor + bridge + render
+	// A stubbed assist: the browser test's subject is the editor + bridge + render
 	// round-trip, not a live claude run. The summary is the marker we assert renders.
 	restore := analyzeDraft
 	t.Cleanup(func() { analyzeDraft = restore })
 	analyzeDraft = func(_ context.Context, _, _, _ string) (string, error) {
-		return `{"summary":"PRODUCER-SAW-THE-DRAFT","ready":false,` +
+		return `{"summary":"ASSIST-SAW-THE-DRAFT","ready":false,` +
 			`"highlights":[{"start":0,"end":6,"note":"flagged span","severity":"question"}],` +
 			`"questions":["What is the retry budget?"]}`, nil
 	}
@@ -138,7 +138,7 @@ func TestAuthoringBrowser_editorMountsTypingDrivesAnalysisRendersBack(t *testing
 		_ = os.WriteFile("/tmp/authoring-browser.png", png, 0o644)
 	}
 
-	require.Contains(t, summary, "PRODUCER-SAW-THE-DRAFT",
-		"typing into the Monaco editor drove the debounced analysis through the bridge and the producer's read rendered back")
-	require.Greater(t, flagCount, 0, "the producer's flagged span decorated the editor inline")
+	require.Contains(t, summary, "ASSIST-SAW-THE-DRAFT",
+		"typing into the Monaco editor drove the debounced analysis through the bridge and the assist's read rendered back")
+	require.Greater(t, flagCount, 0, "the assist's flagged span decorated the editor inline")
 }

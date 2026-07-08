@@ -44,12 +44,12 @@ const answerTestFilename = "packets_review_answer_test.go"
 // scored transaction.
 type ReviewCard struct {
 	Key string `query:"key"`
-	// WO, when set (/review?wo=<id>), drills into a filled work-order's review: that
-	// order's own surviving mutants (the test-debt the funded work left), not the
-	// session's connect-cycle findings — the dispatch→review tie.
+	// WO, when set (/review?wo=<id>), drills into a filled packet's review: that
+	// packet's own surviving mutants (the test-debt the funded work left), not the
+	// session's connect-cycle findings — the send→review tie.
 	WO string `query:"wo"`
 	// File, when set (/review?wo=<id>&file=<path>), is the changed-file-tree leaf the
-	// Lead clicked — the file the diff editor shows. Empty = the order's anchored path.
+	// Lead clicked — the file the diff editor shows. Empty = the packet's anchored path.
 	// Pure navigation (a GET param), not a signal: the diff island is morph-shielded,
 	// so only a fresh navigation re-points it.
 	File string `query:"file"`
@@ -57,8 +57,8 @@ type ReviewCard struct {
 	AnswerFile via.SignalStr `via:"answerfile"`
 	AnswerLine via.SignalStr `via:"answerline"`
 	AnswerTest via.SignalStr `via:"answertest"`
-	// AnswerWO scopes an answer to a work-order (>0): the re-run uses the ORDER's revs
-	// and updates the order's findings, not the session's. 0/unset = session answer.
+	// AnswerWO scopes an answer to a packet (>0): the re-run uses the PACKET's revs
+	// and updates the packet's findings, not the session's. 0/unset = session answer.
 	AnswerWO via.SignalStr `via:"answerwo"`
 	// AdjFile/AdjLine/AdjText carry an anchored REVIEW ADJUSTMENT: the file and line a
 	// comment targets and the comment text, set by the adjustment form. Read by
@@ -72,7 +72,7 @@ type ReviewCard struct {
 	// AddAdjustment records it as the annotation's EndLine so a range anchors as
 	// the span it covers.
 	AdjEndLine via.SignalStr `via:"adjendline"`
-	// ConfirmWO carries the order id ConfirmIntentFidelity confirms (G1's
+	// ConfirmWO carries the packet id ConfirmIntentFidelity confirms (G1's
 	// human residual) — set inline by the confirm button's datastar expr.
 	ConfirmWO via.SignalStr `via:"confirmwo"`
 	// ReplyParent/ReplyText carry a reply to an existing annotation: the id of the
@@ -83,8 +83,8 @@ type ReviewCard struct {
 	ReplyText   via.SignalStr `via:"replytext"`
 }
 
-// orderOpenThreads converts a filled work-order's cached findings into review
-// threads. Empty when the order is unknown, unfilled, or left no surviving mutants.
+// orderOpenThreads converts a filled packet's cached findings into review
+// threads. Empty when the packet is unknown, unfilled, or left no surviving mutants.
 func orderOpenThreads(key string, orderID int) []review.Thread {
 	e := lookupLiveEntry(key)
 	if e == nil {
@@ -94,7 +94,7 @@ func orderOpenThreads(key string, orderID int) []review.Thread {
 }
 
 // packetForOrder finds a session's own folded Packet for orderID, ok=false
-// when the order is unknown or the session has no ledger to fold.
+// when the packet is unknown or the session has no ledger to fold.
 func packetForOrder(key string, orderID int) (packet.Packet, bool) {
 	for _, p := range sessionPackets(key, 0) {
 		if p.ID == orderID {
@@ -104,15 +104,15 @@ func packetForOrder(key string, orderID int) (packet.Packet, bool) {
 	return packet.Packet{}, false
 }
 
-// orderTarget finds a funded work-order's Target (its base/fix revs + anchored path)
-// by ID from the session's dispatches — the revs whose diff IS the edits. Folds ALL
-// dispatches (mirroring packetForOrder's sessionPackets(key, 0)) so a session's oldest
-// packet stays inspectable no matter how many later orders it has dispatched since.
+// orderTarget finds a funded packet's Target (its base/fix revs + anchored path)
+// by ID from the session's sends — the revs whose diff IS the edits. Folds ALL
+// sends (mirroring packetForOrder's sessionPackets(key, 0)) so a session's oldest
+// packet stays inspectable no matter how many later packets it has sent since.
 func orderTarget(log *ledger.Log, orderID int) (ledger.Target, bool) {
 	if log == nil {
 		return ledger.Target{}, false
 	}
-	views, err := log.RecentDispatches(0)
+	views, err := log.RecentSends(0)
 	if err != nil {
 		return ledger.Target{}, false
 	}
@@ -124,9 +124,9 @@ func orderTarget(log *ledger.Log, orderID int) (ledger.Target, bool) {
 	return ledger.Target{}, false
 }
 
-// resolveSelectedFile decides which file the order's diff editor opens on: an
-// explicit ?file= pick (a clicked tree leaf) wins; else the order's anchored path;
-// else — for an anchorless live/prompt order — the FIRST changed file in the
+// resolveSelectedFile decides which file the packet's diff editor opens on: an
+// explicit ?file= pick (a clicked tree leaf) wins; else the packet's anchored path;
+// else — for an anchorless live/prompt packet — the FIRST changed file in the
 // base→fix diff, so the diff pane is never a blank box when there are edits to
 // inspect; else "" (no anchor and nothing changed → an honest empty selection).
 func resolveSelectedFile(cfg LiveConfig, tgt ledger.Target, requested string) string {
@@ -143,9 +143,9 @@ func resolveSelectedFile(cfg LiveConfig, tgt ledger.Target, requested string) st
 	return ""
 }
 
-// orderDiffIsland renders a Monaco DIFF editor of the order's base→fix edits on the
+// orderDiffIsland renders a Monaco DIFF editor of the packet's base→fix edits on the
 // SELECTED file — the leaf the Lead clicked in the changed-file tree, defaulting to
-// the order's anchored path when nothing is selected. The diff DATA (base + fix
+// the packet's anchored path when nothing is selected. The diff DATA (base + fix
 // source) is the server contract; the editor's rendering is the client island
 // (browser-verified). Source unreadable at a rev degrades to an empty side rather
 // than breaking the surface.
@@ -161,7 +161,7 @@ func orderDiffIsland(cfg LiveConfig, tgt ledger.Target, selected string) h.H {
 		Fix  string `json:"fix"`
 	}{Path: selected, Base: base, Fix: fix})
 	return h.Div(
-		h.Class("order-diff-island"),
+		h.Class("packet-diff-island"),
 		h.DataIgnoreMorph(),
 		// Selecting line(s) in the diff dispatches a viaannotate CustomEvent whose
 		// detail fills the adjustment anchor signals — so the rail's "leave an
@@ -169,22 +169,22 @@ func orderDiffIsland(cfg LiveConfig, tgt ledger.Target, selected string) h.H {
 		// range) instead of the Lead typing file:line by hand. The mirror of the
 		// answer editor's viaanswer bridge.
 		h.Data("on:viaannotate", "$adjfile=evt.detail.file;$adjline=evt.detail.start;$adjendline=evt.detail.end"),
-		h.Script(h.Type("application/json"), h.ID("order-diff-data"), h.Raw(string(payload))),
-		h.Div(h.ID("order-diff-editor"), h.Class("order-diff-editor")),
+		h.Script(h.Type("application/json"), h.ID("packet-diff-data"), h.Raw(string(payload))),
+		h.Div(h.ID("packet-diff-editor"), h.Class("packet-diff-editor")),
 		h.Script(h.Src(monacoLoaderURL)),
 		h.Script(h.Raw(orderDiffBootstrapJS)),
 	)
 }
 
 // orderDiffBootstrapJS mounts a read-only Monaco diff editor over the base/fix
-// payload — the edits the order made, side by side. Defensive (guards + try/catch);
+// payload — the edits the packet made, side by side. Defensive (guards + try/catch);
 // require is loaded by this island's loader.
 const orderDiffBootstrapJS = `(function(){
   if (typeof require === 'undefined') return;
   require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@` + monacoVersion + `/min/vs' } });
   require(['vs/editor/editor.main'], function(){
-    var el = document.getElementById('order-diff-editor');
-    var dataEl = document.getElementById('order-diff-data');
+    var el = document.getElementById('packet-diff-editor');
+    var dataEl = document.getElementById('packet-diff-data');
     if (!el || !dataEl || el.dataset.mounted) return;
     el.dataset.mounted = '1';
     var d;
@@ -198,7 +198,7 @@ const orderDiffBootstrapJS = `(function(){
     // whose data-on handler fills $adjfile/$adjline/$adjendline. A zero-length
     // selection sends end==start; the server collapses that to a single line.
     try {
-      var wrap = el.closest('.order-diff-island');
+      var wrap = el.closest('.packet-diff-island');
       var mEd = de.getModifiedEditor();
       mEd.onDidChangeCursorSelection(function(ev){
         if (!wrap) return;
@@ -242,9 +242,9 @@ func (c *ReviewCard) AnswerQuestion(ctx *via.Ctx) {
 	defer e.endAnswer()
 	cfg, log := readLiveState(key)
 
-	// Order-scoped answer (/review?wo=<id>): re-run against the ORDER's fix revision
-	// (the work it did), and update that order's findings cache — not the session's.
-	// The order cache isn't re-populated by a connect cycle, so a kill sticks without
+	// Packet-scoped answer (/review?wo=<id>): re-run against the PACKET's fix revision
+	// (the work it did), and update that packet's findings cache — not the session's.
+	// The packet cache isn't re-populated by a connect cycle, so a kill sticks without
 	// a resolved-set.
 	if woID, err := strconv.Atoi(c.AnswerWO.Read(ctx)); err == nil && woID > 0 {
 		tgt, ok := orderTarget(log, woID)
@@ -254,7 +254,7 @@ func (c *ReviewCard) AnswerQuestion(ctx *via.Ctx) {
 		overlay := map[string]string{filepath.Join(filepath.Dir(file), answerTestFilename): test}
 		newFindings, rerr := rerunWithOverlay(context.Background(), cfg.RepoDir, tgt.FixRev, file, line, cfg.TestCmd, overlay)
 		if rerr != nil {
-			return // transient — leave the order's question open (flaky-truth fence)
+			return // transient — leave the packet's question open (flaky-truth fence)
 		}
 		e.setOrderFindings(woID, newFindings) // off-ledger; a kill empties → question vanishes
 		return
@@ -293,7 +293,7 @@ func findingsHaveLine(fs []mutation.Finding, file string, line int) bool {
 // View renders the Inspector shell: the identity strip, the
 // 3-column grid (changed-files tree | Monaco island + answer form | annotation
 // rail), and a timeline footer. The session's open question-threads (or a
-// funded work-order's own) render as annotation cards on the rail; a calm
+// funded packet's own) render as annotation cards on the rail; a calm
 // empty state fills it when the oracle left none.
 func (c *ReviewCard) View(_ *via.CtxR) h.H {
 	navKey := c.Key
@@ -303,24 +303,24 @@ func (c *ReviewCard) View(_ *via.CtxR) h.H {
 	cfg, log := readLiveState(navKey)
 	parts := []h.H{h.Class("review"), h.Data("state", "review"), navHeader(navKey, "inspect")}
 	// A back-affordance so the review drill-in isn't a dead end: a link to the
-	// originating session card (Flow C). The per-order branch ALSO adds an up-link to
-	// the session review, making per-order↔session nav symmetric.
+	// originating session card (Flow C). The per-packet branch ALSO adds an up-link to
+	// the session review, making per-packet↔session nav symmetric.
 	parts = append(parts, h.Nav(h.Attr("aria-label", "return"),
 		h.P(h.Class("review__return"), cardReturnCrumb(navKey))))
 
-	// Per-order review (/review?wo=<id>): the filled work-order's OWN review questions
-	// — the test-debt the funded work left — read from the per-order findings cache,
-	// not the session's connect cycle. Read-only here; order-scoped answering is a
+	// Per-packet review (/review?wo=<id>): the filled packet's OWN review questions
+	// — the test-debt the funded work left — read from the per-packet findings cache,
+	// not the session's connect cycle. Read-only here; packet-scoped answering is a
 	// later slice. (The editable answer flow below is session-scoped.)
 	if woID, err := strconv.Atoi(c.WO); err == nil && woID > 0 {
-		// The per-order review's UP-link to the session review (drop the wo scope), so a
-		// funded order's test-debt isn't a dead end — the symmetric leg of Flow C.
+		// The per-packet review's UP-link to the session review (drop the wo scope), so a
+		// funded packet's test-debt isn't a dead end — the symmetric leg of Flow C.
 		parts = append(parts, h.Nav(h.Attr("aria-label", "review nav"),
 			h.P(h.Class("review__up"), reviewSessionCrumb(navKey))))
 
-		// "See the edits this order made": the order's base→fix diff, in a Monaco diff
-		// editor. The diff is STATIC and pre-funded (the fix revision the order ran) —
-		// honest framing, never a faked "live agent typing". An order whose target can't
+		// "See the edits this packet made": the packet's base→fix diff, in a Monaco diff
+		// editor. The diff is STATIC and pre-funded (the fix revision the packet ran) —
+		// honest framing, never a faked "live agent typing". A packet whose target can't
 		// be resolved (unfilled/unknown id) has no revs to show — the identity strip's
 		// rev chip and the tree/diff regions all degrade to their honest empties.
 		tgt, hasTarget := orderTarget(log, woID)
@@ -336,7 +336,7 @@ func (c *ReviewCard) View(_ *via.CtxR) h.H {
 				gauntlet = e.gauntletFor(context.Background(), pkt)
 			}
 		}
-		parts = append(parts, renderInspectorTitlebar("wo#"+strconv.Itoa(woID), tgt.BaseRev, tgt.FixRev, sessionAddr(navKey), pktName, lane))
+		parts = append(parts, renderInspectorTitlebar("pkt#"+strconv.Itoa(woID), tgt.BaseRev, tgt.FixRev, sessionAddr(navKey), pktName, lane))
 
 		// The open threads drive both the annotation rail (below) and the per-file
 		// badges in the tree, so fetch them once here and tally by file.
@@ -363,24 +363,24 @@ func (c *ReviewCard) View(_ *via.CtxR) h.H {
 		left := renderInspectorEmptyTree()
 		var main []h.H
 		if hasTarget {
-			// The full fix tree with the order's changes highlighted; the clicked leaf
+			// The full fix tree with the packet's changes highlighted; the clicked leaf
 			// (or, by default, the anchor — or the first changed file for an anchorless
-			// order) is what the diff editor shows.
+			// packet) is what the diff editor shows.
 			selected := resolveSelectedFile(cfg, tgt, c.File)
 			left = h.Div(
 				h.P(h.Class("review__lead"),
-					h.Text("Changed files — WO#"+strconv.Itoa(woID)+" (pick one to inspect):")),
+					h.Text("Changed files — PKT#"+strconv.Itoa(woID)+" (pick one to inspect):")),
 				renderFileTree(cfg, tgt, woID, selected, annCounts),
 			)
 			main = append(main,
 				h.P(h.Class("review__lead"),
-					h.Text("The edits WO#"+strconv.Itoa(woID)+" made — "+selected+":")),
+					h.Text("The edits PKT#"+strconv.Itoa(woID)+" made — "+selected+":")),
 				orderDiffIsland(cfg, tgt, selected),
 			)
 		}
 
 		parts = append(parts, h.P(h.Class("review__lead"),
-			h.Text("Inspecting WO#"+strconv.Itoa(woID)+" — the packet's surviving mutants:")))
+			h.Text("Inspecting PKT#"+strconv.Itoa(woID)+" — the packet's surviving mutants:")))
 
 		rail := []h.H{annotationRailHeader(len(orderThreads) + len(annThreads))}
 		if len(orderThreads) == 0 && len(annThreads) == 0 {
@@ -389,8 +389,8 @@ func (c *ReviewCard) View(_ *via.CtxR) h.H {
 		} else {
 			if len(orderThreads) > 0 {
 				rail = append(rail, renderAnnotationCards(orderThreads)...)
-				// Answer the order's questions in-place: the editable pane, scoped to THIS
-				// order ($answerwo) so the re-run uses the order's revs, not the session's.
+				// Answer the packet's questions in-place: the editable pane, scoped to THIS
+				// packet ($answerwo) so the re-run uses the packet's revs, not the session's.
 				main = append(main, renderAnswerForm(orderThreads[0], woID))
 			}
 			// Durable human annotations + replies render beneath the oracle findings.
@@ -441,7 +441,7 @@ func (c *ReviewCard) View(_ *via.CtxR) h.H {
 	} else {
 		rail = append(rail, renderAnnotationCards(threads)...)
 	}
-	// The adjustment entry point, present on every review view (see the per-order
+	// The adjustment entry point, present on every review view (see the per-packet
 	// branch above for the full rationale).
 	rail = append(rail, renderAdjustmentForm(c))
 
@@ -449,14 +449,14 @@ func (c *ReviewCard) View(_ *via.CtxR) h.H {
 	// The session-scoped review has no single packet to gauntlet — the honest
 	// zero-value Gauntlet (every gate NotRun), same pattern as the lane chip
 	// just above staying LaneUnmeasured. orderID 0 also omits the confirm
-	// affordance: there is no order id to confirm against here.
+	// affordance: there is no packet id to confirm against here.
 	parts = append(parts, renderInspectorTimeline(navKey, 0, packet.Gauntlet{}))
 	return h.Div(parts...)
 }
 
 // renderAnswerForm renders the editable Monaco answer pane + submit, wired to
 // AnswerQuestion via the maplibre-style data-on bridge. woID>0 scopes the answer to
-// a work-order (the re-run uses the order's revs) by setting $answerwo inline; woID
+// a packet (the re-run uses the packet's revs) by setting $answerwo inline; woID
 // 0 is the session review.
 func renderAnswerForm(anchor review.Thread, woID int) h.H {
 	expr := "$answerfile=evt.detail.file;$answerline=evt.detail.line;$answertest=evt.detail.test;@post('/_action/AnswerQuestion')"

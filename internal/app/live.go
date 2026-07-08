@@ -51,27 +51,27 @@ type LiveConfig struct {
 	// full-suite executions — see internal/pipe and the #15 benchmark). Connects
 	// beyond the cap QUEUE on a slot, they are never dropped. 0 means unbounded.
 	MaxConcurrent int
-	// DispatchBacklog is the ordered supply of DISTINCT work a card's Spends draw
-	// down — the rev/anchor triple each funded order runs. A Spend consumes the next
+	// SendBacklog is the ordered supply of DISTINCT work a card's Spends draw
+	// down — the rev/anchor triple each funded packet runs. A Spend consumes the next
 	// not-yet-funded target head-first; an empty or fully-drawn-down backlog makes a
 	// Spend a silent no-op (the honest scarcity signal — no distinct work to buy).
-	DispatchBacklog []ledger.Target
-	// UseContainer, when true, runs this session's LIVE orders (Target.Prompt set) in
+	SendBacklog []ledger.Target
+	// UseContainer, when true, runs this session's LIVE packets (Target.Prompt set) in
 	// the hardened agent container (harness.RunContainer) instead of the host
 	// subprocess (harness.RunProcess). The firewall is unchanged — both produce a
 	// revision the host settles; only WHERE the agent runs differs.
 	UseContainer bool
 	// ListenAddr, when non-empty, binds the shared fabric to an AUTHENTICATED TCP
-	// NATS listener (host:port; port 0 picks a free port) so cross-process PRODUCERS
+	// NATS listener (host:port; port 0 picks a free port) so cross-process PEERS
 	// submit claims as authenticated clients, each confined by a Grant to its own
 	// session's claim subtree. Empty keeps the fabric in-process-only (the default —
 	// tests and single-process runs need no socket and no auth).
 	ListenAddr string
-	// Grants authorizes the cross-process producers allowed on ListenAddr. Each
+	// Grants authorizes the cross-process peers allowed on ListenAddr. Each
 	// grant's credentials may publish ONLY to its session's claim subtree and can
 	// never mint — the in-process host stays the single minter. Ignored when
-	// ListenAddr is empty. Build with NewProducerGrant.
-	Grants []fabric.ProducerGrant
+	// ListenAddr is empty. Build with NewGrant.
+	Grants []fabric.Grant
 	// ReposRoot is the parent directory under which board-created sessions resolve a
 	// picked repo. A browser directory picker yields only the folder NAME (never an
 	// absolute path), so CreateSession joins it under this root. Empty means a relative
@@ -81,7 +81,7 @@ type LiveConfig struct {
 }
 
 // hasRepo reports whether this config names a repo the session can work — enough to
-// be USABLE: the Lead authors prompt orders and the harness fills them against the
+// be USABLE: the Lead authors prompt packets and the harness fills them against the
 // repo. A session with a repo renders the working card (no anchor required); only a
 // repo-less config falls back to the "No session configured" landing.
 func (c LiveConfig) hasRepo() bool {
@@ -96,10 +96,10 @@ func (c LiveConfig) hasAnchor() bool {
 }
 
 // bundleAuthorized reports whether the request carries HTTP Basic credentials
-// matching a grant for session key (producer == session key). The password is
+// matching a grant for session key (peer == session key). The password is
 // compared in constant time so a prober cannot time-recover it; the user/session
 // equality checks are not secret and need no such guard.
-func bundleAuthorized(grants []fabric.ProducerGrant, key string, r *http.Request) bool {
+func bundleAuthorized(grants []fabric.Grant, key string, r *http.Request) bool {
 	user, pass, ok := r.BasicAuth()
 	if !ok {
 		return false
@@ -113,13 +113,13 @@ func bundleAuthorized(grants []fabric.ProducerGrant, key string, r *http.Request
 	return false
 }
 
-// NewProducerGrant builds a producer authorization for the live server: the
+// NewGrant builds a peer authorization for the live server: the
 // credentials may publish claims ONLY to sessionKey's claim subtree, bound to
 // the one instance every economy uses (LedgerInstance), and may never mint. It
 // is the sanctioned constructor so callers (e.g. cmd/packets) need not know the
 // internal instance token.
-func NewProducerGrant(sessionKey, user, pass string) fabric.ProducerGrant {
-	return fabric.ProducerGrant{User: user, Pass: pass, Session: sessionKey, Instance: LedgerInstance}
+func NewGrant(sessionKey, user, pass string) fabric.Grant {
+	return fabric.Grant{User: user, Pass: pass, Session: sessionKey, Instance: LedgerInstance}
 }
 
 // resolveCycle is the seam OnConnect runs the catch cycle through. It defaults to
@@ -127,13 +127,13 @@ func NewProducerGrant(sessionKey, user, pass string) fabric.ProducerGrant {
 // deterministically without spinning up real oracle work.
 var resolveCycle = ResolveStreaming
 
-// runHarness is the seam a LIVE work order runs its agent through. It defaults to
+// runHarness is the seam a LIVE packet runs its agent through. It defaults to
 // the real harness.RunProcess (spawns claude, reduces its stream-json into
 // settled revisions); tests swap it for a scripted stub so the live-fill routing
 // is exercised without a claude binary or API key.
 var runHarness = harness.RunProcess
 
-// runHarnessContainer is the seam a UseContainer live order runs its agent through
+// runHarnessContainer is the seam a UseContainer live packet runs its agent through
 // — the hardened agent container (harness.RunContainer), same signature as
 // runHarness. Tests swap it.
 var runHarnessContainer = harness.RunContainer
@@ -145,14 +145,14 @@ type liveEntry struct {
 	cfg LiveConfig
 	log *ledger.Log
 	sem chan struct{}
-	// useContainer is the session's RUNTIME runner mode: when true, live orders run in
+	// useContainer is the session's RUNTIME runner mode: when true, live packets run in
 	// the hardened agent container (runHarnessContainer) instead of the host
 	// subprocess. Initialized from cfg.UseContainer (the -container boot flag) and
 	// flipped by the ToggleRunner action, so the Lead can switch at runtime instead of
 	// only at boot. Guarded by fillMu (read on the fill path, written by the toggle).
 	useContainer bool
-	// runMu serializes the per-key order runner so two concurrent Spends can't both
-	// drain (and double-run) the same queued order. One drainer per session at a time.
+	// runMu serializes the per-key packet runner so two concurrent Spends can't both
+	// drain (and double-run) the same queued packet. One drainer per session at a time.
 	runMu sync.Mutex
 	// seq is the registration ordinal — a monotonic stamp assigned when the session
 	// is registered. The fleet board orders ties (equal queued counts) by it, since
@@ -199,13 +199,13 @@ type liveEntry struct {
 	// re-land leases its force against it (pushRefspec). Ephemeral, off-ledger; guarded by
 	// findingsMu. ""=never pushed.
 	lastPushedSHA string
-	// orderFindings holds a FILLED work-order's review questions (the cycle's
-	// surviving mutants) keyed by order ID — captured when runOneOrder fills the
-	// order, so a funded order's test-debt is reviewable (the dispatch→review tie).
-	// Ephemeral and OFF the economy ledger, like findings (the order's CATCH mints;
+	// orderFindings holds a FILLED packet's review questions (the cycle's
+	// surviving mutants) keyed by packet ID — captured when runOneOrder fills the
+	// packet, so a funded packet's test-debt is reviewable (the send→review tie).
+	// Ephemeral and OFF the economy ledger, like findings (the packet's CATCH mints;
 	// its questions are diagnostic). Guarded by findingsMu.
 	orderFindings map[int][]mutation.Finding
-	// analysis is the latest authoring-assist read of a draft order (the producer's
+	// analysis is the latest authoring-assist read of a draft packet (the source's
 	// summary/readiness/highlights/questions), cached so the card renders it after the
 	// AnalyzeDraft action. Ephemeral and OFF the economy ledger (a diagnostic, like
 	// findings — analyzing a draft mints nothing). Guarded by findingsMu.
@@ -215,25 +215,25 @@ type liveEntry struct {
 	// are abandoned (the slow model call killed), never left racing to overwrite the
 	// cache out of order. Guarded by findingsMu.
 	analysisCancel context.CancelFunc
-	// rewrite is the latest producer-rewritten draft (UpdateDraft folds the Lead's
+	// rewrite is the latest source-rewritten draft (UpdateDraft folds the Lead's
 	// answers into the draft and stashes the new text here), read by composeSurface
 	// into the editor's rewrite payload so Monaco swaps to it. Ephemeral, OFF the
 	// economy ledger (a diagnostic, like analysis). Guarded by findingsMu.
 	rewrite string
 	// pendingHandshake is the handshake AuthorHandshake wrote for
-	// the NEXT live order this session places — PlaceOrder folds its Path/Hash/
-	// Strength into the dispatched Target, then CONSUMES it (clears it back to nil),
-	// so a later order can never silently reuse an earlier one's contract. Ephemeral,
+	// the NEXT live packet this session places — Send folds its Path/Hash/
+	// Strength into the sent Target, then CONSUMES it (clears it back to nil),
+	// so a later packet can never silently reuse an earlier one's contract. Ephemeral,
 	// off the economy ledger (set at compose time, never by the agent). Guarded by
 	// findingsMu.
 	pendingHandshake *packet.Handshake
-	// composeMessage is the honest inline refusal PlaceOrder leaves for the Lead when
-	// it refuses to dispatch a live order (e.g. no handshake authored yet) —
+	// composeMessage is the honest inline refusal Send leaves for the Lead when
+	// it refuses to send a live packet (e.g. no handshake authored yet) —
 	// cleared on a successful placement. Ephemeral, off the economy ledger; guarded
 	// by findingsMu.
 	composeMessage string
 	// harnessSessionID is this packets-session's resumable claude session id — the one
-	// the warm-up explores under, REMEMBERED so every later analyze + order resumes it
+	// the warm-up explores under, REMEMBERED so every later analyze + packet resumes it
 	// (warm repo context). harnessWarm gates use: requests resume the id ONLY after the
 	// warm-up explore completes (before that they run cold, never resuming a session
 	// still being established). Both guarded by findingsMu; "" id = no warm harness.
@@ -256,7 +256,7 @@ type liveEntry struct {
 	fillingOrder int
 	fillBeats    []string
 	// activityBeat is the live agent's LATEST activity line (e.g. "editing auth.go")
-	// while a live order fills — a single updating beat, not a log. Bracketed to the
+	// while a live packet fills — a single updating beat, not a log. Bracketed to the
 	// fill lifecycle (reset in startFill, cleared in endFill) and guarded by fillMu.
 	activityBeat string
 	// activityLog is the accruing TRANSCRIPT of the agent's beats this fill, in stream
@@ -270,16 +270,16 @@ type liveEntry struct {
 	// the value is immutable once set.
 	addrOnce sync.Once
 	addr     packet.Addr
-	// laneMu guards laneCache: an order's measured Lane, computed via
-	// packet.Measure (an exec seam — `go list` + git) at most once per order
-	// id. A fixRev change mints a new order id (the identity
+	// laneMu guards laneCache: a packet's measured Lane, computed via
+	// packet.Measure (an exec seam — `go list` + git) at most once per packet
+	// id. A fixRev change mints a new packet id (the identity
 	// model), so there is no staleness to invalidate at this stage. Separate from
 	// findingsMu since it guards an unrelated, exec-derived cache with a much
 	// higher per-entry cost — a lock a render might hold across a subprocess
 	// call must never also block the cheap off-ledger diagnostic reads above.
 	laneMu    sync.Mutex
 	laneCache map[int]packet.Lane
-	// gauntletMu guards gauntletCache: an order's computed Gauntlet record,
+	// gauntletMu guards gauntletCache: a packet's computed Gauntlet record,
 	// mirroring laneMu/laneCache's exec-derived-cache
 	// rationale exactly — G4 (packet.RunBuildVetGate) execs git+go, so this
 	// cache must stay off findingsMu (a render must never hold a lock across
@@ -288,11 +288,11 @@ type liveEntry struct {
 	// record avoids a second mutex for no real contention benefit).
 	gauntletMu    sync.Mutex
 	gauntletCache map[int]packet.Gauntlet
-	// intentFidelityConfirmed holds G1's human confirmation per order id
+	// intentFidelityConfirmed holds G1's human confirmation per packet id
 	// (ConfirmIntentFidelity) — a real ACTION, not a computed gate, so it is
 	// NEVER folded into gauntletCache's stored value: gauntletFor and
 	// cachedGauntlet both read this fresh on every call and overlay it onto
-	// IntentFidelity, so a confirmation made AFTER an order's G3/G4 were
+	// IntentFidelity, so a confirmation made AFTER a packet's G3/G4 were
 	// already cached is still visible on the very next render without
 	// invalidating that cache entry. Ephemeral, off the economy ledger —
 	// there is no persisted event kind for this yet (a deferral: adding one
@@ -305,13 +305,13 @@ type liveEntry struct {
 	// with no reason to contend with either's own traffic.
 	calibMu   sync.Mutex
 	calibDraw int
-	// orderCatch holds a FILLED work-order's raw catch-cycle outcome and
+	// orderCatch holds a FILLED packet's raw catch-cycle outcome and
 	// after-revision survivor/inventory counts (settleCatch's Resolution),
 	// carried alongside orderFindings — the data G3
 	// (packet.GateFromCatchOutcome) folds into a gate without ever
 	// re-running the mutation oracle. Guarded by findingsMu, written
 	// together with orderFindings in settleCatch.
-	orderCatch map[int]orderCatchOutcome
+	orderCatch map[int]packetCatchOutcome
 	// watchMu guards watchFires: this session's standing-watch history
 	// (standing inspection). Pure in-memory bookkeeping — an
 	// append/read over a slice, no exec — so, like calibMu, there is no
@@ -322,29 +322,29 @@ type liveEntry struct {
 	watchFires []packet.WatchFire
 }
 
-// orderCatchOutcome is one order's raw catch-cycle result, cached off the
+// packetCatchOutcome is one packet's raw catch-cycle result, cached off the
 // economy ledger (like orderFindings) so gauntletFor's G3 can fold it into a
 // packet.Gate without re-running the mutation oracle.
-type orderCatchOutcome struct {
+type packetCatchOutcome struct {
 	outcome    catch.Outcome
 	survivors  int
 	considered int
 }
 
-// setOrderCatchOutcome caches a filled order's raw catch-cycle outcome —
+// setOrderCatchOutcome caches a filled packet's raw catch-cycle outcome —
 // called from settleCatch alongside setOrderFindings.
 func (e *liveEntry) setOrderCatchOutcome(orderID int, outcome catch.Outcome, survivors, considered int) {
 	e.findingsMu.Lock()
 	if e.orderCatch == nil {
-		e.orderCatch = map[int]orderCatchOutcome{}
+		e.orderCatch = map[int]packetCatchOutcome{}
 	}
-	e.orderCatch[orderID] = orderCatchOutcome{outcome: outcome, survivors: survivors, considered: considered}
+	e.orderCatch[orderID] = packetCatchOutcome{outcome: outcome, survivors: survivors, considered: considered}
 	e.findingsMu.Unlock()
 }
 
 // handshakeTightnessGate derives G3 from orderID's cached catch outcome, or
 // the honest NotRun default when no catch cycle has recorded one yet (the
-// order hasn't filled, or filled with a cycle error that settled nothing).
+// packet hasn't filled, or filled with a cycle error that settled nothing).
 func (e *liveEntry) handshakeTightnessGate(orderID int) packet.Gate {
 	e.findingsMu.Lock()
 	oc, ok := e.orderCatch[orderID]
@@ -450,7 +450,7 @@ func (e *liveEntry) markWatchFire(kind packet.WatchKind, packetID int, useful bo
 // agent-test split (mutation vs the agent's own tests) that is explicitly
 // deferred past this slice — see gauntlet_handshake.go's doc. G2 (handshake
 // conformance) became a real gate (handshakeConformanceGate
-// below); this sentinel is also G2's OWN answer for an order with no
+// below); this sentinel is also G2's OWN answer for a packet with no
 // handshake authored at all (p.HandshakePath == "").
 var notMeasuredNoHandshake = packet.Gate{Status: packet.GateNotRun, Detail: "not measured — no handshake yet"}
 
@@ -466,7 +466,7 @@ var notMeasuredNoHandshake = packet.Gate{Status: packet.GateNotRun, Detail: "not
 // itself a fabricated finding about the revision under gate.
 //
 // Called from BOTH of gauntletFor's branches: the handshake file's identity
-// is independent of FixRev, so a revless live order that already has a
+// is independent of FixRev, so a revless live packet that already has a
 // handshake authored still gets an honest (uncached) answer here rather than
 // reverting to "no handshake yet".
 func (e *liveEntry) handshakeConformanceGate(ctx context.Context, p packet.Packet) packet.Gate {
@@ -481,12 +481,12 @@ func (e *liveEntry) handshakeConformanceGate(ctx context.Context, p packet.Packe
 }
 
 // notMeasuredNoCage is G6's honest default: cage re-derivation exists
-// (internal/cage) but is never wired into a locally-dispatched order's
+// (internal/cage) but is never wired into a locally-sent packet's
 // gauntlet yet — a future slice's job, not this one's.
-var notMeasuredNoCage = packet.Gate{Status: packet.GateNotRun, Detail: "not measured — cage not wired to local dispatch"}
+var notMeasuredNoCage = packet.Gate{Status: packet.GateNotRun, Detail: "not measured — cage not wired to local send"}
 
 // independentCheckGate derives G6 (method diversity — cage re-derivation) for
-// a filled order: cage unconfigured (StartCageClaimConsumers never called this
+// a filled packet: cage unconfigured (StartCageClaimConsumers never called this
 // process) stays the honest notMeasuredNoCage default. Once configured, it
 // re-verifies orderID's OWN target through the SAME cage-backed
 // ledger.Verifier the claim consumers run, so G6 is a genuine independent
@@ -528,17 +528,17 @@ func (e *liveEntry) cachedGauntletEntry(orderID int) (packet.Gauntlet, bool) {
 
 // gauntletFor returns p's gauntlet record (the gauntlet's six gates),
 // computing (and caching) G3/G4 on the first call to observe a cache miss
-// for this order id — mirrors laneFor exactly, including the "no fix
-// revision yet → answer honestly WITHOUT caching" rule (a live prompt order
+// for this packet id — mirrors laneFor exactly, including the "no fix
+// revision yet → answer honestly WITHOUT caching" rule (a live prompt packet
 // the harness hasn't produced a revision for), so a later render — once the
-// order fills — gets a real computation instead of a permanently-cached
+// packet fills — gets a real computation instead of a permanently-cached
 // miss. G1 is NEVER cached (see intentFidelityConfirmed's doc); G2/G5/G6
 // have no real mechanic this slice and are always their honest NotRun
 // default.
 //
 // This execs `git worktree`/`go build`/`go vet` (packet.RunBuildVetGate) and
 // may be called ONLY from a render path (View), scoped to the packet(s)
-// actually shown in detail — the Inspector's order-scoped branch. The 100ms
+// actually shown in detail — the Inspector's packet-scoped branch. The 100ms
 // via.Stream poll (OnConnect) must NEVER call this; it reads cachedGauntlet
 // instead, a pure map lookup.
 func (e *liveEntry) gauntletFor(ctx context.Context, p packet.Packet) packet.Gauntlet {
@@ -603,15 +603,15 @@ func (e *liveEntry) cachedLaneEntry(orderID int) (packet.Lane, bool) {
 }
 
 // laneFor returns p's measured Lane, computing (and caching) it on the first
-// call to observe a cache miss for this order id. A packet with no fix rev
-// yet (still queued — e.g. a live prompt order the harness hasn't produced a
+// call to observe a cache miss for this packet id. A packet with no fix rev
+// yet (still queued — e.g. a live prompt packet the harness hasn't produced a
 // revision for) returns LaneUnmeasured WITHOUT computing or caching, so a
 // later render — once the revs exist — gets a real measurement instead of a
 // permanently-cached miss. Every OTHER outcome, including a Measure error, IS
 // cached (as LaneUnmeasured on error) so a doomed measurement is not
 // re-shelled-out on every render.
 //
-// Concurrent misses for the SAME order (e.g. two tabs opening one Inspector
+// Concurrent misses for the SAME packet (e.g. two tabs opening one Inspector
 // at once) are not deduplicated — each runs its own packet.Measure and the
 // last write wins the cache slot. Both computed the same real answer, so the
 // cache ends up correct either way; the cost is redundant subprocess work,
@@ -620,7 +620,7 @@ func (e *liveEntry) cachedLaneEntry(orderID int) (packet.Lane, bool) {
 //
 // This execs `go list`/git (packet.Measure) and may be called ONLY from a
 // render path (View), scoped to the packet(s) actually shown in detail — the
-// Inspector's order-scoped branch. The 100ms via.Stream poll (OnConnect) must
+// Inspector's packet-scoped branch. The 100ms via.Stream poll (OnConnect) must
 // NEVER call this; it reads cachedLane instead, a pure map lookup.
 func (e *liveEntry) laneFor(ctx context.Context, p packet.Packet) packet.Lane {
 	if lane, ok := e.cachedLaneEntry(p.ID); ok {
@@ -668,10 +668,10 @@ func (e *liveEntry) setCalibDraw(id int) {
 // per-session buffer without limit; the oldest beats scroll off once it is reached.
 const maxActivityLog = 300
 
-// fillMu guards the live-fill buffer: the work-order currently being filled by the
+// fillMu guards the live-fill buffer: the packet currently being filled by the
 // background runner and the cycle beats accrued so far, so the card can show it
 // filling LIVE ("watch it fill"). The runner has no request ctx to write the card's
-// cells, so it writes this buffer and the card's Stream polls it (like the dispatch
+// cells, so it writes this buffer and the card's Stream polls it (like the send
 // tally). Ephemeral, off the economy ledger.
 func (e *liveEntry) startFill(id int) {
 	e.fillMu.Lock()
@@ -699,8 +699,8 @@ func (e *liveEntry) activitySnapshot() string {
 	return e.activityBeat
 }
 
-// useContainerMode reports whether this session's live orders run in the hardened
-// container (vs the host subprocess) — the runtime runner mode runLiveOrder reads.
+// useContainerMode reports whether this session's live packets run in the hardened
+// container (vs the host subprocess) — the runtime runner mode runLivePacket reads.
 func (e *liveEntry) useContainerMode() bool {
 	e.fillMu.Lock()
 	defer e.fillMu.Unlock()
@@ -708,7 +708,7 @@ func (e *liveEntry) useContainerMode() bool {
 }
 
 // toggleRunner flips the session between host-subprocess and container execution for
-// its next live order (an in-flight order keeps the runner it started on).
+// its next live packet (an in-flight packet keeps the runner it started on).
 func (e *liveEntry) toggleRunner() {
 	e.fillMu.Lock()
 	e.useContainer = !e.useContainer
@@ -723,22 +723,22 @@ func (e *liveEntry) activityTranscript() []string {
 	return append([]string(nil), e.activityLog...)
 }
 
-// addFillBeat appends one cycle beat for the filling order (the live tempo).
+// addFillBeat appends one cycle beat for the filling packet (the live tempo).
 func (e *liveEntry) addFillBeat(kind string) {
 	e.fillMu.Lock()
 	e.fillBeats = append(e.fillBeats, kind)
 	e.fillMu.Unlock()
 }
 
-// endFill clears the live-fill buffer when the order is done — the filling row
-// vanishes and the order's resolved outcome takes over.
+// endFill clears the live-fill buffer when the packet is done — the filling row
+// vanishes and the packet's resolved outcome takes over.
 func (e *liveEntry) endFill() {
 	e.fillMu.Lock()
 	e.fillingOrder, e.fillBeats, e.activityBeat, e.activityLog = 0, nil, "", nil
 	e.fillMu.Unlock()
 }
 
-// fillSnapshot returns the filling order's id (0 if none) and a copy of its beats.
+// fillSnapshot returns the filling packet's id (0 if none) and a copy of its beats.
 func (e *liveEntry) fillSnapshot() (int, []string) {
 	e.fillMu.Lock()
 	defer e.fillMu.Unlock()
@@ -831,7 +831,7 @@ func (e *liveEntry) markResolved(file string, line int) {
 func findingKey(file string, line int) string { return file + ":" + strconv.Itoa(line) }
 
 // recordQuestionBlocks logs an attention BLOCK for each newly-surfaced review
-// question — the producer needing the Lead's input — starting that question's
+// question — the source needing the Lead's input — starting that question's
 // bandwidth interval. It is idempotent per question id: a later connect cycle that
 // re-finds the same survivor never re-blocks (blockedQ tracks what is already
 // open), so the interval is anchored to when the question FIRST appeared. The
@@ -866,8 +866,8 @@ func (e *liveEntry) recordQuestionUnblock(file string, line int) {
 	_ = e.log.AppendUnblock(findingKey(file, line), time.Now())
 }
 
-// setOrderFindings caches a filled work-order's review questions (off-ledger, like
-// findings) so the order's test-debt is reviewable. Empty findings clear the entry.
+// setOrderFindings caches a filled packet's review questions (off-ledger, like
+// findings) so the packet's test-debt is reviewable. Empty findings clear the entry.
 func (e *liveEntry) setOrderFindings(id int, fs []mutation.Finding) {
 	e.findingsMu.Lock()
 	defer e.findingsMu.Unlock()
@@ -881,17 +881,17 @@ func (e *liveEntry) setOrderFindings(id int, fs []mutation.Finding) {
 	e.orderFindings[id] = fs
 }
 
-// orderQuestionCount returns how many open review questions a filled order left.
+// orderQuestionCount returns how many open review questions a filled packet left.
 func (e *liveEntry) orderQuestionCount(id int) int {
 	e.findingsMu.Lock()
 	defer e.findingsMu.Unlock()
 	return len(e.orderFindings[id])
 }
 
-// sessionPackets folds a session's dispatches into packets — the Console and
-// Inspector's shared read model. n<=0 folds every dispatch
+// sessionPackets folds a session's sends into packets — the Console and
+// Inspector's shared read model. n<=0 folds every send
 // (an honest total for counts like the hero stat); a positive n caps the
-// underlying RecentDispatches read. Empty (nil) when the session or its
+// underlying RecentSends read. Empty (nil) when the session or its
 // ledger is unknown — callers treat that as "nothing to show", never an
 // error.
 func sessionPackets(key string, n int) []packet.Packet {
@@ -899,7 +899,7 @@ func sessionPackets(key string, n int) []packet.Packet {
 	if e == nil || e.log == nil {
 		return nil
 	}
-	views, err := e.log.RecentDispatches(n)
+	views, err := e.log.RecentSends(n)
 	if err != nil {
 		return nil
 	}
@@ -917,7 +917,7 @@ func sessionAddr(key string) packet.Addr {
 	return packet.Addr{}
 }
 
-// orderFindingsFor returns a filled order's cached review questions (nil if none).
+// orderFindingsFor returns a filled packet's cached review questions (nil if none).
 func (e *liveEntry) orderFindingsFor(id int) []mutation.Finding {
 	e.findingsMu.Lock()
 	defer e.findingsMu.Unlock()
@@ -1043,7 +1043,7 @@ func (e *liveEntry) analysisSnapshot() *draftAnalysis {
 	return e.analysis
 }
 
-// setRewrite stashes the producer-rewritten draft for the editor to pick up.
+// setRewrite stashes the source-rewritten draft for the editor to pick up.
 func (e *liveEntry) setRewrite(draft string) {
 	e.findingsMu.Lock()
 	e.rewrite = draft
@@ -1058,7 +1058,7 @@ func (e *liveEntry) rewriteSnapshot() string {
 }
 
 // setPendingHandshake caches (or, given nil, CONSUMES) the handshake
-// AuthorHandshake wrote for this session's next live order.
+// AuthorHandshake wrote for this session's next live packet.
 func (e *liveEntry) setPendingHandshake(h *packet.Handshake) {
 	e.findingsMu.Lock()
 	e.pendingHandshake = h
@@ -1074,7 +1074,7 @@ func (e *liveEntry) pendingHandshakeSnapshot() *packet.Handshake {
 }
 
 // setComposeMessage leaves (or, given "", clears) an honest inline message
-// on the compose card — currently only PlaceOrder's handshake refusal.
+// on the compose card — currently only Send's handshake refusal.
 func (e *liveEntry) setComposeMessage(msg string) {
 	e.findingsMu.Lock()
 	e.composeMessage = msg
@@ -1168,7 +1168,7 @@ func setLiveState(cfg LiveConfig, log *ledger.Log) {
 // claimConsumerSpawner gives each session EXACTLY ONE durable claim consumer — for
 // the sessions present when consumers start AND for any session registered later
 // (runtime-created sessions), so the create flow is not a dead end for the
-// producer path. Birth is guarded by `started` so a session is never double-
+// peer path. Birth is guarded by `started` so a session is never double-
 // consumed. Once active, registerSession spawns a consumer for each new session
 // using the latest StartClaimConsumers parameters.
 type claimConsumerSpawner struct {
@@ -1199,7 +1199,7 @@ func resetConsumersForTest() {
 		liveReg.Delete(k)
 		return true
 	})
-	// Per-producer bundle guards are server-lifetime in production but must not
+	// Per-peer bundle guards are server-lifetime in production but must not
 	// leak rate/quota state across tests (they key off session, which tests reuse).
 	bundleGuards.Range(func(k, _ any) bool {
 		bundleGuards.Delete(k)
@@ -1283,7 +1283,7 @@ var liveFabric *fabric.Fabric
 // startLiveFabric stands up the shared economy fabric, rooting its durable store
 // beside the configured ledger path (a dedicated dir per server, so two servers
 // in one process never share a store). An empty path falls back to a temp store.
-func startLiveFabric(ledgerPath, listenAddr string, grants []fabric.ProducerGrant) (*fabric.Fabric, error) {
+func startLiveFabric(ledgerPath, listenAddr string, grants []fabric.Grant) (*fabric.Fabric, error) {
 	dir := ledgerPath + "-fabric"
 	if ledgerPath == "" {
 		d, err := os.MkdirTemp("", "packets-fabric-*")
@@ -1295,7 +1295,7 @@ func startLiveFabric(ledgerPath, listenAddr string, grants []fabric.ProducerGran
 		return nil, fmt.Errorf("app: fabric store dir: %v", err)
 	}
 	// A configured listen address binds an authenticated socket (the host stays
-	// in-process via NoAuthUser; producers authenticate and are grant-confined).
+	// in-process via NoAuthUser; peers authenticate and are grant-confined).
 	// Absent it, the fabric is in-process-only — no socket, no auth surface.
 	if listenAddr != "" {
 		return fabric.StartListening(context.Background(), dir, listenAddr, grants...)
@@ -1372,14 +1372,14 @@ type LiveCard struct {
 	Questions via.StateTabStr
 	// FundTarget carries the path:line of the bench item the Lead clicked to fund —
 	// set by that item's on.SetSignal just before the post, then read by FundChosen
-	// to dispatch the CHOSEN target instead of the FIFO head.
+	// to send the CHOSEN target instead of the FIFO head.
 	FundTarget via.SignalStr `via:"fundtarget"`
-	// OrderPrompt carries the free-form task the Lead authored in the compose control,
-	// read by PlaceOrder to fund a prompt-carrying live order (vs drawing a pre-baked
+	// Draft carries the free-form task the Lead authored in the compose control,
+	// read by Send to fund a prompt-carrying live packet (vs drawing a pre-baked
 	// backlog target). Per-tab signal, not authoritative session state.
-	OrderPrompt via.SignalStr `via:"orderprompt"`
+	Draft via.SignalStr `via:"draft"`
 	// HandshakeDraft/HandshakeStrengthPick carry the handshake the
-	// Lead composes BEFORE placing a live order — a runnable contract authored
+	// Lead composes BEFORE placing a live packet — a runnable contract authored
 	// independently of the agent's own code, written under the protected handshake/
 	// directory (internal/settle's deny-rule then refuses any later agent turn that
 	// touches it). The strength is SELF-DECLARED, never scored: AuthorHandshake reads
@@ -1412,31 +1412,31 @@ type LiveCard struct {
 	// re-render (a cell Write fans out a re-render; an action's auto-render only
 	// returns in the action's own response).
 	Balance via.StateTabStr
-	// Dispatch is the same broadcast trigger for the dispatched-work tally: the
+	// Sends is the same broadcast trigger for the sent-work tally: the
 	// count is re-read from the ledger in View, but a Spend writes the new count
-	// here so the dispatch row rises over the live SSE stream in the SAME render as
+	// here so the sends row rises over the live SSE stream in the SAME render as
 	// the balance drains. It carries no authoritative value — View is the source.
-	Dispatch via.StateTabStr
+	Sends via.StateTabStr
 	// BandwidthMeter is the spend broadcast trigger for the attention-bandwidth row,
 	// mirroring Balance: View re-reads the meter from the ledger (the source of truth),
-	// but the ledger is not reactive — so PlaceOrder writes the new bandwidth here to
+	// but the ledger is not reactive — so Send writes the new bandwidth here to
 	// fan out a live SSE re-render as the meter drains.
 	BandwidthMeter via.StateTabStr
 	// Analysis is the broadcast trigger for the authoring assist: View re-reads the
 	// cached draft analysis from the session entry, but that cache is not reactive — so
-	// AnalyzeDraft writes here to fan out a re-render once the producer's read lands.
+	// AnalyzeDraft writes here to fan out a re-render once the source's read lands.
 	Analysis via.StateTabStr
 	// DraftAnswers carries the Lead's answers to the analysis questions — a JSON array
 	// of {Q, Answers, Note} the Update-draft control gathers from the answer form, read
-	// by UpdateDraft to build the producer's rewrite prompt. Per-tab signal.
+	// by UpdateDraft to build the source's rewrite prompt. Per-tab signal.
 	DraftAnswers via.SignalStr `via:"draftanswers"`
 	// Rewrite is the broadcast trigger for a draft rewrite: View re-reads the rewritten
 	// draft from the session entry (not reactive), so UpdateDraft writes here to fan out
 	// the re-render that swaps the new draft into the editor's rewrite payload.
 	Rewrite via.StateTabStr
 	// FillBeats is a re-render trigger written by the Stream when the live-fill buffer
-	// (a currently-filling order's accruing beats) changes, so the card shows the
-	// order filling live. View reads the buffer; this cell only nudges the re-render.
+	// (a currently-filling packet's accruing beats) changes, so the card shows the
+	// packet filling live. View reads the buffer; this cell only nudges the re-render.
 	FillBeats via.StateTabStr
 	// Bench is the re-render trigger for a sharpening: RefineChosen writes the current
 	// refinement count here so the bench re-renders (a split re-folds fundableBacklog;
@@ -1502,7 +1502,7 @@ func (c *LiveCard) View(ctx *via.CtxR) h.H {
 	var stock ledger.Stock
 	balance := 0
 	bandwidth := 0
-	var dispatches []ledger.DispatchView
+	var sends []ledger.SendView
 	if log != nil {
 		if recs, err := log.Records(); err == nil {
 			stock = ledger.ConfirmedCatches(recs)
@@ -1513,16 +1513,16 @@ func (c *LiveCard) View(ctx *via.CtxR) h.H {
 		if bw, err := log.Bandwidth(); err == nil {
 			bandwidth = bw
 		}
-		// This session's recent funded work-orders + their caught/missed outcome —
+		// This session's recent funded packets + their caught/missed outcome —
 		// the round-trip the Lead watches after a Spend, on the same card they act on.
-		if ds, err := log.RecentDispatches(5); err == nil {
-			dispatches = ds
-			// Enrich each with its open-question count (the order's reviewable
-			// test-debt) from the per-order findings cache — off-ledger diagnostic,
+		if ds, err := log.RecentSends(5); err == nil {
+			sends = ds
+			// Enrich each with its open-question count (the packet's reviewable
+			// test-debt) from the per-packet findings cache — off-ledger diagnostic,
 			// so it's filled here, not projected.
 			if e := lookupLiveEntry(c.Key); e != nil {
-				for i := range dispatches {
-					dispatches[i].Questions = e.orderQuestionCount(dispatches[i].ID)
+				for i := range sends {
+					sends[i].Questions = e.orderQuestionCount(sends[i].ID)
 				}
 			}
 		}
@@ -1534,7 +1534,7 @@ func (c *LiveCard) View(ctx *via.CtxR) h.H {
 		navKey = defaultSessionKey
 	}
 	// The economy region (everything below the nav) is the page's main content and a
-	// LIVE region: this card re-renders over SSE on every catch/balance/dispatch
+	// LIVE region: this card re-renders over SSE on every catch/balance/send
 	// change, so role="main" + aria-live="polite" lets assistive tech announce those
 	// changes without the user hunting for them. The nav is a sibling landmark (added
 	// in the final wrap), never nested inside main.
@@ -1549,20 +1549,20 @@ func (c *LiveCard) View(ctx *via.CtxR) h.H {
 		parts = append(parts, hint)
 	}
 	// The card splits into two sub-landmarks INSIDE main (Flow A): the ACT-NOW region
-	// gathers the moves the Lead makes right now (fund work, author + place an order);
+	// gathers the moves the Lead makes right now (fund work, author + place a packet);
 	// the STATE/HISTORY region carries the retrospective economy (stock, balance,
-	// dispatches, beats, verdict, land). The split is carried by the section headings
+	// sends, beats, verdict, land). The split is carried by the section headings
 	// + landmark roles, NOT a new background layer: --pk-surface-3 is SKIPPED (gate,
 	// §1) — the per-row .pk-card elevation plus the labelled regions already separate
 	// the two without a third elevation token without another consumer.
 	var actNow []h.H
-	// Flow B: spend (balance hue) and place-order (bandwidth hue) both FUND work, so
+	// Flow B: spend (balance hue) and place-packet (bandwidth hue) both FUND work, so
 	// they sit under one "fund work" group with a two-currency explainer, never read
 	// as unrelated controls.
 	if fund := renderFundWork(c, cfg, log, balance, bandwidth); fund != nil {
 		actNow = append(actNow, fund)
 		// The agent-runner control sits with the funding controls — it governs how a
-		// PLACED live order runs (host vs container). Gated on fund-work being present
+		// PLACED live packet runs (host vs container). Gated on fund-work being present
 		// so a fresh, no-currency session keeps its act-now omitted (onboarding shown).
 		if e := lookupLiveEntry(c.Key); e != nil {
 			actNow = append(actNow, renderRunnerControl(c, e.useContainerMode()))
@@ -1577,14 +1577,14 @@ func (c *LiveCard) View(ctx *via.CtxR) h.H {
 		}
 	}
 	// Approve & open a PR: the land control closes the goal flow (review -> PR). Shown
-	// only when there is landable work (a dispatched order) or a prior land result to
+	// only when there is landable work (a sent packet) or a prior land result to
 	// surface — so a fresh, empty session keeps its act-now omitted (onboarding shown).
 	if log != nil {
 		lk := c.Key
 		if lk == "" {
 			lk = defaultSessionKey
 		}
-		if landResultSnapshot(lk) != "" || sessionHasDispatches(log) {
+		if landResultSnapshot(lk) != "" || sessionHasSends(log) {
 			actNow = append(actNow, renderLandControl(c))
 		}
 	}
@@ -1595,7 +1595,7 @@ func (c *LiveCard) View(ctx *via.CtxR) h.H {
 		}
 		parts = append(parts, h.Section(append(section, actNow...)...))
 	}
-	// The economy meter rows (stock/balance/bandwidth/dispatch) are RETIRED from
+	// The economy meter rows (stock/balance/bandwidth/send) are RETIRED from
 	// the UI (the vocabulary map) — the underlying ledger
 	// reads above still feed renderFundWork/onboarding (their reframe is a
 	// separate effort), but nothing renders them as a row here anymore.
@@ -1603,15 +1603,15 @@ func (c *LiveCard) View(ctx *via.CtxR) h.H {
 		h.Attr("aria-labelledby", "state-history-label"),
 		h.Span(h.Class("pk-section-label"), h.ID("state-history-label"), h.Text("state & history")),
 	}
-	// WATCH IT FILL: when the background runner is mid-fill on an order, show it live
-	// — the order id + the cycle beats accruing as the oracle works (re-rendered each
+	// WATCH IT FILL: when the background runner is mid-fill on a packet, show it live
+	// — the packet id + the cycle beats accruing as the oracle works (re-rendered each
 	// Stream tick via the FillBeats poll). Omitted when nothing is filling.
 	if e := lookupLiveEntry(c.Key); e != nil {
 		if id, fb := e.fillSnapshot(); id > 0 {
 			state = append(state, h.Div(
-				h.Class("order-filling"),
+				h.Class("packet-filling"),
 				h.Data("state", "beats"),
-				h.Text("filling WO#"+strconv.Itoa(id)+" — "+strings.Join(fb, " → ")),
+				h.Text("filling PKT#"+strconv.Itoa(id)+" — "+strings.Join(fb, " → ")),
 			))
 			// The live agent's LATEST move (a single updating line) while it works —
 			// distinct from the oracle's cycle beats above. Absent on dead-air (no beat
@@ -1628,19 +1628,19 @@ func (c *LiveCard) View(ctx *via.CtxR) h.H {
 			// tick (same poll as the latest-line); the CSS bounds its height and scrolls
 			// it. Omitted until there is a beat — no empty pane.
 			if tr := e.activityTranscript(); len(tr) > 0 {
-				lines := []h.H{h.Class("order-transcript"), h.Data("state", "transcript"),
+				lines := []h.H{h.Class("packet-transcript"), h.Data("state", "transcript"),
 					h.Attr("aria-label", "agent transcript")}
 				for _, line := range tr {
-					lines = append(lines, h.Div(h.Class("order-transcript__line"), h.Text(line)))
+					lines = append(lines, h.Div(h.Class("packet-transcript__line"), h.Text(line)))
 				}
 				state = append(state, h.Div(lines...))
 			}
 		}
 	}
-	// Below the aggregate counts, the per-order round-trip: each recent work-order
-	// with its caught/missed outcome, so the Lead watches the order they funded
+	// Below the aggregate counts, the per-packet round-trip: each recent packet
+	// with its caught/missed outcome, so the Lead watches the packet they funded
 	// resolve in place (omitted when there are none — same helper the board uses).
-	if d := renderDispatches(navKey, dispatches); d != nil {
+	if d := renderSends(navKey, sends); d != nil {
 		state = append(state, d)
 	}
 	// The catch-cycle surface (beats, verdict, review-questions badge, land verdict)
@@ -1696,14 +1696,14 @@ func reconcileHolds(key string, packets []packet.Packet) {
 	}
 }
 
-// Spend funds one unit of dispatched work against the balance — the Lead's first
+// Spend funds one unit of sent work against the balance — the Lead's first
 // ACTION on the stock, and the moment a catch finally BUYS something. It debits
-// one catch AND fuels exactly one queued work-order in a single atomic ledger
-// fact (AppendDispatch). An over-budget spend (balance already 0) is refused by
+// one catch AND fuels exactly one queued packet in a single atomic ledger
+// fact (AppendSend). An over-budget spend (balance already 0) is refused by
 // the ledger and the action is a silent no-op (no broadcast). On success it
-// writes BOTH the drained balance and the risen dispatch count to their trigger
+// writes BOTH the drained balance and the risen send count to their trigger
 // cells, whose Writes fan out a single re-render to the live SSE stream so the
-// balance drains and the dispatch row rises together — the spend is visibly
+// balance drains and the send row rises together — the spend is visibly
 // converted into work, not just a vanishing number.
 func (c *LiveCard) Spend(ctx *via.Ctx) {
 	cfg, log := readLiveState(c.Key)
@@ -1714,26 +1714,26 @@ func (c *LiveCard) Spend(ctx *via.Ctx) {
 	if !ok {
 		return // backlog exhausted / empty: no distinct work to buy — a silent no-op
 	}
-	if err := log.AppendDispatch("dispatch", tgt, ownTargetOf(cfg)); err != nil {
+	if err := log.AppendSend("dispatch", tgt, ownTargetOf(cfg)); err != nil {
 		return // over-budget / nothing to spend / own work: a no-op, never an error to the Lead
 	}
 	if b, err := log.Balance(); err == nil {
 		c.Balance.Write(ctx, strconv.Itoa(b)) // announce the drain
 	}
-	if d, err := log.PendingDispatches(); err == nil {
-		c.Dispatch.Write(ctx, strconv.Itoa(d)) // announce the funded work-order so the dispatch row rises in the same render
+	if d, err := log.PendingSends(); err == nil {
+		c.Sends.Write(ctx, strconv.Itoa(d)) // announce the funded packet so the sends row rises in the same render
 	}
-	go drainQueuedOrders(c.Key) // the order RUNS in the background — spend-to-earn
+	go drainQueuedPackets(c.Key) // the packet RUNS in the background — spend-to-earn
 }
 
 // FundChosen is the prep bench's payoff: it funds the CHOSEN bench target (set by
 // that item's on.SetSignal into FundTarget) instead of the FIFO head, turning
-// dispatch from a blind auto-pick into the Lead's management-sim decision. The
+// sending from a blind auto-pick into the Lead's management-sim decision. The
 // chosen target is VALIDATED to be in the fundable set (chosenFundable), so a click
 // can never fund the card's own cycle, an already-consumed target, or an arbitrary
 // one — the distinct-work / two-scores rules hold. Otherwise it mirrors Spend: one
-// atomic AppendDispatch debit, then announce the drain + risen dispatch over SSE and
-// run the order. An off-bench key or over-budget balance is a silent no-op.
+// atomic AppendSend debit, then announce the drain + risen send over SSE and
+// run the packet. An off-bench key or over-budget balance is a silent no-op.
 func (c *LiveCard) FundChosen(ctx *via.Ctx) {
 	cfg, log := readLiveState(c.Key)
 	if log == nil {
@@ -1743,41 +1743,41 @@ func (c *LiveCard) FundChosen(ctx *via.Ctx) {
 	if !ok {
 		return // not on the bench (unknown / consumed / own cycle): a no-op
 	}
-	if err := log.AppendDispatch("dispatch", tgt, ownTargetOf(cfg)); err != nil {
+	if err := log.AppendSend("dispatch", tgt, ownTargetOf(cfg)); err != nil {
 		return // over-budget / nothing to spend: a no-op, never an error to the Lead
 	}
 	if b, err := log.Balance(); err == nil {
 		c.Balance.Write(ctx, strconv.Itoa(b))
 	}
-	if d, err := log.PendingDispatches(); err == nil {
-		c.Dispatch.Write(ctx, strconv.Itoa(d))
+	if d, err := log.PendingSends(); err == nil {
+		c.Sends.Write(ctx, strconv.Itoa(d))
 	}
-	go drainQueuedOrders(c.Key)
+	go drainQueuedPackets(c.Key)
 }
 
-// PlaceOrder authors a LIVE order from the card: it funds a prompt-carrying target
-// (the Lead's free-form task) against the balance and dispatches it, so the live
+// Send authors a LIVE packet from the card: it funds a prompt-carrying target
+// (the Lead's free-form task) against the balance and sends it, so the live
 // harness runs the authored work — the UI counterpart of the -live CLI flag, but
 // composed at runtime instead of baked at boot. The base is the repo's CURRENT
 // HEAD, so the agent works the live tree. An empty prompt, an unconfigured repo, or
-// an over-budget balance is a silent no-op (never a funded order with no task, no
-// tree, or no catch to spend). A live order additionally REQUIRES a
+// an over-budget balance is a silent no-op (never a funded packet with no task, no
+// tree, or no catch to spend). A live packet additionally REQUIRES a
 // handshake authored first (AuthorHandshake) — the contract is authored
 // independently of, and before, the agent's own code, so a live
-// order with none is refused (funding nothing) and leaves an honest inline message
-// for the Lead, rather than dispatching an agent turn with no contract to gate it. A
-// PRE-FUNDED order (FundChosen, Prompt=="") predates this concept and is untouched.
-// On success the handshake is folded into the Target and CONSUMED (a later order
+// packet with none is refused (funding nothing) and leaves an honest inline message
+// for the Lead, rather than sending an agent turn with no contract to gate it. A
+// PRE-FUNDED packet (FundChosen, Prompt=="") predates this concept and is untouched.
+// On success the handshake is folded into the Target and CONSUMED (a later packet
 // must author its own), and it mirrors Spend: announce the drained balance + risen
-// dispatch over SSE, then run the order in the background.
-func (c *LiveCard) PlaceOrder(ctx *via.Ctx) {
+// send over SSE, then run the packet in the background.
+func (c *LiveCard) Send(ctx *via.Ctx) {
 	cfg, log := readLiveState(c.Key)
 	if log == nil {
 		return
 	}
-	prompt := strings.TrimSpace(c.OrderPrompt.Read(ctx))
+	prompt := strings.TrimSpace(c.Draft.Read(ctx))
 	if prompt == "" {
-		return // an empty prompt is not an order
+		return // an empty prompt is not a packet
 	}
 	e := lookupLiveEntry(c.Key)
 	var hs *packet.Handshake
@@ -1786,42 +1786,42 @@ func (c *LiveCard) PlaceOrder(ctx *via.Ctx) {
 	}
 	if hs == nil {
 		if e != nil {
-			e.setComposeMessage("author a handshake before dispatching")
+			e.setComposeMessage("author a handshake before sending")
 		}
-		return // no handshake authored yet — refuse rather than dispatch an ungated live order
+		return // no handshake authored yet — refuse rather than send an ungated live packet
 	}
 	head, ok := repoHead(cfg.RepoDir)
 	if !ok {
-		return // no resolvable tree to run the agent against — never dispatch a treeless live order
+		return // no resolvable tree to run the agent against — never send a treeless live packet
 	}
 	tgt := ledger.Target{
 		BaseRev: head, Prompt: prompt,
 		HandshakePath: hs.Path, HandshakeHash: hs.Hash, HandshakeStrength: int(hs.Strength),
 	}
-	// A UI-authored live order is funded by ATTENTION bandwidth, not a catch — the
+	// A UI-authored live packet is funded by ATTENTION bandwidth, not a catch — the
 	// responsiveness the Lead earned by unblocking work funds the autonomous work
-	// they dispatch (the two meters, both used). An over-budget meter is refused by
+	// they send (the two meters, both used). An over-budget meter is refused by
 	// the ledger and is a silent no-op.
-	if err := log.AppendLiveDispatch("liveorder", tgt, ownTargetOf(cfg)); err != nil {
+	if err := log.AppendLiveSend("liveorder", tgt, ownTargetOf(cfg)); err != nil {
 		return
 	}
-	// The handshake is CONSUMED by the order it was authored for — a later order
+	// The handshake is CONSUMED by the packet it was authored for — a later packet
 	// must author its own, never silently reuse this one.
 	e.setPendingHandshake(nil)
 	e.setComposeMessage("")
 	if bw, err := log.Bandwidth(); err == nil {
 		c.BandwidthMeter.Write(ctx, strconv.Itoa(bw)) // announce the drained meter
 	}
-	if d, err := log.PendingDispatches(); err == nil {
-		c.Dispatch.Write(ctx, strconv.Itoa(d))
+	if d, err := log.PendingSends(); err == nil {
+		c.Sends.Write(ctx, strconv.Itoa(d))
 	}
-	go drainQueuedOrders(c.Key)
+	go drainQueuedPackets(c.Key)
 }
 
-// ToggleRunner switches this session's live-order runner between the host subprocess
+// ToggleRunner switches this session's live-packet runner between the host subprocess
 // (default) and the hardened agent container — surfacing the built RunContainer path
 // (previously reachable only via the -container boot flag) as a runtime choice. The
-// NEXT live order uses the new mode; an in-flight one is unaffected. The card
+// NEXT live packet uses the new mode; an in-flight one is unaffected. The card
 // auto-renders the new mode in the action's response.
 func (c *LiveCard) ToggleRunner(ctx *via.Ctx) {
 	if e := lookupLiveEntry(c.Key); e != nil {
@@ -1829,7 +1829,7 @@ func (c *LiveCard) ToggleRunner(ctx *via.Ctx) {
 	}
 }
 
-// renderRunnerControl shows the session's live-order runner mode (host / container)
+// renderRunnerControl shows the session's live-packet runner mode (host / container)
 // and a toggle — a calm act-now control surfacing the built container runner without
 // requiring a boot flag. Stripped-CSS legible (the mode is plain words).
 func renderRunnerControl(c *LiveCard, useContainer bool) h.H {
@@ -1843,9 +1843,9 @@ func renderRunnerControl(c *LiveCard, useContainer bool) h.H {
 	)
 }
 
-// repoHead resolves repoDir's current HEAD, the base a UI-authored live order runs
+// repoHead resolves repoDir's current HEAD, the base a UI-authored live packet runs
 // from. An empty dir or an unresolvable HEAD (no repo / no commit) reports false so
-// PlaceOrder refuses rather than dispatch a treeless order.
+// Send refuses rather than send a treeless packet.
 func repoHead(repoDir string) (string, bool) {
 	if repoDir == "" {
 		return "", false
@@ -1875,25 +1875,25 @@ func chosenFundable(cfg LiveConfig, log *ledger.Log, key string) (ledger.Target,
 	return ledger.Target{}, false
 }
 
-// maxOrderAttempts bounds how many times the runner will pick a single queued
-// order before giving up on it. A status write that fails permanently (e.g. a
-// closed ledger handle) would otherwise leave an order forever queued and spin
+// maxPacketAttempts bounds how many times the runner will pick a single queued
+// packet before giving up on it. A status write that fails permanently (e.g. a
+// closed ledger handle) would otherwise leave a packet forever queued and spin
 // the suite-exec loop without end; the cap turns that into a bounded, abandoned
-// order instead of an unbounded #15-multiplier burn.
-const maxOrderAttempts = 3
+// packet instead of an unbounded #15-multiplier burn.
+const maxPacketAttempts = 3
 
-// drainQueuedOrders runs every queued work-order for a session to completion — the
-// second in-process producer. It serializes per session (runMu) so two concurrent
-// Spends never double-run an order. Each order: mark running, run its DISTINCT
+// drainQueuedPackets runs every queued packet for a session to completion — the
+// second in-process source. It serializes per session (runMu) so two concurrent
+// Spends never double-run a packet. Each packet: mark running, run its DISTINCT
 // target through the catch cycle under the admission sem (bounding the suite-exec
-// cost), route any Catch through the idempotent Append stamped with the order's
-// producer (a re-run that reproduces a seen identity mints nothing — an honest
+// cost), route any Catch through the idempotent Append stamped with the packet's
+// source (a re-run that reproduces a seen identity mints nothing — an honest
 // loss), then mark done. The mint is the only thing logged; intermediate beats
-// stay off-ledger. An order whose status can never advance is retried at most
-// maxOrderAttempts times then GIVEN UP (a best-effort terminal "failed" line, so
+// stay off-ledger. A packet whose status can never advance is retried at most
+// maxPacketAttempts times then GIVEN UP (a best-effort terminal "failed" line, so
 // it leaves the queued set when the log is writable), guaranteeing the drain
 // always returns.
-func drainQueuedOrders(key string) {
+func drainQueuedPackets(key string) {
 	e := lookupLiveEntry(key)
 	if e == nil || e.log == nil {
 		return
@@ -1903,54 +1903,54 @@ func drainQueuedOrders(key string) {
 	attempts := map[int]int{}
 	givenUp := map[int]bool{}
 	for {
-		queued, err := e.log.QueuedWorkOrders()
+		queued, err := e.log.QueuedPackets()
 		if err != nil {
 			return
 		}
-		var order *ledger.WorkOrderRecord
+		var pkt *ledger.PacketRecord
 		for i := range queued {
 			if !givenUp[queued[i].ID] {
-				order = &queued[i]
+				pkt = &queued[i]
 				break
 			}
 		}
-		if order == nil {
+		if pkt == nil {
 			return // nothing left that hasn't been given up
 		}
-		attempts[order.ID]++
-		if attempts[order.ID] > maxOrderAttempts {
-			givenUp[order.ID] = true
-			_ = e.log.AppendStatus(order.ID, "failed") // best-effort terminal line; if this too fails, givenUp still bounds the loop
+		attempts[pkt.ID]++
+		if attempts[pkt.ID] > maxPacketAttempts {
+			givenUp[pkt.ID] = true
+			_ = e.log.AppendStatus(pkt.ID, "failed") // best-effort terminal line; if this too fails, givenUp still bounds the loop
 			continue
 		}
-		if order.Target.Prompt != "" {
-			runLiveOrder(e, *order)
+		if pkt.Target.Prompt != "" {
+			runLivePacket(e, *pkt)
 		} else {
-			runOneOrder(e, *order)
+			runOneOrder(e, *pkt)
 		}
 	}
 }
 
-// runLiveOrder fills a LIVE work order: a real Claude Code harness runs the
-// order's task prompt and PRODUCES the fix revision in the repo (vs the
+// runLivePacket fills a LIVE packet: a real Claude Code harness runs the
+// packet's task prompt and PRODUCES the fix revision in the repo (vs the
 // pre-funded base→fix diff runOneOrder replays). It mints NO catch — the
 // oracle/catch step on the produced revision is a later slice; this settles only
 // the agent's git revision, keeping the catch economy untouched (the firewall).
 // A terminal status is always reached ("done" on success, "failed" on a harness
-// error) so the order never lingers mid-flight: once it leaves "queued" the
+// error) so the packet never lingers mid-flight: once it leaves "queued" the
 // drain's attempts cap no longer sees it, so the terminal write must happen here.
-func runLiveOrder(e *liveEntry, order ledger.WorkOrderRecord) {
-	if err := e.log.AppendStatus(order.ID, "running"); err != nil {
-		return // could not advance status — the order stays queued; the drain retries under the attempts cap
+func runLivePacket(e *liveEntry, pkt ledger.PacketRecord) {
+	if err := e.log.AppendStatus(pkt.ID, "running"); err != nil {
+		return // could not advance status — the packet stays queued; the drain retries under the attempts cap
 	}
 	if e.sem != nil {
 		e.sem <- struct{}{}
 		defer func() { <-e.sem }()
 	}
-	e.startFill(order.ID)
+	e.startFill(pkt.ID)
 	defer e.endFill()
 	// Bound the agent run so a runaway harness can't burn the budget without limit
-	// (the cost-gate — the only token cap a live order has).
+	// (the cost-gate — the only token cap a live packet has).
 	hctx, cancel := context.WithTimeout(context.Background(), liveHarnessTimeout)
 	// Resume the session's WARM explored harness (forking a branch) so the fill works
 	// with the repo context the warm-up built — the remembered session, same as the
@@ -1960,17 +1960,17 @@ func runLiveOrder(e *liveEntry, order ledger.WorkOrderRecord) {
 	if e.useContainerMode() {
 		runner = runHarnessContainer
 	}
-	turns, err := runner(hctx, e.cfg.RepoDir, order.Target.Prompt, func(evs []translate.UIEvent) {
+	turns, err := runner(hctx, e.cfg.RepoDir, pkt.Target.Prompt, func(evs []translate.UIEvent) {
 		if len(evs) > 0 {
 			e.addActivityBeat(formatActivity(evs[len(evs)-1])) // the latest event = the agent's current move
 		}
 	})
 	cancel()
 	if err != nil {
-		_ = e.log.AppendStatus(order.ID, "failed") // the live run failed — terminal, not a completed fill
+		_ = e.log.AppendStatus(pkt.ID, "failed") // the live run failed — terminal, not a completed fill
 		return
 	}
-	// Run the catch cycle on the agent-PRODUCED revision, against the order's
+	// Run the catch cycle on the agent-PRODUCED revision, against the packet's
 	// PRE-SPECIFIED anchor (Target.Path/Line) — never an anchor derived from the
 	// agent's own diff, which would let it farm confirmed-catches (the
 	// anti-farming firewall).
@@ -1982,12 +1982,12 @@ func runLiveOrder(e *liveEntry, order ledger.WorkOrderRecord) {
 			}
 		}()
 		res, cerr := resolveCycle(context.Background(), e.cfg.RepoDir,
-			order.Target.BaseRev, liveHead, liveHead,
-			anchorFromTarget(order.Target), e.cfg.TestCmd, false, false, beats)
+			pkt.Target.BaseRev, liveHead, liveHead,
+			anchorFromTarget(pkt.Target), e.cfg.TestCmd, false, false, beats)
 		close(beats)
-		settleCatch(e, order.ID, res, cerr)
+		settleCatch(e, pkt.ID, res, cerr)
 	}
-	_ = e.log.AppendStatus(order.ID, "done")
+	_ = e.log.AppendStatus(pkt.ID, "done")
 }
 
 // liveHarnessTimeout bounds one live agent run — the runaway-token cost-gate.
@@ -2012,18 +2012,18 @@ func formatActivity(e translate.UIEvent) string {
 	}
 }
 
-func runOneOrder(e *liveEntry, order ledger.WorkOrderRecord) {
-	if err := e.log.AppendStatus(order.ID, "running"); err != nil {
-		return // could not advance the order's status — don't run; the drain loop retries under the attempts cap
+func runOneOrder(e *liveEntry, pkt ledger.PacketRecord) {
+	if err := e.log.AppendStatus(pkt.ID, "running"); err != nil {
+		return // could not advance the packet's status — don't run; the drain loop retries under the attempts cap
 	}
 	if e.sem != nil {
 		e.sem <- struct{}{}
 		defer func() { <-e.sem }()
 	}
 	// Accrue the cycle's beats into the live-fill buffer so the card can show this
-	// order filling LIVE ("watch it fill"). The runner has no request ctx to write
+	// packet filling LIVE ("watch it fill"). The runner has no request ctx to write
 	// the card's cells; it writes the buffer and the card's Stream polls it.
-	e.startFill(order.ID)
+	e.startFill(pkt.ID)
 	beats := make(chan pipe.TraceEvent, 64)
 	go func() {
 		for ev := range beats {
@@ -2031,18 +2031,18 @@ func runOneOrder(e *liveEntry, order ledger.WorkOrderRecord) {
 		}
 	}()
 	res, err := resolveCycle(context.Background(), e.cfg.RepoDir,
-		order.Target.BaseRev, order.Target.FixRev, order.Target.TipRev,
-		anchorFromTarget(order.Target), e.cfg.TestCmd, false, false, beats)
+		pkt.Target.BaseRev, pkt.Target.FixRev, pkt.Target.TipRev,
+		anchorFromTarget(pkt.Target), e.cfg.TestCmd, false, false, beats)
 	close(beats) // the cycle only SENDS on beats; the caller owns the close, so the accrue goroutine exits (mirrors OnConnect)
-	settleCatch(e, order.ID, res, err)
-	_ = e.log.AppendStatus(order.ID, "done")
-	e.endFill() // the order is done — clear the live filling row; its outcome takes over
+	settleCatch(e, pkt.ID, res, err)
+	_ = e.log.AppendStatus(pkt.ID, "done")
+	e.endFill() // the packet is done — clear the live filling row; its outcome takes over
 }
 
-// settleCatch persists a catch cycle's result for an order: the minted catch (the
+// settleCatch persists a catch cycle's result for a packet: the minted catch (the
 // only economy write — attributed to wo:<id>, deduped on a re-run of a seen
 // identity), the oracle's verdict (diagnostic — the WHY behind a catch or miss),
-// and the surviving-mutant findings (diagnostic — the dispatch→review tie). The
+// and the surviving-mutant findings (diagnostic — the send→review tie). The
 // verdict and findings are OFF the two-scores economy; only res.Record mints. A
 // cycle error settles nothing.
 func settleCatch(e *liveEntry, orderID int, res Resolution, err error) {
@@ -2050,16 +2050,16 @@ func settleCatch(e *liveEntry, orderID int, res Resolution, err error) {
 		return
 	}
 	if res.Record != nil {
-		res.Record.Producer = "wo:" + strconv.Itoa(orderID)
+		res.Record.Source = "wo:" + strconv.Itoa(orderID)
 		_ = e.log.Append(*res.Record)
 	}
-	_ = e.log.AppendWorkOrderVerdict(orderID, res.Verdict)
+	_ = e.log.AppendPacketVerdict(orderID, res.Verdict)
 	e.setOrderFindings(orderID, res.Findings)
 	e.setOrderCatchOutcome(orderID, res.Outcome, res.AfterSurvivors, res.AfterConsidered)
 }
 
 // lastMintedSHA returns the SHA of the last turn that minted a revision — the
-// live order's "fix revision" — or ok=false when the agent committed nothing
+// live packet's "fix revision" — or ok=false when the agent committed nothing
 // (so the caller skips the catch cycle: there is no revision to check).
 func lastMintedSHA(turns []harness.Turn) (string, bool) {
 	for i := len(turns) - 1; i >= 0; i-- {
@@ -2070,7 +2070,7 @@ func lastMintedSHA(turns []harness.Turn) (string, bool) {
 	return "", false
 }
 
-// anchorFromTarget reconstructs the re-anchor anchor a funded order runs against
+// anchorFromTarget reconstructs the re-anchor anchor a funded packet runs against
 // from the target's persisted rev/anchor fields.
 func anchorFromTarget(t ledger.Target) reanchor.Anchor {
 	return reanchor.Anchor{Path: t.Path, Start: t.Line, End: t.Line, LineHash: t.LineHash}
@@ -2110,8 +2110,8 @@ func (c *LiveCard) OnConnect(ctx *via.Ctx) error {
 			return
 		}
 		if res.Record != nil && log != nil {
-			res.Record.Producer = "connect" // provenance: the connect-cycle producer, demuxed from a dispatched run's "wo:<id>"
-			_ = log.Append(*res.Record)     // best-effort; a logging failure must not hang the card
+			res.Record.Source = "connect" // provenance: the connect-cycle source, demuxed from a sent run's "wo:<id>"
+			_ = log.Append(*res.Record)   // best-effort; a logging failure must not hang the card
 		}
 		// Cache this cycle's open questions (the fix oracle's surviving mutants) for
 		// the /review surface — ephemeral diagnostic state, off the economy ledger.
@@ -2123,7 +2123,7 @@ func (c *LiveCard) OnConnect(ctx *via.Ctx) error {
 		result <- resolved{verdict: res.Verdict, land: string(res.Land), questions: strconv.Itoa(len(res.Findings))}
 	}()
 	var accrued []string
-	lastDispatch := -1
+	lastSendSig := -1
 	lastFill := "0:0"
 	via.Stream(ctx, 100*time.Millisecond, func(ctx *via.Ctx, _ time.Time) {
 		for { // drain every beat available this tick, flushing the growing row
@@ -2140,26 +2140,26 @@ func (c *LiveCard) OnConnect(ctx *via.Ctx) error {
 			}
 			break
 		}
-		// Poll the dispatch tally so a BACKGROUND order runner (drainQueuedOrders has
+		// Poll the send tally so a BACKGROUND packet runner (drainQueuedPackets has
 		// no request ctx, cannot write cells) still surfaces over SSE: when the
-		// per-status counts change, write the Dispatch cell to re-render, so the Lead
-		// watches the order move queued→running→done live. Keyed on a cheap signature
+		// per-status counts change, write the Sends cell to re-render, so the Lead
+		// watches the packet move queued→running→done live. Keyed on a cheap signature
 		// so an unchanged tally writes nothing (no spurious frames).
 		if log != nil {
-			// ONE ledger projection per tick (RecentDispatches), same cost as the
-			// DispatchStatusCounts poll it replaces — the per-status tally, the
+			// ONE ledger projection per tick (RecentSends), same cost as the
+			// SendStatusCounts poll it replaces — the per-status tally, the
 			// Caught tally, and the open-thread count all derive from it without a
 			// second fold.
-			if views, err := log.RecentDispatches(0); err == nil {
+			if views, err := log.RecentSends(0); err == nil {
 				// The needs-you rail's open-thread count has no cell of
-				// its own — findings can change off the connect-cycle path (a dispatched
-				// order's own findings, a /review answer resolving one) with nothing else
+				// its own — findings can change off the connect-cycle path (a sent
+				// packet's own findings, a /review answer resolving one) with nothing else
 				// to notice while this session's "/" stream is open. Folding it into the
-				// SAME cheap signature the dispatch tally already uses re-renders the rail
+				// SAME cheap signature the send tally already uses re-renders the rail
 				// live without standing up a whole new SSE channel/cell.
 				threads := len(sessionOpenThreads(c.Key))
 				// A packet's Caught bit can flip WITHOUT any status/question change (a
-				// catch crediting an order whose status already settled to "done") — the
+				// catch crediting a packet whose status already settled to "done") — the
 				// hero/settled fold is Caught-sensitive, so the caught tally folds into
 				// the SAME signature too, or that transition would sit invisible behind
 				// an open SSE connection until reload.
@@ -2178,18 +2178,18 @@ func (c *LiveCard) OnConnect(ctx *via.Ctx) error {
 					}
 				}
 				// A new interrupt (a review question surfacing) is an off-ledger fact
-				// independent of the dispatch tally above — recordQuestionBlocks logs it
+				// independent of the send tally above — recordQuestionBlocks logs it
 				// straight to the ledger with no accompanying status/question/caught
 				// change, so without folding used in here the interrupt KPI could sit
 				// stale behind this open SSE connection until reload.
 				used, _ := weeklyInterrupts(c.Key)
-				if sig := used*1_000_000_000_000_000 + caught*1_000_000_000_000 + threads*1_000_000_000 + queued*1_000_000 + running*1_000 + done; sig != lastDispatch {
-					lastDispatch = sig
-					c.Dispatch.Write(ctx, strconv.Itoa(sig))
+				if sig := used*1_000_000_000_000_000 + caught*1_000_000_000_000 + threads*1_000_000_000 + queued*1_000_000 + running*1_000 + done; sig != lastSendSig {
+					lastSendSig = sig
+					c.Sends.Write(ctx, strconv.Itoa(sig))
 				}
 			}
 		}
-		// Poll the live-fill buffer too: the order the background runner is currently
+		// Poll the live-fill buffer too: the packet the background runner is currently
 		// filling + its accruing cycle beats, so the Lead WATCHES the work happen, not
 		// just the queued→running→done counts. Keyed on (id, beat-count) so an
 		// unchanged buffer writes nothing.
@@ -2269,22 +2269,22 @@ func NewServer(cfg LiveConfig, opts ...via.Option) (*via.App, *ledger.Log, error
 		}
 		bridge.Handler(f, key, LedgerInstance)(w, r)
 	})
-	// Claim submission is RETIRED from the HTTP surface: a producer
+	// Claim submission is RETIRED from the HTTP surface: a peer
 	// submits a claim ONLY through the authenticated NATS ingress
-	// (fabric.StartListening + a ProducerGrant), publishing to its own grant-confined
+	// (fabric.StartListening + a Grant), publishing to its own grant-confined
 	// claim subtree. The host's claim consumer drains it there. This removes the
 	// unauthenticated HTTP edge so a claim can no longer be injected by anyone who
 	// can reach the port; the per-message size bound is now NATS's max-payload, and
 	// the cage verifier remains the fail-closed check that the revs resolve.
-	// A cross-process producer uploads a git bundle of its commits here BEFORE
+	// A cross-process peer uploads a git bundle of its commits here BEFORE
 	// submitting a claim. The host validates + namespace-confines it OFFLINE
-	// (ingest unbundles only into refs/producers/<key>/* of the session's repo),
+	// (ingest unbundles only into refs/producers/<key>/* of the session's repo — legacy wire name),
 	// so a later claim's SHAs resolve against that repo WITHOUT the host ever
-	// fetching a producer-controlled URL — no egress, no SSRF. The
-	// producer id is the session key (the producer identity per one-session-per-
-	// producer); a key that is not a safe ref segment is refused by ingest (400).
+	// fetching a peer-controlled URL — no egress, no SSRF. The
+	// peer id is the session key (the peer identity per one-session-per-
+	// peer); a key that is not a safe ref segment is refused by ingest (400).
 	// Mirrors POST /claim's session-key gate + body cap (this is the live server's
-	// HTTP producer surface; if that ever moves to the NATS ProducerGrant path,
+	// HTTP peer surface; if that ever moves to the NATS Grant path,
 	// the bundle channel moves with it).
 	const maxBundleBytes = 32 << 20 // 32 MiB — a commit bundle is small; a hard ceiling on abuse
 	app.HandleFunc("POST /bundle", func(w http.ResponseWriter, r *http.Request) {
@@ -2292,10 +2292,10 @@ func NewServer(cfg LiveConfig, opts ...via.Option) (*via.App, *ledger.Log, error
 		if key == "" {
 			key = defaultSessionKey
 		}
-		// When producers are configured, the bundle blob (the one producer channel
+		// When peers are configured, the bundle blob (the one peer channel
 		// that stays on HTTP — git bundles are ill-suited to NATS messaging) is
 		// authenticated against the SAME grant table as the NATS claim ingress:
-		// Basic credentials must match a grant for this session key (producer ==
+		// Basic credentials must match a grant for this session key (peer ==
 		// session key). Checked BEFORE the registry lookup so an unauthenticated
 		// prober learns nothing about which keys exist. With no grants configured
 		// (in-process/single-user runs) the endpoint stays open, as before.
@@ -2311,16 +2311,16 @@ func NewServer(cfg LiveConfig, opts ...via.Option) (*via.App, *ledger.Log, error
 		cfg, _ := readLiveState(key)
 		// A session with no configured repo must refuse, not pass "" to ingest: an
 		// empty store makes git run in the server process cwd, so an upload would
-		// silently land the producer's commits in refs/producers/<key>/* of whatever
+		// silently land the peer's commits in refs/producers/<key>/* of whatever
 		// repo the server was launched from. Reject before reading the body.
 		if cfg.RepoDir == "" {
 			http.Error(w, "bundle: session has no repository", http.StatusBadRequest)
 			return
 		}
-		// Per-producer flood-defenses: throttle the upload RATE so a producer
+		// Per-peer flood-defenses: throttle the upload RATE so a peer
 		// can't flood the ingest path, then (after reading) bound the aggregate bytes
 		// it RETAINS so it can't fill the host store. Both key off the authenticated
-		// producer identity (== session key) the boundary now guarantees.
+		// peer identity (== session key) the boundary now guarantees.
 		guard := bundleGuardFor(key)
 		if !guard.allowUpload() {
 			http.Error(w, "bundle: rate limit exceeded", http.StatusTooManyRequests)
@@ -2332,24 +2332,24 @@ func NewServer(cfg LiveConfig, opts ...via.Option) (*via.App, *ledger.Log, error
 			http.Error(w, "bundle: too large or unreadable", http.StatusBadRequest)
 			return
 		}
-		// Reserve this upload's bytes against the producer's quota AND the global
+		// Reserve this upload's bytes against the peer's quota AND the global
 		// ceiling BEFORE ingesting; an over-limit upload is refused without doing the
-		// work. GC-by-resolved frees both when the producer's objects are
-		// reclaimed. A per-producer overflow is 413 (this producer's fault); a global
-		// overflow is 503 (the host is at capacity, not this producer's fault).
+		// work. GC-by-resolved frees both when the peer's objects are
+		// reclaimed. A per-peer overflow is 413 (this peer's fault); a global
+		// overflow is 503 (the host is at capacity, not this peer's fault).
 		if ok, global := guard.reserve(int64(len(body))); !ok {
 			if global {
 				http.Error(w, "bundle: host storage at capacity", http.StatusServiceUnavailable)
 			} else {
-				http.Error(w, "bundle: producer storage quota exceeded", http.StatusRequestEntityTooLarge)
+				http.Error(w, "bundle: peer storage quota exceeded", http.StatusRequestEntityTooLarge)
 			}
 			return
 		}
-		// A bad producer id, an invalid bundle, or one past the cap is a client
+		// A bad peer id, an invalid bundle, or one past the cap is a client
 		// error; keep the message generic — the typed reasons live in ingest, and
 		// leaking git internals would aid a prober. A failed ingest releases the
 		// reserved bytes so a rejected upload never permanently consumes quota.
-		if err := ingest.IngestProducerObjects(r.Context(), cfg.RepoDir, key, body, maxBundleBytes); err != nil {
+		if err := ingest.IngestPeerObjects(r.Context(), cfg.RepoDir, key, body, maxBundleBytes); err != nil {
 			guard.release(int64(len(body)))
 			http.Error(w, "bundle: rejected", http.StatusBadRequest)
 			return

@@ -20,7 +20,7 @@ func TestLiveCard_showsTheFundableWorkOnTheBench(t *testing.T) {
 	server, _ := bootDefaultServer(t, app.LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"},
-		DispatchBacklog: []ledger.Target{
+		SendBacklog: []ledger.Target{
 			{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7},
 			{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "beta.go", Line: 9},
 		},
@@ -38,7 +38,7 @@ func TestLiveCard_showsTheFundableWorkOnTheBench(t *testing.T) {
 func TestLiveCard_omitsTheBenchWhenNoFundableWork(t *testing.T) {
 	server, _ := bootDefaultServer(t, app.LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, // no DispatchBacklog, no catches → no fundable work
+		TestCmd: []string{"true"}, // no SendBacklog, no catches → no fundable work
 	})
 
 	body := bodyOf(vt.NewClient(t, server, "/").HTML())
@@ -55,7 +55,7 @@ func TestLiveCard_benchCapsTheVisibleTargets(t *testing.T) {
 	}
 	server, _ := bootDefaultServer(t, app.LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
-		TestCmd: []string{"true"}, DispatchBacklog: many,
+		TestCmd: []string{"true"}, SendBacklog: many,
 	})
 
 	body := bodyOf(vt.NewClient(t, server, "/").HTML())

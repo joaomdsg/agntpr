@@ -15,10 +15,10 @@ import (
 // connection to it, so the existing host connection works without creds.
 const hostUser = "packets-host"
 
-// ProducerGrant authorizes one cross-process producer: credentials (User/Pass)
-// confined to publish ONLY its own session+instance claim subtree. It is the
-// converged claim-submission schema — a producer emits claims, never mints.
-type ProducerGrant struct {
+// Grant admits one cross-process peer: credentials (User/Pass) confined to
+// publish ONLY its own session+instance claim subtree. It is the converged
+// claim-submission schema — a peer emits claims, never mints.
+type Grant struct {
 	User     string
 	Pass     string
 	Session  string
@@ -27,17 +27,30 @@ type ProducerGrant struct {
 
 // StartListening boots the fabric like Start but ALSO binds a TCP listener at
 // addr (host:port; port 0 means a random free port) and enforces auth: the
-// in-process host publishes anything, while each granted producer authenticates
+// in-process host publishes anything, while each granted peer authenticates
 // and may publish ONLY to its own claim subtree
 // (packets.session.<session>.events.<instance>.claim.>) — minted subjects and
 // other sessions are denied. Its subscribe is confined to its reply inbox, so a
-// producer can neither forge a mint nor read another session's economy. The
+// peer can neither forge a mint nor read another session's economy. The
 // in-process Start path is unaffected.
-func StartListening(ctx context.Context, dir, addr string, grants ...ProducerGrant) (*Fabric, error) {
+func StartListening(ctx context.Context, dir, addr string, grants ...Grant) (*Fabric, error) {
 	host, port, err := splitAddr(addr)
 	if err != nil {
 		return nil, err
 	}
+	return boot(&server.Options{
+		StoreDir:   dir,
+		Host:       host,
+		Port:       port,
+		Users:      authUsers(grants),
+		NoAuthUser: hostUser,
+	})
+}
+
+// authUsers builds the host+peer user list shared by StartListening and
+// Binding.Listen: the in-process host publishes anything, while each granted
+// peer authenticates and may publish ONLY to its own claim subtree.
+func authUsers(grants []Grant) []*server.User {
 	// NoAuthUser maps EVERY credential-less connection — in-process AND external
 	// socket — onto hostUser. Confining hostUser to IN_PROCESS connections is what
 	// stops an anonymous external client from inheriting full mint privileges:
@@ -53,11 +66,11 @@ func StartListening(ctx context.Context, dir, addr string, grants ...ProducerGra
 			Username: g.User,
 			Password: g.Pass,
 			Permissions: &server.Permissions{
-				// Allow the producer's whole claim subtree EXCEPT the verdict kind: a verdict
+				// Allow the peer's whole claim subtree EXCEPT the verdict kind: a verdict
 				// resolves a bet (drops it from in-flight, counts it a verified-loss) and must
-				// come only from the in-process host's verifier — a producer forging one would
+				// come only from the in-process host's verifier — a peer forging one would
 				// self-resolve its own bets, bypassing the cage. NATS Deny overrides Allow, so
-				// this carves out exactly that one kind while every other producer claim kind
+				// this carves out exactly that one kind while every other peer claim kind
 				// stays publishable.
 				Publish: &server.SubjectPermission{
 					Allow: []string{EventSubject(g.Session, g.Instance, StatusClaim, ">")},
@@ -67,13 +80,7 @@ func StartListening(ctx context.Context, dir, addr string, grants ...ProducerGra
 			},
 		})
 	}
-	return boot(&server.Options{
-		StoreDir:   dir,
-		Host:       host,
-		Port:       port,
-		Users:      users,
-		NoAuthUser: hostUser,
-	})
+	return users
 }
 
 // Addr is the bound listen address (host:port), or "" for an in-process-only

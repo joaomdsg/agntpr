@@ -9,7 +9,7 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-// Status is the producer/commit-status token in the subject taxonomy. It
+// Status is the peer/commit-status token in the subject taxonomy. It
 // demuxes authoritative source-of-truth events (minted) from discarded fan-out
 // activity (scratch) so a projection rebuild can replay only the former.
 type Status = string
@@ -17,9 +17,9 @@ type Status = string
 const (
 	StatusScratch Status = "scratch"
 	StatusMinted  Status = "minted"
-	// StatusClaim is an untrusted cross-process producer's submission: neither
+	// StatusClaim is an untrusted cross-process peer's submission: neither
 	// authoritative (minted) nor discarded fan-out (scratch), but a claim the host
-	// must verify before it mints. Producers may publish ONLY their own claim
+	// must verify before it mints. Peers may publish ONLY their own claim
 	// subtree; minted subjects are reserved to the host.
 	StatusClaim Status = "claim"
 )
@@ -27,8 +27,8 @@ const (
 // ClaimVerdictKind is the host-reserved <kind> token in the claim subtree for a TERMINAL
 // rejection of a claim (the verifier's verdict that resolves a bet — drops it from
 // in-flight, counts it a verified-loss). Only the in-process host's verifier may publish
-// it; cross-process producers are DENIED this kind (StartListening) so a producer cannot
-// forge a verdict and self-resolve its own bets, bypassing the cage verifier. Producers
+// it; cross-process peers are DENIED this kind (StartListening) so a peer cannot
+// forge a verdict and self-resolve its own bets, bypassing the cage verifier. Peers
 // may still publish every OTHER kind in their own claim subtree.
 const ClaimVerdictKind = "verdict"
 
@@ -66,7 +66,7 @@ func FleetMintedSubject() string {
 	return EventSubject("*", "*", StatusMinted, ">")
 }
 
-// FleetClaimSubject matches every session's claim-subtree events (producer
+// FleetClaimSubject matches every session's claim-subtree events (peer
 // submissions and the host's verdicts) across the whole fabric — the
 // counterpart to FleetMintedSubject, the source the cross-session board folds
 // the claim lifecycle (in-flight bets, verified-losses) from.
@@ -85,7 +85,7 @@ func FleetEventsSubject() string {
 // ReplaySubject replays, in global sequence order, only the stored events whose
 // subject matches the NATS filter (JetStream-native FilterSubject — the broker
 // does the demux, not client-side string matching). Surviving events keep their
-// original stream sequence, since seq is the authoritative cross-producer order.
+// original stream sequence, since seq is the authoritative cross-peer order.
 func (f *Fabric) ReplaySubject(ctx context.Context, filter string) ([]Event, error) {
 	sub, err := f.js.PullSubscribe(filter, "", nats.BindStream(streamName), nats.DeliverAll())
 	if err != nil {

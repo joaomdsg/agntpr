@@ -21,8 +21,8 @@ func TestBoardCard_rendersACalmRowPerCardAsActivityNeverLeverage(t *testing.T) {
 	t1, t2 := woTargetN(1), woTargetN(2)
 	own := ownTargetOf(app.LiveConfig{BaseRev: "own-b-bcB", FixRev: "own-f", Anchor: anchorForCap()})
 	logB := boardSession(t, "bcB", 3, []ledger.Target{t1, t2})
-	require.NoError(t, logB.AppendDispatch("d", t1, own))
-	require.NoError(t, logB.AppendDispatch("d", t2, own))
+	require.NoError(t, logB.AppendSend("d", t1, own))
+	require.NoError(t, logB.AppendSend("d", t2, own))
 	boardSession(t, "bcA", 1, nil)
 
 	// The board is a static read-only projection — its content is the initial

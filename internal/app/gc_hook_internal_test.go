@@ -16,20 +16,20 @@ import (
 	"github.com/joaomdsg/packets/internal/pipe"
 )
 
-// When a producer's claim RESOLVES (here: mints), the post-verdict GC hook
-// reclaims that producer's ingested objects immediately — no periodic sweep, no
-// manual PruneIdleProducers call. This proves the production wiring
+// When a peer's claim RESOLVES (here: mints), the post-verdict GC hook
+// reclaims that peer's ingested objects immediately — no periodic sweep, no
+// manual PruneIdlePeers call. This proves the production wiring
 // (StartCageClaimConsumers sets Admission.OnResolved) actually fires on
 // resolution. NOT parallel (shared liveReg/liveFabric).
-func TestClaimResolution_reclaimsTheProducersObjectsViaThePostVerdictHook(t *testing.T) {
+func TestClaimResolution_reclaimsThePeersObjectsViaThePostVerdictHook(t *testing.T) {
 	resetConsumersForTest()
 	repo, base, fix, tip := inlineRepoWithTwoRevs(t)
 
-	// Ingest a producer bundle so the session's namespace holds objects to reclaim.
-	bundle, _ := producerCommitBundle(t)
-	require.NoError(t, ingest.IngestProducerObjects(context.Background(), repo, defaultSessionKey, bundle, 1<<20))
+	// Ingest a peer bundle so the session's namespace holds objects to reclaim.
+	bundle, _ := peerCommitBundle(t)
+	require.NoError(t, ingest.IngestPeerObjects(context.Background(), repo, defaultSessionKey, bundle, 1<<20))
 	require.True(t, resolvesRef(t, repo, "refs/producers/"+defaultSessionKey+"/heads/main"),
-		"precondition: the producer's objects are ingested before the claim resolves")
+		"precondition: the peer's objects are ingested before the claim resolves")
 
 	output, err := json.Marshal(pipe.Transcript{
 		Outcome: catch.Catch, Reason: pipe.ReasonNone, Path: "adult.go", Line: 2, Land: pipe.LandClean,
@@ -57,10 +57,10 @@ func TestClaimResolution_reclaimsTheProducersObjectsViaThePostVerdictHook(t *tes
 		return err == nil && b == 1
 	}, 5*time.Second, 25*time.Millisecond, "the claim must mint (resolve) first")
 
-	// The post-verdict hook must have reclaimed the now-idle producer's objects —
+	// The post-verdict hook must have reclaimed the now-idle peer's objects —
 	// no claim is in flight after the mint, so its namespace is dead weight.
 	require.Eventually(t, func() bool {
 		return !resolvesRef(t, repo, "refs/producers/"+defaultSessionKey+"/heads/main")
 	}, 5*time.Second, 25*time.Millisecond,
-		"a resolved claim must trigger the post-verdict prune of its producer's objects")
+		"a resolved claim must trigger the post-verdict prune of its peer's objects")
 }

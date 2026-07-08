@@ -17,7 +17,7 @@ import (
 // no-oracle-signal. The oracle's persisted per-order verdict is surfaced here
 // so the miss is DIAGNOSABLE on the surface, not just a bare outcome. NOT parallel
 // (shared liveReg/liveFabric).
-func TestLiveCard_showsThePerOrderVerdictSoAMissIsDiagnosable(t *testing.T) {
+func TestLiveCard_showsThePerPacketVerdictSoAMissIsDiagnosable(t *testing.T) {
 	server, _ := bootDefaultServer(t, defaultBootCfg)
 	log := addFundedSession(t, "whyc", app.LiveConfig{BaseRev: "own-b-whyc", FixRev: "own-f", Anchor: anchorForCap()})
 
@@ -25,13 +25,13 @@ func TestLiveCard_showsThePerOrderVerdictSoAMissIsDiagnosable(t *testing.T) {
 	// (no-catch) was persisted for it.
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 100, ReasonTag: "catch"}))
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
-	require.NoError(t, log.AppendDispatch("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
+	require.NoError(t, log.AppendSend("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
 	require.NoError(t, log.AppendStatus(1, "done"))
-	require.NoError(t, log.AppendWorkOrderVerdict(1, "no-catch"))
+	require.NoError(t, log.AppendPacketVerdict(1, "no-catch"))
 
 	body := bodyOf(vt.NewClient(t, server, "/?key=whyc").HTML())
 	require.Contains(t, body, "no-catch", "the missed order shows the oracle's verdict — the WHY behind the miss")
-	require.Contains(t, body, "board-row__dispatch-why", "the verdict carries its own calm hook so it reads as secondary detail")
+	require.Contains(t, body, "board-row__send-why", "the verdict carries its own calm hook so it reads as secondary detail")
 }
 
 // The board's "why" tag must render a HUMAN label for a real verdict token, not the raw
@@ -43,9 +43,9 @@ func TestLiveCard_rendersTheVerdictWhyAsAHumanLabelNotARawToken(t *testing.T) {
 
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 100, ReasonTag: "catch"}))
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
-	require.NoError(t, log.AppendDispatch("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
+	require.NoError(t, log.AppendSend("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own))
 	require.NoError(t, log.AppendStatus(1, "done"))
-	require.NoError(t, log.AppendWorkOrderVerdict(1, "lost_via_rename")) // a real persisted verdict token
+	require.NoError(t, log.AppendPacketVerdict(1, "lost_via_rename")) // a real persisted verdict token
 
 	body := bodyOf(vt.NewClient(t, server, "/?key=whylabel").HTML())
 	require.Contains(t, body, "Anchor lost: file renamed", "the why tag reads as a human label")
@@ -61,12 +61,12 @@ func TestLiveCard_omitsTheVerdictWhenNonePersisted(t *testing.T) {
 
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 100, ReasonTag: "catch"}))
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
-	require.NoError(t, log.AppendDispatch("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own)) // queued, no verdict
+	require.NoError(t, log.AppendSend("d1", ledger.Target{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}, own)) // queued, no verdict
 
-	// bodyOf scopes past the head — the stylesheet carries .board-row__dispatch-why
+	// bodyOf scopes past the head — the stylesheet carries .board-row__send-why
 	// as a selector; we assert the rendered ORDER has no verdict element.
 	body := bodyOf(vt.NewClient(t, server, "/?key=noverdictc").HTML())
-	require.Contains(t, body, "WO#1", "the order still renders")
-	require.NotContains(t, body, "board-row__dispatch-why",
+	require.Contains(t, body, "PKT#1", "the order still renders")
+	require.NotContains(t, body, "board-row__send-why",
 		"an order with no persisted verdict shows no why element")
 }

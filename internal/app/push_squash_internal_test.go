@@ -15,11 +15,11 @@ import (
 // built off base via commit-tree, mirroring the land flow.
 func pushSquashFixture(t *testing.T) (work, bare, base string) {
 	t.Helper()
-	work = initGitRepoForOrder(t)
+	work = initGitRepoForPacket(t)
 	bare = t.TempDir()
-	gitOrder(t, bare, "init", "--bare", "-q")
-	gitOrder(t, work, "remote", "add", "origin", bare)
-	base = gitOrder(t, work, "rev-parse", "HEAD")
+	gitPacket(t, bare, "init", "--bare", "-q")
+	gitPacket(t, work, "remote", "add", "origin", bare)
+	base = gitPacket(t, work, "rev-parse", "HEAD")
 	return work, bare, base
 }
 
@@ -29,9 +29,9 @@ func pushSquashFixture(t *testing.T) (work, bare, base string) {
 func squashOf(t *testing.T, work, base, file, content string) string {
 	t.Helper()
 	require.NoError(t, os.WriteFile(filepath.Join(work, file), []byte(content), 0o644))
-	gitOrder(t, work, "add", "-A")
-	gitOrder(t, work, "commit", "-qm", "rev")
-	return gitOrder(t, work, "commit-tree", "HEAD^{tree}", "-p", base, "-m", "squash")
+	gitPacket(t, work, "add", "-A")
+	gitPacket(t, work, "commit", "-qm", "rev")
+	return gitPacket(t, work, "commit-tree", "HEAD^{tree}", "-p", base, "-m", "squash")
 }
 
 // The land push must land a fresh PR branch on the remote — the first push of a new
@@ -42,7 +42,7 @@ func TestPushSquash_firstPushCreatesTheBranchOnTheRemote(t *testing.T) {
 
 	require.NoError(t, pushSquash(context.Background(), work, sha, "packets/fresh", ""),
 		"the first push of a fresh branch must succeed")
-	assert.Equal(t, sha, gitOrder(t, bare, "rev-parse", "refs/heads/packets/fresh"),
+	assert.Equal(t, sha, gitPacket(t, bare, "rev-parse", "refs/heads/packets/fresh"),
 		"the remote branch must now point at the pushed squash")
 }
 
@@ -57,7 +57,7 @@ func TestPushSquash_relandWithCurrentLeaseAdvancesTheBranch(t *testing.T) {
 	sha2 := squashOf(t, work, base, "b.txt", "b\n")
 	require.NoError(t, pushSquash(context.Background(), work, sha2, "packets/reland", sha1),
 		"a re-land leasing against the last-pushed sha must succeed")
-	assert.Equal(t, sha2, gitOrder(t, bare, "rev-parse", "refs/heads/packets/reland"),
+	assert.Equal(t, sha2, gitPacket(t, bare, "rev-parse", "refs/heads/packets/reland"),
 		"the remote branch must advance to the new squash")
 }
 
@@ -75,7 +75,7 @@ func TestPushSquash_staleLeaseIsRefusedAndLeavesTheRemoteUntouched(t *testing.T)
 	// Lease names sha1, but the remote is at sha2 — stale, must be refused.
 	assert.Error(t, pushSquash(context.Background(), work, sha3, "packets/stale", sha1),
 		"a stale lease must be refused, not force through")
-	assert.Equal(t, sha2, gitOrder(t, bare, "rev-parse", "refs/heads/packets/stale"),
+	assert.Equal(t, sha2, gitPacket(t, bare, "rev-parse", "refs/heads/packets/stale"),
 		"the remote branch must be unchanged after a refused push")
 }
 
@@ -91,6 +91,6 @@ func TestPushSquash_emptyLeaseRefusesToClobberAnExistingBranch(t *testing.T) {
 	sha2 := squashOf(t, work, base, "b.txt", "b\n")
 	assert.Error(t, pushSquash(context.Background(), work, sha2, "packets/exists", ""),
 		"empty expected = must-not-exist: a first-push lease must refuse an existing branch")
-	assert.Equal(t, sha1, gitOrder(t, bare, "rev-parse", "refs/heads/packets/exists"),
+	assert.Equal(t, sha1, gitPacket(t, bare, "rev-parse", "refs/heads/packets/exists"),
 		"the existing branch must be unchanged")
 }

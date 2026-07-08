@@ -8,9 +8,9 @@ import (
 	"github.com/joaomdsg/packets/internal/ledger"
 )
 
-// Packet is the read-model aggregate: one work order, made legible for the
+// Packet is the read-model aggregate: one sent packet, made legible for the
 // design concept model. Every field derives from a real input (a
-// ledger.DispatchView, the repo Addr, and an injected open-questions count) —
+// ledger.SendView, the repo Addr, and an injected open-questions count) —
 // nothing here is fabricated.
 type Packet struct {
 	ID            int
@@ -35,43 +35,43 @@ type Packet struct {
 	// Fold NEVER populates it — G3/G4 need a catch outcome and a build/vet
 	// exec respectively, neither of which Fold has access to — so every
 	// folded Packet starts at the honest zero value (all six gates
-	// GateNotRun) until the app layer computes and attaches one per order at
+	// GateNotRun) until the app layer computes and attaches one per packet at
 	// render time (gauntletFor), the same division of
 	// labor as Lane above.
 	Gauntlet Gauntlet
-	// HandshakePath/HandshakeHash are copied straight from the order's
+	// HandshakePath/HandshakeHash are copied straight from the packet's
 	// ledger.Target (set at compose time) — zero I/O, a
 	// plain data carry. The app layer's gauntletFor uses them to run G2
 	// (RunHandshakeGate) and re-verify the handshake hasn't drifted
 	// (VerifyHandshake) at render time; empty means no handshake was
-	// authored for this order (a legacy pre-funded order, or a live order
+	// authored for this packet (a legacy pre-funded packet, or a live packet
 	// composed before this concept existed).
 	HandshakePath string
 	HandshakeHash string
-	// HandshakeStrength is copied from the order's ledger.Target.HandshakeStrength
+	// HandshakeStrength is copied from the packet's ledger.Target.HandshakeStrength
 	// (a plain int there, to avoid an internal/packet<->internal/ledger import
 	// cycle — see ledger.go's comment on that field) via an explicit conversion
 	// in Fold. The zero value, StrengthNone, is honest for a legacy pre-funded
-	// order or a live order composed before the handshake concept existed —
+	// packet or a live packet composed before the handshake concept existed —
 	// the same "no handshake" case HandshakePath/HandshakeHash already carry.
 	HandshakeStrength HandshakeStrength
 }
 
 // Deliverable reports whether this packet has a real ACK: State==Delivered,
-// which Fold produces ONLY from a "deployed" dispatch status — the host-
+// which Fold produces ONLY from a "deployed" send status — the host-
 // issued `packets deployed` command's own evidence, never an agent's
 // self-report. Every other status is pinned unreachable.
 func (p Packet) Deliverable() bool {
 	return p.State == Delivered
 }
 
-// slugName derives a packet's Name from the order's own prompt, never
+// slugName derives a packet's Name from the packet's own prompt, never
 // invented: a lowercase hyphen slug of the first 3 whitespace-separated words,
 // keeping only letters/digits within each word. A word that cleans to empty
 // (pure punctuation/symbols) is SKIPPED, not fabricated — the slug still uses
 // whatever of the first 3 words survives cleaning. Only when EVERY candidate
 // word cleans to empty (or the prompt has none) does the name fall back to
-// "wo-<ID>", since there is nothing honest left to slug.
+// "pkt-<ID>", since there is nothing honest left to slug.
 func slugName(prompt string, id int) string {
 	words := strings.Fields(prompt)
 	if len(words) > 3 {
@@ -92,20 +92,20 @@ func slugName(prompt string, id int) string {
 	}
 
 	if len(cleaned) == 0 {
-		return fmt.Sprintf("wo-%d", id)
+		return fmt.Sprintf("pkt-%d", id)
 	}
 	return strings.Join(cleaned, "-")
 }
 
-// Fold projects ledger DispatchViews into Packets — the read-model aggregate
+// Fold projects ledger SendViews into Packets — the read-model aggregate
 // for the design concept model. It is PURE data→data: no I/O, no ledger
 // writes, no import of internal/app. openQuestions is the caller's injected
 // lookup (the app's findings cache) for how many open review questions a
-// given order left; this package stays ignorant of where that number comes
-// from. Order identity is preserved 1:1 with views (same length, same order,
+// given packet left; this package stays ignorant of where that number comes
+// from. Packet identity is preserved 1:1 with views (same length, same order,
 // matched by ID).
 //
-// The dispatch status maps onto lifecycle/hold BINDING per this table (fail
+// The send status maps onto lifecycle/hold BINDING per this table (fail
 // toward attention, never silently Verified, on anything not explicitly
 // listed here):
 //
@@ -123,7 +123,7 @@ func slugName(prompt string, id int) string {
 //	                                           "deployment regression"
 //	anything else (unknown/future status)   → Held, blocking,
 //	                                           "unknown state · <status>"
-func Fold(views []ledger.DispatchView, addr Addr, openQuestions func(orderID int) int) []Packet {
+func Fold(views []ledger.SendView, addr Addr, openQuestions func(orderID int) int) []Packet {
 	packets := make([]Packet, len(views))
 	for i, v := range views {
 		questions := openQuestions(v.ID)

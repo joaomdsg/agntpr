@@ -21,7 +21,7 @@ type evt struct {
 	kind  string
 	catch ledger.CatchRecord
 	spend ledger.SpendRecord
-	order ledger.WorkOrderRecord
+	order ledger.PacketRecord
 	stat  ledger.StatusRecord
 }
 
@@ -34,7 +34,7 @@ func (e evt) publish(t *testing.T, ctx context.Context, f *fabric.Fabric, sessio
 	case "spend":
 		_, err = ledger.PublishSpend(ctx, f, session, instance, e.spend)
 	case "workorder":
-		_, err = ledger.PublishWorkOrder(ctx, f, session, instance, e.order)
+		_, err = ledger.PublishPacket(ctx, f, session, instance, e.order)
 	case "wostatus":
 		_, err = ledger.PublishStatus(ctx, f, session, instance, e.stat)
 	}
@@ -52,7 +52,7 @@ func TestReplayProjection_foldsTheWorkedEconomyFromTheStream(t *testing.T) {
 		return ledger.Target{BaseRev: "base", FixRev: "fix", TipRev: "fix", Path: "a.go", Line: line}
 	}
 	connectCatch := func(line int, reason string) ledger.CatchRecord {
-		return ledger.CatchRecord{Outcome: catch.Catch, Path: "a.go", Line: line, BeforeRev: "base", AfterRev: "fix", ReasonTag: reason, Producer: "connect"}
+		return ledger.CatchRecord{Outcome: catch.Catch, Path: "a.go", Line: line, BeforeRev: "base", AfterRev: "fix", ReasonTag: reason, Source: "connect"}
 	}
 
 	// A worked economy: a connect win, a forged NON-catch catch-kind event (locks
@@ -62,18 +62,18 @@ func TestReplayProjection_foldsTheWorkedEconomyFromTheStream(t *testing.T) {
 	// MISS), and order 3 stays queued (a pending bet).
 	fixture := []evt{
 		{kind: "catch", catch: connectCatch(4, "boundary")},
-		{kind: "catch", catch: ledger.CatchRecord{Outcome: catch.NoCatch, Path: "a.go", Line: 9, Producer: "connect"}},
+		{kind: "catch", catch: ledger.CatchRecord{Outcome: catch.NoCatch, Path: "a.go", Line: 9, Source: "connect"}},
 		{kind: "spend", spend: ledger.SpendRecord{Kind: "spend", Amount: 0, Reason: "noop"}},
 		{kind: "spend", spend: ledger.SpendRecord{Kind: "spend", Amount: 1, Reason: "d1"}},
-		{kind: "workorder", order: ledger.WorkOrderRecord{Kind: "workorder", ID: 1, Producer: "in-process", Status: "queued", Reason: "d1", Target: tgt(5)}},
+		{kind: "workorder", order: ledger.PacketRecord{Kind: "workorder", ID: 1, Source: "in-process", Status: "queued", Reason: "d1", Target: tgt(5)}},
 		{kind: "wostatus", stat: ledger.StatusRecord{Kind: "wostatus", ID: 1, Status: "running"}},
-		{kind: "catch", catch: ledger.CatchRecord{Outcome: catch.Catch, Path: "a.go", Line: 5, BeforeRev: "base", AfterRev: "fix", ReasonTag: "boundary", Producer: "wo:1"}},
+		{kind: "catch", catch: ledger.CatchRecord{Outcome: catch.Catch, Path: "a.go", Line: 5, BeforeRev: "base", AfterRev: "fix", ReasonTag: "boundary", Source: "wo:1"}},
 		{kind: "wostatus", stat: ledger.StatusRecord{Kind: "wostatus", ID: 1, Status: "done"}},
 		{kind: "spend", spend: ledger.SpendRecord{Kind: "spend", Amount: 1, Reason: "d2"}},
-		{kind: "workorder", order: ledger.WorkOrderRecord{Kind: "workorder", ID: 2, Producer: "in-process", Status: "queued", Reason: "d2", Target: tgt(6)}},
+		{kind: "workorder", order: ledger.PacketRecord{Kind: "workorder", ID: 2, Source: "in-process", Status: "queued", Reason: "d2", Target: tgt(6)}},
 		{kind: "wostatus", stat: ledger.StatusRecord{Kind: "wostatus", ID: 2, Status: "done"}},
 		{kind: "spend", spend: ledger.SpendRecord{Kind: "spend", Amount: 1, Reason: "d3"}},
-		{kind: "workorder", order: ledger.WorkOrderRecord{Kind: "workorder", ID: 3, Producer: "in-process", Status: "queued", Reason: "d3", Target: tgt(7)}},
+		{kind: "workorder", order: ledger.PacketRecord{Kind: "workorder", ID: 3, Source: "in-process", Status: "queued", Reason: "d3", Target: tgt(7)}},
 		{kind: "catch", catch: connectCatch(10, "nil")},
 		{kind: "catch", catch: connectCatch(11, "bounds")},
 	}
@@ -92,23 +92,23 @@ func TestReplayProjection_foldsTheWorkedEconomyFromTheStream(t *testing.T) {
 	assert.Equal(t, 4, stock.Count, "the forged NoCatch event is never counted as confirmed")
 	assert.Equal(t, 1, stock.Reinvested, "exactly the wo:1 mint is reinvested")
 
-	require.Len(t, proj.WorkOrders(), 3)
-	assert.Equal(t, ledger.DispatchCounts{Queued: 1, Running: 0, Done: 2}, proj.DispatchStatusCounts())
+	require.Len(t, proj.Packets(), 3)
+	assert.Equal(t, ledger.SendCounts{Queued: 1, Running: 0, Done: 2}, proj.SendStatusCounts())
 
-	require.Len(t, proj.QueuedWorkOrders(), 1)
-	assert.Equal(t, 3, proj.QueuedWorkOrders()[0].ID, "only order 3 is still queued")
+	require.Len(t, proj.QueuedPackets(), 1)
+	assert.Equal(t, 3, proj.QueuedPackets()[0].ID, "only order 3 is still queued")
 
-	assert.Equal(t, 1, boardMisses(proj.DispatchStatusCounts().Done, stock.Reinvested), "order 2 is done but minted nothing — one honest miss")
+	assert.Equal(t, 1, boardMisses(proj.SendStatusCounts().Done, stock.Reinvested), "order 2 is done but minted nothing — one honest miss")
 }
 
 // An order mid-flight (running, not yet done) must tally correctly: the watchable
 // queued→running→done shape the Lead sees is a projection too.
-func TestReplayProjection_countsAnOrderStillRunning(t *testing.T) {
+func TestReplayProjection_countsAPacketStillRunning(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
 	fixture := []evt{
-		{kind: "workorder", order: ledger.WorkOrderRecord{Kind: "workorder", ID: 1, Producer: "in-process", Status: "queued", Reason: "r", Target: ledger.Target{BaseRev: "base", FixRev: "fix", TipRev: "fix", Path: "a.go", Line: 5}}},
+		{kind: "workorder", order: ledger.PacketRecord{Kind: "workorder", ID: 1, Source: "in-process", Status: "queued", Reason: "r", Target: ledger.Target{BaseRev: "base", FixRev: "fix", TipRev: "fix", Path: "a.go", Line: 5}}},
 		{kind: "wostatus", stat: ledger.StatusRecord{Kind: "wostatus", ID: 1, Status: "running"}},
 	}
 
@@ -119,8 +119,8 @@ func TestReplayProjection_countsAnOrderStillRunning(t *testing.T) {
 	proj, err := ledger.ReplayProjection(ctx, f, "s2", "i2")
 	require.NoError(t, err)
 
-	assert.Equal(t, ledger.DispatchCounts{Queued: 0, Running: 1, Done: 0}, proj.DispatchStatusCounts())
-	assert.Empty(t, proj.QueuedWorkOrders(), "a running order is not queued")
+	assert.Equal(t, ledger.SendCounts{Queued: 0, Running: 1, Done: 0}, proj.SendStatusCounts())
+	assert.Empty(t, proj.QueuedPackets(), "a running order is not queued")
 }
 
 func boardMisses(done, reinvested int) int {

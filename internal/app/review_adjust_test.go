@@ -14,8 +14,8 @@ import (
 // An empty adjustment comment is nothing to address — a silent no-op, never a
 // dispatched turn. NOT parallel (shared globals).
 func TestLiveCard_addAdjustmentIsANoOpOnEmptyComment(t *testing.T) {
-	repo := initGitRepoForOrder(t)
-	head := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	head := gitPacket(t, repo, "rev-parse", "HEAD")
 
 	server, _ := bootDefaultServer(t, defaultBootCfg)
 	log := addFundedSession(t, "adjnoop", app.LiveConfig{RepoDir: repo, BaseRev: head, Anchor: anchorForCap(), TestCmd: []string{"true"}})
@@ -33,8 +33,8 @@ func TestLiveCard_addAdjustmentIsANoOpOnEmptyComment(t *testing.T) {
 // fire-and-forget harness turn. It carries the file, line, the Lead's words, an
 // author, and an id a reply can target.
 func TestLiveCard_addAdjustmentPersistsADurableAnnotation(t *testing.T) {
-	repo := initGitRepoForOrder(t)
-	head := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	head := gitPacket(t, repo, "rev-parse", "HEAD")
 
 	server, _ := bootDefaultServer(t, defaultBootCfg)
 	log := addFundedSession(t, "adjann", app.LiveConfig{RepoDir: repo, BaseRev: head, Anchor: anchorForCap(), TestCmd: []string{"true"}})
@@ -61,8 +61,8 @@ func TestLiveCard_addAdjustmentPersistsADurableAnnotation(t *testing.T) {
 // unambiguously target one — the ids are the thread's addressing. (The session
 // is unfunded, so this also holds when the re-trigger dispatch is refused.)
 func TestLiveCard_adjustmentsGetDistinctAnnotationIDs(t *testing.T) {
-	repo := initGitRepoForOrder(t)
-	head := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	head := gitPacket(t, repo, "rev-parse", "HEAD")
 
 	server, _ := bootDefaultServer(t, defaultBootCfg)
 	log := addFundedSession(t, "adjids", app.LiveConfig{RepoDir: repo, BaseRev: head, Anchor: anchorForCap(), TestCmd: []string{"true"}})
@@ -85,8 +85,8 @@ func TestLiveCard_adjustmentsGetDistinctAnnotationIDs(t *testing.T) {
 // annotation anchored to the whole span, so a comment on a block reads as the
 // block it covers — not just its first line.
 func TestLiveCard_addAdjustmentPersistsALineRange(t *testing.T) {
-	repo := initGitRepoForOrder(t)
-	head := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	head := gitPacket(t, repo, "rev-parse", "HEAD")
 
 	server, _ := bootDefaultServer(t, defaultBootCfg)
 	log := addFundedSession(t, "adjrange", app.LiveConfig{RepoDir: repo, BaseRev: head, Anchor: anchorForCap(), TestCmd: []string{"true"}})
@@ -106,8 +106,8 @@ func TestLiveCard_addAdjustmentPersistsALineRange(t *testing.T) {
 // A single-line comment (no adjendline, or end == start) records no spurious
 // range — EndLine stays 0 so it anchors as one line.
 func TestLiveCard_addAdjustmentSingleLineHasNoRange(t *testing.T) {
-	repo := initGitRepoForOrder(t)
-	head := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	head := gitPacket(t, repo, "rev-parse", "HEAD")
 
 	server, _ := bootDefaultServer(t, defaultBootCfg)
 	log := addFundedSession(t, "adjsingle", app.LiveConfig{RepoDir: repo, BaseRev: head, Anchor: anchorForCap(), TestCmd: []string{"true"}})
@@ -126,8 +126,8 @@ func TestLiveCard_addAdjustmentSingleLineHasNoRange(t *testing.T) {
 // A zero-length selection (end == start) collapses to a single line, not a
 // bogus range — guards against a guardless "EndLine = whatever was sent".
 func TestLiveCard_addAdjustmentEndEqualToStartIsNotARange(t *testing.T) {
-	repo := initGitRepoForOrder(t)
-	head := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	head := gitPacket(t, repo, "rev-parse", "HEAD")
 
 	server, _ := bootDefaultServer(t, defaultBootCfg)
 	log := addFundedSession(t, "adjeq", app.LiveConfig{RepoDir: repo, BaseRev: head, Anchor: anchorForCap(), TestCmd: []string{"true"}})
@@ -147,8 +147,8 @@ func TestLiveCard_addAdjustmentEndEqualToStartIsNotARange(t *testing.T) {
 // An empty comment persists no annotation — nothing to record, same as it
 // dispatches no turn.
 func TestLiveCard_addAdjustmentPersistsNoAnnotationForAnEmptyComment(t *testing.T) {
-	repo := initGitRepoForOrder(t)
-	head := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	head := gitPacket(t, repo, "rev-parse", "HEAD")
 
 	server, _ := bootDefaultServer(t, defaultBootCfg)
 	log := addFundedSession(t, "adjannempty", app.LiveConfig{RepoDir: repo, BaseRev: head, Anchor: anchorForCap(), TestCmd: []string{"true"}})
@@ -167,8 +167,8 @@ func TestLiveCard_addAdjustmentPersistsNoAnnotationForAnEmptyComment(t *testing.
 // leave an adjustment (the comment→harness round-trip would be unreachable from the
 // UI). NOT parallel (shared globals).
 func TestReviewCard_rendersTheAdjustmentEntryPoint(t *testing.T) {
-	repo := initGitRepoForOrder(t)
-	head := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	head := gitPacket(t, repo, "rev-parse", "HEAD")
 
 	server, _ := bootDefaultServer(t, defaultBootCfg)
 	_ = addFundedSession(t, "adjui", app.LiveConfig{RepoDir: repo, BaseRev: head, Anchor: anchorForCap(), TestCmd: []string{"true"}})

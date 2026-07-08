@@ -25,9 +25,9 @@ func editingStubHarness(t *testing.T, called *bool, gotRepo, gotPrompt *string) 
 	return func(_ context.Context, repoDir, prompt string, _ func([]translate.UIEvent)) ([]harness.Turn, error) {
 		*called, *gotRepo, *gotPrompt = true, repoDir, prompt
 		require.NoError(t, os.WriteFile(filepath.Join(repoDir, "f.txt"), []byte("one\nTWO\nthree\n"), 0o644))
-		gitOrder(t, repoDir, "add", "-A")
-		gitOrder(t, repoDir, "commit", "-qm", "edit")
-		sha := gitOrder(t, repoDir, "rev-parse", "HEAD")
+		gitPacket(t, repoDir, "add", "-A")
+		gitPacket(t, repoDir, "commit", "-qm", "edit")
+		sha := gitPacket(t, repoDir, "rev-parse", "HEAD")
 		return []harness.Turn{{Outcome: orchestrator.TurnOutcome{Minted: true, SHA: sha}}}, nil
 	}
 }
@@ -43,12 +43,12 @@ func stubResolveNoCatch(t *testing.T) {
 
 // A session marked UseContainer must run its live orders in the agent CONTAINER
 // (harness.RunContainer), not the host subprocess — that's how a Lead opts a
-// session into containerized execution without touching runLiveOrder.
-func TestDrainQueuedOrders_runsAUseContainerOrderInTheContainerRunner(t *testing.T) {
+// session into containerized execution without touching runLivePacket.
+func TestDrainQueuedPackets_runsAUseContainerPacketInTheContainerRunner(t *testing.T) {
 	resetConsumersForTest()
 	stubResolveNoCatch(t)
-	repo := initGitRepoForOrder(t)
-	base := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	base := gitPacket(t, repo, "rev-parse", "HEAD")
 
 	var procCalled, ctrCalled bool
 	var ctrRepo, ctrPrompt string
@@ -69,25 +69,25 @@ func TestDrainQueuedOrders_runsAUseContainerOrderInTheContainerRunner(t *testing
 	log := ledger.Bind(f, "ctr", "i")
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 1, ReasonTag: "catch"}))
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
-	require.NoError(t, log.AppendDispatch("d1", ledger.Target{BaseRev: base, Path: "t.go", Line: 4, Prompt: "fix it"}, own))
+	require.NoError(t, log.AppendSend("d1", ledger.Target{BaseRev: base, Path: "t.go", Line: 4, Prompt: "fix it"}, own))
 	registerSession("ctr", LiveConfig{RepoDir: repo, BaseRev: base, Anchor: anchorForCap(), TestCmd: []string{"true"}, UseContainer: true}, log)
 
-	drainQueuedOrders("ctr")
+	drainQueuedPackets("ctr")
 
 	assert.True(t, ctrCalled, "a UseContainer session runs its live order in the container runner")
 	assert.False(t, procCalled, "the host-subprocess runner must NOT be used for a UseContainer session")
 	assert.Equal(t, repo, ctrRepo, "the container runner gets the order's repo")
 	assert.Equal(t, "fix it", ctrPrompt, "the container runner gets the order's prompt")
-	assert.Equal(t, "done", statusOfOrder(t, log, 1), "the order runs to done")
+	assert.Equal(t, "done", statusOfPacket(t, log, 1), "the order runs to done")
 }
 
 // By default (UseContainer false) a live order runs on the host subprocess — the
 // existing behavior is preserved; opting into the container is explicit.
-func TestDrainQueuedOrders_runsAPromptOrderOnTheSubprocessRunnerByDefault(t *testing.T) {
+func TestDrainQueuedPackets_runsAPromptPacketOnTheSubprocessRunnerByDefault(t *testing.T) {
 	resetConsumersForTest()
 	stubResolveNoCatch(t)
-	repo := initGitRepoForOrder(t)
-	base := gitOrder(t, repo, "rev-parse", "HEAD")
+	repo := initGitRepoForPacket(t)
+	base := gitPacket(t, repo, "rev-parse", "HEAD")
 
 	var procCalled, ctrCalled bool
 	var procRepo, procPrompt string
@@ -108,10 +108,10 @@ func TestDrainQueuedOrders_runsAPromptOrderOnTheSubprocessRunnerByDefault(t *tes
 	log := ledger.Bind(f, "proc", "i")
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: catch.Catch, Path: "c.go", Line: 1, ReasonTag: "catch"}))
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
-	require.NoError(t, log.AppendDispatch("d1", ledger.Target{BaseRev: base, Path: "t.go", Line: 4, Prompt: "fix it"}, own))
+	require.NoError(t, log.AppendSend("d1", ledger.Target{BaseRev: base, Path: "t.go", Line: 4, Prompt: "fix it"}, own))
 	registerSession("proc", LiveConfig{RepoDir: repo, BaseRev: base, Anchor: anchorForCap(), TestCmd: []string{"true"}}, log) // UseContainer defaults false
 
-	drainQueuedOrders("proc")
+	drainQueuedPackets("proc")
 
 	assert.True(t, procCalled, "by default a live order runs on the host subprocess")
 	assert.False(t, ctrCalled, "the container runner is not used unless opted in")

@@ -26,38 +26,38 @@ import (
 func initMeasurableRepo(t *testing.T) (dir, base, fix string) {
 	t.Helper()
 	dir = t.TempDir()
-	gitOrder(t, dir, "init", "-q")
-	gitOrder(t, dir, "config", "user.email", "t@t")
-	gitOrder(t, dir, "config", "user.name", "t")
+	gitPacket(t, dir, "init", "-q")
+	gitPacket(t, dir, "config", "user.email", "t@t")
+	gitPacket(t, dir, "config", "user.name", "t")
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module fixture.test/lane\n\ngo 1.21\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\n\nfunc main() {}\n"), 0o644))
-	gitOrder(t, dir, "add", "-A")
-	gitOrder(t, dir, "commit", "-qm", "base")
-	base = gitOrder(t, dir, "rev-parse", "HEAD")
+	gitPacket(t, dir, "add", "-A")
+	gitPacket(t, dir, "commit", "-qm", "base")
+	base = gitPacket(t, dir, "rev-parse", "HEAD")
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\n\nfunc main() { _ = 1 }\n"), 0o644))
-	gitOrder(t, dir, "add", "-A")
-	gitOrder(t, dir, "commit", "-qm", "fix")
-	fix = gitOrder(t, dir, "rev-parse", "HEAD")
+	gitPacket(t, dir, "add", "-A")
+	gitPacket(t, dir, "commit", "-qm", "fix")
+	fix = gitPacket(t, dir, "rev-parse", "HEAD")
 	return dir, base, fix
 }
 
-// fundDispatch funds one distinct work-order (one catch debits one dispatch)
+// fundSend funds one distinct work-order (one catch debits one dispatch)
 // against target, returning nothing — a thin helper shared by this file's
 // lane tests to avoid repeating the catch+dispatch boilerplate. The funding
 // catch's AfterRev is set to id so two calls in the same test never collide
 // on the ledger's (BeforeRev, AfterRev, Path, Line, ReasonTag) catch identity.
-func fundDispatch(t *testing.T, log *ledger.Log, id string, target ledger.Target) {
+func fundSend(t *testing.T, log *ledger.Log, id string, target ledger.Target) {
 	t.Helper()
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: "catch", Path: "c.go", Line: 1, AfterRev: id, ReasonTag: "catch"}))
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
-	require.NoError(t, log.AppendDispatch(id, target, own))
+	require.NoError(t, log.AppendSend(id, target, own))
 }
 
 // The Inspector's identity strip names a measured lane for
 // an order-scoped packet, computed ON RENDER (never self-reported) — the
 // single-package fixture's own change is a 100%-of-graph ripple, LaneStrict.
 // NOT parallel (shared liveReg/liveFabric).
-func TestReviewCard_orderScopedTitlebarShowsTheMeasuredLaneChipComputedOnRender(t *testing.T) {
+func TestReviewCard_PacketScopedTitlebarShowsTheMeasuredLaneChipComputedOnRender(t *testing.T) {
 	resetConsumersForTest()
 	repo, base, fix := initMeasurableRepo(t)
 
@@ -66,7 +66,7 @@ func TestReviewCard_orderScopedTitlebarShowsTheMeasuredLaneChipComputedOnRender(
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Close() })
 	log := ledger.Bind(f, "lanechip", "i")
-	fundDispatch(t, log, "d1", ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1})
+	fundSend(t, log, "d1", ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1})
 	registerSession("lanechip", LiveConfig{RepoDir: repo, BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
@@ -89,7 +89,7 @@ func TestReviewCard_orderScopedTitlebarShowsTheMeasuredLaneChipComputedOnRender(
 // A live PROMPT order has no produced fix revision yet (FixRev stays empty
 // until the harness runs) — nothing to measure, so the chip must say so
 // honestly WITHOUT shelling out (there is no revision to diff). NOT parallel.
-func TestReviewCard_orderScopedTitlebarShowsUnmeasuredWithoutCachingWhenRevsAreUnknown(t *testing.T) {
+func TestReviewCard_PacketScopedTitlebarShowsUnmeasuredWithoutCachingWhenRevsAreUnknown(t *testing.T) {
 	resetConsumersForTest()
 	ctx := context.Background()
 	f, err := fabric.Start(ctx, t.TempDir())
@@ -98,7 +98,7 @@ func TestReviewCard_orderScopedTitlebarShowsUnmeasuredWithoutCachingWhenRevsAreU
 	log := ledger.Bind(f, "laneunmeasured", "i")
 	require.NoError(t, log.Append(ledger.CatchRecord{Outcome: "catch", Path: "c.go", Line: 1, ReasonTag: "catch"}))
 	own := ledger.Target{BaseRev: "ob", FixRev: "of", TipRev: "of", Path: "own.go", Line: 1}
-	require.NoError(t, log.AppendDispatch("d1", ledger.Target{BaseRev: "b", Prompt: "do the thing"}, own))
+	require.NoError(t, log.AppendSend("d1", ledger.Target{BaseRev: "b", Prompt: "do the thing"}, own))
 	registerSession("laneunmeasured", LiveConfig{RepoDir: ".", BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
@@ -127,7 +127,7 @@ func TestReviewCard_orderScopedTitlebarShowsUnmeasuredWithoutCachingWhenRevsAreU
 // (a dispatch status change over the SAME connection), then assert the lane
 // cache still holds nothing for the measurable order that was live in
 // sessionPackets the whole time. NOT parallel (shared liveReg/liveFabric).
-func TestLiveCard_streamPollNeverComputesTheLaneCacheForAnUnvisitedOrder(t *testing.T) {
+func TestLiveCard_streamPollNeverComputesTheLaneCacheForAnUnvisitedPacket(t *testing.T) {
 	resetConsumersForTest()
 	repo, base, fix := initMeasurableRepo(t)
 
@@ -136,7 +136,7 @@ func TestLiveCard_streamPollNeverComputesTheLaneCacheForAnUnvisitedOrder(t *test
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Close() })
 	log := ledger.Bind(f, "lanepoll", "i")
-	fundDispatch(t, log, "d1", ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1})
+	fundSend(t, log, "d1", ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1})
 	registerSession("lanepoll", LiveConfig{RepoDir: repo, BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
@@ -181,8 +181,8 @@ func TestLiveCard_laneHealthGridCountsOnlyLanesAlreadyCachedByAPriorInspectorVis
 	t.Cleanup(func() { _ = f.Close() })
 	log := ledger.Bind(f, "lanegrid", "i")
 	target := ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1}
-	fundDispatch(t, log, "d1", target) // order 1 — will be visited
-	fundDispatch(t, log, "d2", target) // order 2 — left unvisited
+	fundSend(t, log, "d1", target) // order 1 — will be visited
+	fundSend(t, log, "d2", target) // order 2 — left unvisited
 	registerSession("lanegrid", LiveConfig{RepoDir: repo, BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
@@ -221,7 +221,7 @@ func TestReviewCard_secondVisitServesTheCachedLaneWithoutRecomputing(t *testing.
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Close() })
 	log := ledger.Bind(f, "lanecachehit", "i")
-	fundDispatch(t, log, "d1", ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1})
+	fundSend(t, log, "d1", ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1})
 	registerSession("lanecachehit", LiveConfig{RepoDir: repo, BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
@@ -257,7 +257,7 @@ func TestReviewCard_laneComputationErrorIsCachedNotLeftAsAMiss(t *testing.T) {
 	log := ledger.Bind(f, "lanemeasureerr", "i")
 	// Both revs are set (so laneFor attempts to compute) but the fix rev
 	// doesn't resolve — Measure errors.
-	fundDispatch(t, log, "d1", ledger.Target{BaseRev: base, FixRev: "not-a-real-rev", TipRev: base, Path: "main.go", Line: 1})
+	fundSend(t, log, "d1", ledger.Target{BaseRev: base, FixRev: "not-a-real-rev", TipRev: base, Path: "main.go", Line: 1})
 	registerSession("lanemeasureerr", LiveConfig{RepoDir: repo, BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
 
 	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")

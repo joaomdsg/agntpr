@@ -11,7 +11,7 @@ import (
 
 // Top-level annotations become threads in the order they were written, so the
 // rail reads chronologically — the first thing said sits first.
-func TestFoldAnnotationThreads_topLevelAnnotationsBecomeThreadsInAppendOrder(t *testing.T) {
+func TestFoldAnnotationThreads_topLevelAnnotationsBecomeThreadsInAppendPacket(t *testing.T) {
 	got := foldAnnotationThreads([]ledger.AnnotationRecord{
 		{ID: "a", File: "x.go", StartLine: 1, Author: "lead", Body: "first"},
 		{ID: "b", File: "y.go", StartLine: 2, Author: "lead", Body: "second"},
@@ -38,7 +38,7 @@ func TestFoldAnnotationThreads_replyNestsUnderTheAnnotationItAnswers(t *testing.
 
 // Several replies on one annotation keep their chronological order, so a
 // back-and-forth reads top to bottom the way it happened.
-func TestFoldAnnotationThreads_multipleRepliesKeepChronologicalOrder(t *testing.T) {
+func TestFoldAnnotationThreads_multipleRepliesKeepChronologicalPacket(t *testing.T) {
 	got := foldAnnotationThreads([]ledger.AnnotationRecord{
 		{ID: "root", Author: "lead", Body: "q"},
 		{ID: "r1", ParentID: "root", Author: "agent", Body: "a1"},

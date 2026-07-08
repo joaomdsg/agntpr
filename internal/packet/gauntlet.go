@@ -4,7 +4,7 @@
 // today and which are a deliberate absence. This file holds ONLY the pure
 // core (types, String(), Forwardable, GateFromCatchOutcome) — no I/O, no
 // exec. The one exec seam this slice adds (G4, build/vet) lives in
-// gauntlet_build.go; the app layer (internal/app) wires G3/G4 per order at
+// gauntlet_build.go; the app layer (internal/app) wires G3/G4 per packet at
 // render time, the same compute-on-render, cache pattern as Lane (lane.go).
 package packet
 

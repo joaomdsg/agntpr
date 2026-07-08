@@ -22,7 +22,7 @@ import (
 // Lead can never learn WHY an order missed. The runner must persist the oracle's
 // per-order verdict so it survives on the order's dispatch view. NOT parallel
 // (shared globals: resolveCycle, liveReg).
-func TestLiveCard_persistsTheOracleVerdictForEachRunOrder(t *testing.T) {
+func TestLiveCard_persistsTheOracleVerdictForEachRunPacket(t *testing.T) {
 	restore := resolveCycle
 	t.Cleanup(func() { resolveCycle = restore })
 	// Every cycle (connect + each dispatched order) resolves to an honest no-catch
@@ -37,7 +37,7 @@ func TestLiveCard_persistsTheOracleVerdictForEachRunOrder(t *testing.T) {
 	viaApp, log, err := NewServer(LiveConfig{
 		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
 		TestCmd: []string{"true"}, LedgerPath: logPath,
-		DispatchBacklog: []ledger.Target{{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}},
+		SendBacklog: []ledger.Target{{BaseRev: "b", FixRev: "f", TipRev: "f", Path: "alpha.go", Line: 7}},
 	})
 	require.NoError(t, err)
 	server = httptest.NewServer(viaApp)
@@ -50,7 +50,7 @@ func TestLiveCard_persistsTheOracleVerdictForEachRunOrder(t *testing.T) {
 
 	// The order runs to done and the runner persists the oracle's verdict for it.
 	require.Eventually(t, func() bool {
-		views, e := log.RecentDispatches(1)
+		views, e := log.RecentSends(1)
 		return e == nil && len(views) == 1 && views[0].Status == "done" && views[0].Verdict == "no-catch"
 	}, 10*time.Second, 10*time.Millisecond,
 		"the runner persists the oracle's honest per-order verdict, so a miss carries its WHY")
