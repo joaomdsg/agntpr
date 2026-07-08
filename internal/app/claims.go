@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"runtime"
+	"sync"
 	"time"
 
 	"github.com/joaomdsg/packets/internal/cage"
@@ -51,5 +52,45 @@ func StartCageClaimConsumers(ctx context.Context, image string, runner sandbox.R
 	verifierFor := func(cfg LiveConfig) ledger.Verifier {
 		return cage.CageVerifier(runner, cfg.RepoDir, image, cageVerifyTimeout)
 	}
+	cageGauntlet.mu.Lock()
+	cageGauntlet.verifierFor = verifierFor
+	cageGauntlet.mu.Unlock()
 	StartClaimConsumers(ctx, verifierFor, claimAckWait, adm)
+}
+
+// cageGauntlet is the process-wide cage wiring gauntletFor needs to re-derive
+// G6 (IndependentCheck) for a filled order — set once by
+// StartCageClaimConsumers, left nil until then. It reuses the SAME
+// verifierFor factory the claim consumers run, so a G6 re-derivation exercises
+// the identical CageVerifier (repo dir, image, timeout) production wires for
+// claims, rather than a second, possibly-drifted construction. Separate from
+// claimConsumerSpawner because G6 must answer even for a session whose claim
+// consumer hasn't been (or will never be) spawned — the two are related but
+// distinct concerns (background verification vs render-time re-derivation).
+var cageGauntlet struct {
+	mu          sync.Mutex
+	verifierFor func(LiveConfig) ledger.Verifier
+}
+
+// cageVerifierFor returns cfg's cage-backed ledger.Verifier and true when
+// StartCageClaimConsumers has configured cage wiring for this process; false
+// when cage has never been wired, so the caller can fall back to G6's honest
+// not-run default rather than fabricate a measurement.
+func cageVerifierFor(cfg LiveConfig) (ledger.Verifier, bool) {
+	cageGauntlet.mu.Lock()
+	vf := cageGauntlet.verifierFor
+	cageGauntlet.mu.Unlock()
+	if vf == nil {
+		return nil, false
+	}
+	return vf(cfg), true
+}
+
+// resetCageGauntletForTest clears the process-global cage wiring so a prior
+// test's StartCageClaimConsumers call can't leak G6 measurements into a later
+// test that never configured cage itself. Mirrors resetConsumersForTest.
+func resetCageGauntletForTest() {
+	cageGauntlet.mu.Lock()
+	cageGauntlet.verifierFor = nil
+	cageGauntlet.mu.Unlock()
 }

@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"crypto/subtle"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -484,6 +485,38 @@ func (e *liveEntry) handshakeConformanceGate(ctx context.Context, p packet.Packe
 // gauntlet yet — a future slice's job, not this one's.
 var notMeasuredNoCage = packet.Gate{Status: packet.GateNotRun, Detail: "not measured — cage not wired to local dispatch"}
 
+// independentCheckGate derives G6 (method diversity — cage re-derivation) for
+// a filled order: cage unconfigured (StartCageClaimConsumers never called this
+// process) stays the honest notMeasuredNoCage default. Once configured, it
+// re-verifies orderID's OWN target through the SAME cage-backed
+// ledger.Verifier the claim consumers run, so G6 is a genuine independent
+// re-derivation of the fix — not a re-read of the in-process catch outcome G3
+// already holds. A permanent ledger.ErrClaimUnverifiable (the target can never
+// verify) and any other verifier error (a transient cage/runner failure) both
+// stay GateNotRun — the "never fabricate a metric" invariant every other gate
+// in this file follows: an infra fact about the cage is not itself a proven
+// finding about the revision under gate. A nil record with no error is the
+// cage's own honest non-catch (no gap survived to a confirmed catch); it
+// reports Held rather than inventing survivor counts the Verifier seam never
+// hands back for anything but a genuine catch (see ledger.NewCatchRecord).
+func (e *liveEntry) independentCheckGate(target ledger.Target) packet.Gate {
+	verify, ok := cageVerifierFor(e.cfg)
+	if !ok {
+		return notMeasuredNoCage
+	}
+	rec, err := verify(ledger.ClaimRecord{Target: target})
+	if err != nil {
+		if errors.Is(err, ledger.ErrClaimUnverifiable) {
+			return packet.Gate{Status: packet.GateNotRun, Detail: "not measured — cage could not verify this claim's target"}
+		}
+		return packet.Gate{Status: packet.GateNotRun, Detail: "not measured — cage verify failed: " + err.Error()}
+	}
+	if rec == nil {
+		return packet.Gate{Status: packet.GateHeld, Detail: "cage re-derivation found no catch to confirm"}
+	}
+	return packet.GateFromCatchOutcome(rec.Outcome, 0, rec.MutantsConsidered)
+}
+
 // cachedGauntletEntry reads gauntletCache directly, reporting a miss
 // distinctly from a cached all-NotRun Gauntlet — mirrors cachedLaneEntry.
 func (e *liveEntry) cachedGauntletEntry(orderID int) (packet.Gauntlet, bool) {
@@ -520,12 +553,16 @@ func (e *liveEntry) gauntletFor(ctx context.Context, p packet.Packet) packet.Gau
 			g.IntentFidelity = e.intentFidelityGate(p.ID)
 			return g // no fix rev yet — nothing real to cache
 		}
+		independentCheck := notMeasuredNoCage
+		if target, ok := orderTarget(e.log, p.ID); ok {
+			independentCheck = e.independentCheckGate(target)
+		}
 		g = packet.Gauntlet{
 			HandshakeConformance: e.handshakeConformanceGate(ctx, p),
 			HandshakeTightness:   e.handshakeTightnessGate(p.ID),
 			BuildVetLint:         packet.RunBuildVetGate(ctx, e.cfg.RepoDir, p.FixRev),
 			TestSensitivity:      notMeasuredNoHandshake,
-			IndependentCheck:     notMeasuredNoCage,
+			IndependentCheck:     independentCheck,
 		}
 		e.gauntletMu.Lock()
 		if e.gauntletCache == nil {
@@ -1180,6 +1217,7 @@ func resetConsumersForTest() {
 	consumerSpawner.ackWait = 0
 	consumerSpawner.adm = nil
 	consumerSpawner.started = nil
+	resetCageGauntletForTest()
 }
 
 // spawnLocked starts a consumer for key/e unless one is already running. mu held.
