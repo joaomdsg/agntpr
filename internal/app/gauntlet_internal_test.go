@@ -2,10 +2,12 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -18,6 +20,7 @@ import (
 	"github.com/joaomdsg/packets/internal/fabric"
 	"github.com/joaomdsg/packets/internal/ledger"
 	"github.com/joaomdsg/packets/internal/packet"
+	"github.com/joaomdsg/packets/internal/pipe"
 )
 
 var gauntletGateNames = []string{
@@ -389,4 +392,138 @@ func TestReviewCard_sessionScopedTimelineRendersAllSixGatesHonestlyUnmeasured(t 
 	}
 	assert.Equal(t, 6, strings.Count(body, `data-status="not-run"`), "a session-scoped review has no single packet to gauntlet — every gate is honestly not-run")
 	assert.NotContains(t, body, "/_action/ConfirmIntentFidelity", "there is no order id to confirm against in the session-scoped view")
+}
+
+// catchTranscriptJSON is the verdict bytes a cage emits for a genuine catch on
+// the anchored line — mirrors internal/cage's own test double (unexported
+// there, so this file needs its own copy rather than a cross-package import).
+func catchTranscriptJSON(t *testing.T, path string, line int) string {
+	t.Helper()
+	b, err := json.Marshal(pipe.Transcript{
+		Outcome: catch.Catch, Reason: pipe.ReasonNone, Path: path, Line: line, Land: pipe.LandClean,
+		Before: catch.LineState{Inventory: []string{">="}, Survivors: []string{">="}},
+		After:  catch.LineState{Inventory: []string{">="}, Survivors: nil},
+	})
+	require.NoError(t, err)
+	return string(b)
+}
+
+// G6 (independent check) is cage re-derivation wired into local dispatch: a
+// filled order, with cage configured process-wide via
+// StartCageClaimConsumers, gets a REAL re-verify through the same
+// cage-backed Verifier the claim consumers run — not a re-read of any
+// in-process catch outcome. The passed gate is cached alongside G3/G4. NOT
+// parallel (shared liveReg/liveFabric + the process-global cage wiring).
+func TestReviewCard_independentCheckReRunsTheCageAndCachesAPassedG6(t *testing.T) {
+	resetConsumersForTest()
+	repo, base, fix := initMeasurableRepo(t)
+
+	ctx := context.Background()
+	f, err := fabric.Start(ctx, t.TempDir())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = f.Close() })
+	log := ledger.Bind(f, "gauntletg6", "i")
+	fundDispatch(t, log, "d1", ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1})
+	registerSession("gauntletg6", LiveConfig{RepoDir: repo, BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
+
+	var invoked atomic.Int32
+	cageCtx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	StartCageClaimConsumers(cageCtx, "img", blessingRunner{output: catchTranscriptJSON(t, "main.go", 1), invoked: &invoked})
+
+	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
+	viaApp, defLog, err := NewServer(LiveConfig{
+		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
+		TestCmd: []string{"true"}, LedgerPath: defLogPath,
+	})
+	require.NoError(t, err)
+	server := httptest.NewServer(viaApp)
+	t.Cleanup(func() { _ = defLog.Close() })
+
+	body := bodyOf(vt.NewClient(t, server, "/review?key=gauntletg6&wo=1").HTML())
+	assert.Contains(t, body, "handshake tightened — 0 survivors of 1", "G6 re-derived a real passed catch, not the honest not-run default")
+	assert.GreaterOrEqual(t, invoked.Load(), int32(1), "G6 must actually invoke the cage runner, not fabricate a result")
+
+	e := lookupLiveEntry("gauntletg6")
+	require.NotNil(t, e)
+	g := e.cachedGauntlet(1)
+	assert.Equal(t, packet.GatePassed, g.IndependentCheck.Status)
+
+	e.gauntletMu.Lock()
+	cached, ok := e.gauntletCache[1]
+	e.gauntletMu.Unlock()
+	require.True(t, ok, "G6 is cached alongside G3/G4 on a filled order")
+	assert.Equal(t, packet.GatePassed, cached.IndependentCheck.Status)
+}
+
+// A claim whose target can never resolve (ledger.ErrClaimUnverifiable) must
+// leave G6 honestly not-run — a permanent verify failure is not itself a
+// proven finding about the fix, so it must never render as a pass or fail.
+// NOT parallel.
+func TestReviewCard_independentCheckStaysNotRunOnAnUnverifiableTarget(t *testing.T) {
+	resetConsumersForTest()
+	repo, _, fix := initMeasurableRepo(t)
+
+	ctx := context.Background()
+	f, err := fabric.Start(ctx, t.TempDir())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = f.Close() })
+	log := ledger.Bind(f, "gauntletg6bad", "i")
+	fundDispatch(t, log, "d1", ledger.Target{BaseRev: "0000000000000000000000000000000000bad0", FixRev: fix, TipRev: fix, Path: "main.go", Line: 1})
+	registerSession("gauntletg6bad", LiveConfig{RepoDir: repo, BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
+
+	var invoked atomic.Int32
+	cageCtx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	StartCageClaimConsumers(cageCtx, "img", blessingRunner{output: catchTranscriptJSON(t, "main.go", 1), invoked: &invoked})
+
+	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
+	viaApp, defLog, err := NewServer(LiveConfig{
+		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
+		TestCmd: []string{"true"}, LedgerPath: defLogPath,
+	})
+	require.NoError(t, err)
+	server := httptest.NewServer(viaApp)
+	t.Cleanup(func() { _ = defLog.Close() })
+
+	_ = bodyOf(vt.NewClient(t, server, "/review?key=gauntletg6bad&wo=1").HTML()) // triggers the render that computes+caches G6
+
+	e := lookupLiveEntry("gauntletg6bad")
+	require.NotNil(t, e)
+	g6 := e.cachedGauntlet(1).IndependentCheck
+	assert.Equal(t, packet.GateNotRun, g6.Status, "a permanent verify failure is never a fabricated pass or fail")
+	assert.Equal(t, "not measured — cage could not verify this claim's target", g6.Detail)
+	assert.Equal(t, int32(0), invoked.Load(), "an unresolvable target never reaches the runner — Materialize refuses it first")
+}
+
+// G6 stays the honest notMeasuredNoCage default when cage was never
+// configured for this process (StartCageClaimConsumers not called) — even for
+// an otherwise fully filled, real-repo order. NOT parallel.
+func TestReviewCard_independentCheckStaysTheHonestDefaultWhenCageIsUnconfigured(t *testing.T) {
+	resetConsumersForTest()
+	repo, base, fix := initMeasurableRepo(t)
+
+	ctx := context.Background()
+	f, err := fabric.Start(ctx, t.TempDir())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = f.Close() })
+	log := ledger.Bind(f, "gauntletg6off", "i")
+	fundDispatch(t, log, "d1", ledger.Target{BaseRev: base, FixRev: fix, TipRev: fix, Path: "main.go", Line: 1})
+	registerSession("gauntletg6off", LiveConfig{RepoDir: repo, BaseRev: "own-b", FixRev: "own-f", Anchor: anchorForCap(), TestCmd: []string{"true"}}, log)
+
+	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
+	viaApp, defLog, err := NewServer(LiveConfig{
+		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
+		TestCmd: []string{"true"}, LedgerPath: defLogPath,
+	})
+	require.NoError(t, err)
+	server := httptest.NewServer(viaApp)
+	t.Cleanup(func() { _ = defLog.Close() })
+
+	body := bodyOf(vt.NewClient(t, server, "/review?key=gauntletg6off&wo=1").HTML())
+	assert.Contains(t, body, "not measured — cage not wired to local dispatch")
+
+	e := lookupLiveEntry("gauntletg6off")
+	require.NotNil(t, e)
+	assert.Equal(t, notMeasuredNoCage, e.cachedGauntlet(1).IndependentCheck)
 }
