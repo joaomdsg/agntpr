@@ -47,7 +47,7 @@ func StartCageClaimConsumers(ctx context.Context, image string, runner sandbox.R
 		// objects if it has no other claim in flight — prompt reclamation on top of
 		// the periodic StartPeerGC sweep. Uses the consumer ctx so
 		// a shutdown cancels an in-progress prune.
-		OnResolved: func(session string) { prunePeerSession(ctx, session) },
+		OnResolved: func(session string) { consumerSpawner.noteActivity(session); prunePeerSession(ctx, session) },
 	}
 	verifierFor := func(cfg LiveConfig) ledger.Verifier {
 		return cage.CageVerifier(runner, cfg.RepoDir, image, cageVerifyTimeout)

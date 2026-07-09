@@ -1179,10 +1179,35 @@ type claimConsumerSpawner struct {
 	verifierFor func(LiveConfig) ledger.Verifier
 	ackWait     time.Duration
 	adm         *ledger.Admission
-	// socks holds one attached socket per session key — the socket owns that
-	// session's claim-consumer lifecycle (Open starts it, Close stops it). A
-	// non-nil entry is the "already spawned" guard (formerly a bool set).
+	// socks holds one attached (warm) socket per session key — the socket owns
+	// that session's claim-consumer lifecycle (Open starts it, Close stops it).
+	// A non-nil entry is the "already spawned" guard (formerly a bool set).
 	socks map[string]*socket.Socket
+	// parked holds sessions whose verify consumer was auto-parked when idle: the
+	// resumable ticket plus the cancel for the lightweight arrival watcher that
+	// resumes it on the next claim. A key is in exactly one of socks/parked.
+	parked map[string]*parkedConsumer
+	// lastActive stamps each session's last activity (claim resolve, spend,
+	// send, or spawn); parkIdle parks a warm session idle longer than idleAfter.
+	// It is guarded by its OWN lock, never mu: noteActivity fires from the verify
+	// consumer goroutine (via the resolve hook), which stop/park JOIN while
+	// holding mu — so if activity tracking took mu, a claim resolving during a
+	// retire/park would deadlock. activityMu is only ever taken alone or nested
+	// under mu (mu -> activityMu), never the reverse.
+	lastActive map[string]time.Time
+	activityMu sync.Mutex
+	// idleAfter is the auto-park threshold; 0 disables parking (the default —
+	// auto-park is dormant until StartAutoPark sets it).
+	idleAfter time.Duration
+	// now is the clock parkIdle reads; nil means time.Now (injected in tests).
+	now func() time.Time
+}
+
+// parkedConsumer is a session's parked claim consumer: the single-use ticket
+// that Resume redeems, and the cancel that stops its arrival watcher.
+type parkedConsumer struct {
+	ticket *socket.Ticket
+	stop   context.CancelFunc
 }
 
 var consumerSpawner claimConsumerSpawner
@@ -1215,13 +1240,17 @@ func resetConsumersForTest() {
 	// Reset the fields in place — never reassign the struct, which would swap out
 	// the mutex this call holds (the deferred Unlock would hit a fresh, unlocked
 	// one). Zero everything the spawner carries forward between StartClaimConsumers.
-	consumerSpawner.stopAllLocked() // close any sockets from a prior test's spawner
+	consumerSpawner.stopAllLocked() // stop any sockets/watchers from a prior test's spawner
 	consumerSpawner.active = false
 	consumerSpawner.ctx = nil
 	consumerSpawner.verifierFor = nil
 	consumerSpawner.ackWait = 0
 	consumerSpawner.adm = nil
 	consumerSpawner.socks = nil
+	consumerSpawner.parked = nil
+	consumerSpawner.resetActivity(nil)
+	consumerSpawner.idleAfter = 0
+	consumerSpawner.now = nil
 	resetCageGauntletForTest()
 }
 
@@ -1243,11 +1272,129 @@ func (s *claimConsumerSpawner) spawnLocked(key string, e *liveEntry) {
 		return // no fabric (or invalid key): no consumer, as before the socket wiring
 	}
 	s.socks[key] = sock
+	s.noteActivity(key)
 }
 
-// stopConsumer closes and forgets the socket attached for key, stopping its
-// claim consumer. A key with no socket is a no-op. Used when a session is
-// retired, so its consumer no longer lingers on the fabric.
+// clock is parkIdle's time source: the injected now, or the wall clock.
+func (s *claimConsumerSpawner) clock() time.Time {
+	if s.now != nil {
+		return s.now()
+	}
+	return time.Now()
+}
+
+// noteActivity stamps a session's last-activity time, keeping an actively-used
+// session warm against the idle sweep. It takes ONLY activityMu (never mu), so
+// it is safe to call from the verify consumer goroutine that a stop/park join
+// waits on. Safe (no-op) before consumers start.
+func (s *claimConsumerSpawner) noteActivity(key string) {
+	t := s.clock()
+	s.activityMu.Lock()
+	defer s.activityMu.Unlock()
+	if s.lastActive == nil {
+		return
+	}
+	s.lastActive[key] = t
+}
+
+// activeSince reports whether key's last activity is after cutoff. Takes only
+// activityMu; callers may hold mu (order mu -> activityMu).
+func (s *claimConsumerSpawner) activeSince(key string, cutoff time.Time) bool {
+	s.activityMu.Lock()
+	defer s.activityMu.Unlock()
+	last, ok := s.lastActive[key]
+	return ok && last.After(cutoff)
+}
+
+// forgetActivity drops key's activity stamp. Takes only activityMu.
+func (s *claimConsumerSpawner) forgetActivity(key string) {
+	s.activityMu.Lock()
+	defer s.activityMu.Unlock()
+	delete(s.lastActive, key)
+}
+
+// resetActivity replaces the activity map (fresh set, or nil to disable).
+func (s *claimConsumerSpawner) resetActivity(m map[string]time.Time) {
+	s.activityMu.Lock()
+	defer s.activityMu.Unlock()
+	s.lastActive = m
+}
+
+// parkIdle parks every warm session whose consumer has been idle longer than
+// idleAfter: it stops the verify consumer (socket.Park), moves the session to
+// parked, and starts a lightweight arrival watcher that resumes it on the next
+// claim. A zero idleAfter disables parking (auto-park dormant).
+func (s *claimConsumerSpawner) parkIdle() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.idleAfter <= 0 {
+		return
+	}
+	cutoff := s.clock().Add(-s.idleAfter)
+	for key, sock := range s.socks {
+		if s.activeSince(key, cutoff) {
+			continue // active within the window
+		}
+		// Establish the arrival watcher BEFORE stopping the consumer, so no claim
+		// can slip through the gap between park and subscribe. SubscribeNew
+		// (DeliverNew) only fires on claims from here on, never the backlog.
+		watchCtx, stop := context.WithCancel(s.ctx)
+		filter := fabric.EventSubject(key, LedgerInstance, fabric.StatusClaim, ">")
+		ch, err := liveFabric.SubscribeNew(watchCtx, filter)
+		if err != nil {
+			stop()
+			continue // can't watch: leave it warm rather than park it blind
+		}
+		ticket, err := sock.Park()
+		if err != nil {
+			stop()
+			continue // already closed/parked; drop the just-made subscription
+		}
+		delete(s.socks, key)
+		s.parked[key] = &parkedConsumer{ticket: ticket, stop: stop}
+		go s.watch(watchCtx, key, ch)
+	}
+}
+
+// watch waits for the first claim on a parked session's subtree (or ctx
+// cancellation from retire/reset/shutdown) and resumes the session. The
+// subscription is created synchronously in parkIdle, so by the time this runs
+// no arriving claim can be missed.
+func (s *claimConsumerSpawner) watch(ctx context.Context, key string, ch <-chan fabric.Event) {
+	select {
+	case <-ctx.Done():
+		return
+	case _, ok := <-ch:
+		if !ok {
+			return
+		}
+		s.resume(key)
+	}
+}
+
+// resume re-attaches a parked session's consumer on the shared fabric. Called
+// by the watcher on a claim arrival; a no-op if the session was retired or
+// already resumed while the claim was in flight.
+func (s *claimConsumerSpawner) resume(key string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	p := s.parked[key]
+	if p == nil {
+		return
+	}
+	delete(s.parked, key)
+	p.stop() // tear down this watcher; the resumed consumer takes over
+	sock, err := socket.Resume(s.ctx, p.ticket)
+	if err != nil {
+		return
+	}
+	s.socks[key] = sock
+	s.noteActivity(key)
+}
+
+// stopConsumer stops and forgets a session's claim consumer — warm (close the
+// socket) or parked (stop the watcher and drop the ticket so it can't resume).
+// A key with neither is a no-op. Used when a session is retired.
 func (s *claimConsumerSpawner) stopConsumer(key string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -1255,13 +1402,23 @@ func (s *claimConsumerSpawner) stopConsumer(key string) {
 		_ = sock.Close()
 		delete(s.socks, key)
 	}
+	if p := s.parked[key]; p != nil {
+		p.stop()
+		delete(s.parked, key)
+	}
+	s.forgetActivity(key)
 }
 
-// stopAllLocked closes every attached socket and empties the set. mu held.
+// stopAllLocked stops every consumer — warm sockets and parked watchers — and
+// empties the sets. mu held.
 func (s *claimConsumerSpawner) stopAllLocked() {
 	for k, sock := range s.socks {
 		_ = sock.Close()
 		delete(s.socks, k)
+	}
+	for k, p := range s.parked {
+		p.stop()
+		delete(s.parked, k)
 	}
 }
 
@@ -1289,10 +1446,35 @@ func StartClaimConsumers(ctx context.Context, verifierFor func(LiveConfig) ledge
 	consumerSpawner.ackWait = ackWait
 	consumerSpawner.adm = adm
 	consumerSpawner.socks = map[string]*socket.Socket{} // this call owns a fresh consumer set
+	consumerSpawner.parked = map[string]*parkedConsumer{}
+	consumerSpawner.resetActivity(map[string]time.Time{})
 	liveReg.Range(func(k, v any) bool {
 		consumerSpawner.spawnLocked(k.(string), v.(*liveEntry))
 		return true
 	})
+}
+
+// StartAutoPark arms the idle sweep: every interval it parks sessions whose
+// claim consumer has been idle longer than idleAfter, freeing them until a
+// claim wakes them (via the arrival watcher). It is NOT wired into boot yet —
+// production stays warm-always until this is called. ctx bounds the sweep and
+// every watcher it starts.
+func StartAutoPark(ctx context.Context, idleAfter, interval time.Duration) {
+	consumerSpawner.mu.Lock()
+	consumerSpawner.idleAfter = idleAfter
+	consumerSpawner.mu.Unlock()
+	go func() {
+		t := time.NewTicker(interval)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				consumerSpawner.parkIdle()
+			}
+		}
+	}()
 }
 
 // LedgerInstance is the subject instance token every session's economy binds to.
@@ -1929,6 +2111,7 @@ const maxPacketAttempts = 3
 // it leaves the queued set when the log is writable), guaranteeing the drain
 // always returns.
 func drainQueuedPackets(key string) {
+	consumerSpawner.noteActivity(key) // a spend/send/adjust keeps the session warm against the idle sweep
 	e := lookupLiveEntry(key)
 	if e == nil || e.log == nil {
 		return
