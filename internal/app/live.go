@@ -30,6 +30,7 @@ import (
 	"github.com/joaomdsg/packets/internal/pipe"
 	"github.com/joaomdsg/packets/internal/reanchor"
 	"github.com/joaomdsg/packets/internal/review"
+	"github.com/joaomdsg/packets/internal/socket"
 	"github.com/joaomdsg/packets/internal/surface"
 	"github.com/joaomdsg/packets/internal/tokenstore"
 	"github.com/joaomdsg/packets/internal/translate"
@@ -1178,7 +1179,10 @@ type claimConsumerSpawner struct {
 	verifierFor func(LiveConfig) ledger.Verifier
 	ackWait     time.Duration
 	adm         *ledger.Admission
-	started     map[string]bool
+	// socks holds one attached socket per session key — the socket owns that
+	// session's claim-consumer lifecycle (Open starts it, Close stops it). A
+	// non-nil entry is the "already spawned" guard (formerly a bool set).
+	socks map[string]*socket.Socket
 }
 
 var consumerSpawner claimConsumerSpawner
@@ -1211,26 +1215,54 @@ func resetConsumersForTest() {
 	// Reset the fields in place — never reassign the struct, which would swap out
 	// the mutex this call holds (the deferred Unlock would hit a fresh, unlocked
 	// one). Zero everything the spawner carries forward between StartClaimConsumers.
+	consumerSpawner.stopAllLocked() // close any sockets from a prior test's spawner
 	consumerSpawner.active = false
 	consumerSpawner.ctx = nil
 	consumerSpawner.verifierFor = nil
 	consumerSpawner.ackWait = 0
 	consumerSpawner.adm = nil
-	consumerSpawner.started = nil
+	consumerSpawner.socks = nil
 	resetCageGauntletForTest()
 }
 
-// spawnLocked starts a consumer for key/e unless one is already running. mu held.
-// The spawner fields are copied into locals UNDER the lock and the goroutine closes
-// over those locals — never the shared struct fields — so a later StartClaimConsumers
-// call writing s.ctx/s.verifierFor/etc. can't race the running goroutine's reads.
+// spawnLocked opens a socket for key/e unless one is already attached. mu held.
+// The socket owns the session's claim consumer: its attach runs ConsumeClaims
+// under the socket's cancelable context, so Close (on retire) stops it. The
+// spawner fields are copied into locals so the attach closure never reads the
+// shared struct fields a later StartClaimConsumers might rewrite.
 func (s *claimConsumerSpawner) spawnLocked(key string, e *liveEntry) {
-	if s.started[key] {
+	if s.socks[key] != nil {
 		return
 	}
-	s.started[key] = true
 	ctx, verifierFor, ackWait, adm := s.ctx, s.verifierFor, s.ackWait, s.adm
-	go func() { _ = e.log.ConsumeClaims(ctx, verifierFor(e.cfg), ackWait, adm) }()
+	cfg, log := e.cfg, e.log
+	sock, err := socket.Open(ctx, liveFabric, key, func(c context.Context) error {
+		return log.ConsumeClaims(c, verifierFor(cfg), ackWait, adm)
+	})
+	if err != nil {
+		return // no fabric (or invalid key): no consumer, as before the socket wiring
+	}
+	s.socks[key] = sock
+}
+
+// stopConsumer closes and forgets the socket attached for key, stopping its
+// claim consumer. A key with no socket is a no-op. Used when a session is
+// retired, so its consumer no longer lingers on the fabric.
+func (s *claimConsumerSpawner) stopConsumer(key string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if sock := s.socks[key]; sock != nil {
+		_ = sock.Close()
+		delete(s.socks, key)
+	}
+}
+
+// stopAllLocked closes every attached socket and empties the set. mu held.
+func (s *claimConsumerSpawner) stopAllLocked() {
+	for k, sock := range s.socks {
+		_ = sock.Close()
+		delete(s.socks, k)
+	}
 }
 
 // onRegister is called after a session is stored in liveReg. If consumers are
@@ -1256,7 +1288,7 @@ func StartClaimConsumers(ctx context.Context, verifierFor func(LiveConfig) ledge
 	consumerSpawner.verifierFor = verifierFor
 	consumerSpawner.ackWait = ackWait
 	consumerSpawner.adm = adm
-	consumerSpawner.started = map[string]bool{} // this call owns a fresh consumer set
+	consumerSpawner.socks = map[string]*socket.Socket{} // this call owns a fresh consumer set
 	liveReg.Range(func(k, v any) bool {
 		consumerSpawner.spawnLocked(k.(string), v.(*liveEntry))
 		return true

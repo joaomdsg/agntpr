@@ -210,19 +210,19 @@ func fleetFingerprint(rows []CardRow) string {
 // drops the live entry). The seeded default is NEVER retired — it is the "/" route's
 // single-card fallback — and an empty/unknown key is a no-op.
 //
-// A retired key's durable claim consumer goroutine (per-session, spawned by the
-// consumerSpawner and NOT tied to liveReg membership) keeps running until process
-// shutdown — Delete drops only the registry entry, not the goroutine. This leak is
-// BENIGN and intentionally NOT torn down here: POST /claim gates on liveReg.Load, so
-// a retired key 404s and receives no new claims, leaving the consumer parked on an
-// empty fetch. Adding teardown machinery would be out of scope for a fleet-view
-// retire and would risk racing an in-flight verify; the goroutine costs nothing idle.
+// A retired key's durable claim consumer is owned by the session's socket, so
+// retiring closes that socket (consumerSpawner.stopConsumer) to stop the
+// consumer rather than leave it lingering on the fabric. The durable itself is
+// not deleted (ConsumeDurable never deletes on teardown), so re-creating the
+// same key resumes from the last ack; POST /claim still gates on liveReg.Load,
+// so a retired key 404s and takes no new claims in the meantime.
 func (c *BoardCard) RetireSession(ctx *via.Ctx) {
 	key := strings.TrimSpace(c.RetireKey.Read(ctx))
 	if key == "" || key == defaultSessionKey {
 		return // never strand the default fallback
 	}
 	liveReg.Delete(key)
+	consumerSpawner.stopConsumer(key) // stop the retired session's claim consumer, no longer left lingering
 }
 
 // CreateSession starts a new session economy from the fleet view: it registers the

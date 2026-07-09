@@ -1,14 +1,26 @@
 package app
 
 import (
+	"context"
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/go-via/via/vt"
+
+	"github.com/joaomdsg/packets/internal/ledger"
 )
+
+// consumerAttached reports whether the spawner currently holds a consumer
+// socket for key. Reads the package-global spawner state under its lock.
+func consumerAttached(key string) bool {
+	consumerSpawner.mu.Lock()
+	defer consumerSpawner.mu.Unlock()
+	return consumerSpawner.socks[key] != nil
+}
 
 // A Lead can create sessions at runtime, so experiment sessions accumulate on
 // the fleet board with no way to clear them — the board becomes cluttered. Retiring
@@ -41,6 +53,39 @@ func TestBoardCard_retireRemovesASessionFromTheFleet(t *testing.T) {
 
 	require.NotContains(t, bodyOf(vt.NewClient(t, server, "/board").HTML()), `data-key="experiment"`,
 		"the retired session is gone from the fleet view")
+}
+
+// Retiring a session must STOP its claim consumer, not leave it lingering on the
+// fabric: the socket owning the consumer is closed and forgotten, so the retired
+// key no longer holds a live consumer. NOT parallel (shared liveReg/liveFabric).
+func TestBoardCard_retireStopsTheSessionsClaimConsumer(t *testing.T) {
+	resetConsumersForTest()
+	defLogPath := filepath.Join(t.TempDir(), "default.jsonl")
+	viaApp, log, err := NewServer(LiveConfig{
+		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
+		TestCmd: []string{"true"}, LedgerPath: defLogPath,
+	})
+	require.NoError(t, err)
+	server := httptest.NewServer(viaApp)
+	t.Cleanup(func() { _ = log.Close() })
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	StartClaimConsumers(ctx, func(LiveConfig) ledger.Verifier { return confirmingVerifier }, 30*time.Second, nil)
+
+	expLog, err := AddSession("experiment", LiveConfig{
+		RepoDir: ".", BaseRev: "b", FixRev: "f", TipRev: "f", Anchor: anchorForCap(),
+		TestCmd: []string{"true"},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = expLog.Close() })
+
+	require.True(t, consumerAttached("experiment"), "a started, runtime-created session must have an attached consumer socket")
+
+	tc := vt.NewClient(t, server, "/board")
+	require.Equal(t, 200, tc.Action((&BoardCard{}).RetireSession).WithSignal("retirekey", "experiment").Fire())
+
+	require.False(t, consumerAttached("experiment"), "retiring must stop and forget the session's consumer socket, not leave it lingering")
 }
 
 // The seeded default session is the single-card fallback — retiring it would strand
