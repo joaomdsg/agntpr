@@ -30,7 +30,6 @@ import (
 	"github.com/joaomdsg/packets/internal/pipe"
 	"github.com/joaomdsg/packets/internal/reanchor"
 	"github.com/joaomdsg/packets/internal/review"
-	"github.com/joaomdsg/packets/internal/socket"
 	"github.com/joaomdsg/packets/internal/surface"
 	"github.com/joaomdsg/packets/internal/tokenstore"
 	"github.com/joaomdsg/packets/internal/translate"
@@ -1281,15 +1280,10 @@ const LedgerInstance = "ledger"
 // drive NewServer serially (they share this and liveReg), so it is not guarded.
 var liveFabric *fabric.Fabric
 
-// liveSocket is the parked/warm attachment backing liveFabric when a ListenAddr
-// binds an authenticated socket — the production caller of internal/socket. It
-// owns the addr's park/resume lifecycle; nil for an in-process-only fabric
-// (no socket bound). Set once per server alongside liveFabric.
-var liveSocket *socket.Socket
-
-// startLiveFabric stands up the shared economy fabric, rooting its durable store
-// beside the configured ledger path (a dedicated dir per server, so two servers
-// in one process never share a store). An empty path falls back to a temp store.
+// startLiveFabric stands up the shared economy fabric — the host-owned network —
+// rooting its durable store beside the configured ledger path (a dedicated dir
+// per server, so two servers in one process never share a store). An empty path
+// falls back to a temp store. The fabric's lifecycle is the host's.
 func startLiveFabric(ledgerPath, listenAddr string, grants []fabric.Grant) (*fabric.Fabric, error) {
 	dir := ledgerPath + "-fabric"
 	if ledgerPath == "" {
@@ -1301,20 +1295,14 @@ func startLiveFabric(ledgerPath, listenAddr string, grants []fabric.Grant) (*fab
 	} else if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, fmt.Errorf("app: fabric store dir: %v", err)
 	}
-	// A configured listen address binds an authenticated socket via the Socket
-	// lifecycle (the host stays in-process via NoAuthUser; peers authenticate and
-	// are grant-confined) — the durable addr identity that can later park when
-	// idle. Absent it, the fabric is in-process-only — no socket, no auth surface,
-	// no addr to park.
+	// A configured listen address stands the fabric up with an authenticated NATS
+	// ingress (the host stays in-process via NoAuthUser; peers authenticate and are
+	// grant-confined). Absent it, the fabric is in-process-only — no auth surface.
+	// Repo endpoints attach onto this fabric later, at registration, via
+	// internal/socket — the fabric is the network, owned here, not by any socket.
 	if listenAddr != "" {
-		sock, err := socket.Open(context.Background(), listenAddr, dir, grants...)
-		if err != nil {
-			return nil, err
-		}
-		liveSocket = sock
-		return sock.Fabric(), nil
+		return fabric.StartListening(context.Background(), dir, listenAddr, grants...)
 	}
-	liveSocket = nil
 	return fabric.Start(context.Background(), dir)
 }
 

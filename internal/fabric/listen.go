@@ -47,9 +47,9 @@ func StartListening(ctx context.Context, dir, addr string, grants ...Grant) (*Fa
 	})
 }
 
-// authUsers builds the host+peer user list shared by StartListening and
-// Binding.Listen: the in-process host publishes anything, while each granted
-// peer authenticates and may publish ONLY to its own claim subtree.
+// authUsers builds the host+peer user list StartListening enforces: the
+// in-process host publishes anything, while each granted peer authenticates
+// and may publish ONLY to its own claim subtree.
 func authUsers(grants []Grant) []*server.User {
 	// NoAuthUser maps EVERY credential-less connection — in-process AND external
 	// socket — onto hostUser. Confining hostUser to IN_PROCESS connections is what

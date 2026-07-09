@@ -11,20 +11,56 @@ import (
 	"github.com/joaomdsg/packets/internal/socket"
 )
 
-func TestOpen_startsListeningAndAcceptsPublish(t *testing.T) {
+// newFabric stands up a host-owned in-process fabric for a test. The socket
+// rides it; the host (here, the test) owns its lifecycle.
+func newFabric(t *testing.T) *fabric.Fabric {
+	t.Helper()
+	f, err := fabric.Start(context.Background(), t.TempDir())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = f.Close() })
+	return f
+}
+
+// originates publishes on the addr's subtree to prove the fabric is live and
+// writable — the socket "originating" a send.
+func originates(t *testing.T, f *fabric.Fabric) error {
+	t.Helper()
+	_, err := f.Publish(context.Background(), fabric.EventSubject("A", "i", fabric.StatusMinted, "catch"), []byte("m"))
+	return err
+}
+
+func TestOpenAttachesAddrToTheSharedFabric(t *testing.T) {
 	t.Parallel()
-	s, err := socket.Open(context.Background(), "127.0.0.1:0", t.TempDir())
+	fab := newFabric(t)
+
+	s, err := socket.Open(context.Background(), fab, "octocat/hello")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = s.Close() })
 
-	require.NotNil(t, s.Fabric())
-	_, err = s.Fabric().Publish(context.Background(), fabric.EventSubject("A", "i", fabric.StatusMinted, "catch"), []byte("m"))
-	assert.NoError(t, err)
+	f := s.Fabric()
+	require.NotNil(t, f)
+	assert.Same(t, fab, f, "the socket must expose the host-owned fabric it was opened onto, not a new one")
+	assert.Equal(t, "octocat/hello", s.Addr())
+	assert.NoError(t, originates(t, f))
 }
 
-func TestSocket_addrStaysStableAcrossParkAndResume(t *testing.T) {
+func TestOpenRejectsANilFabric(t *testing.T) {
 	t.Parallel()
-	s, err := socket.Open(context.Background(), "127.0.0.1:0", t.TempDir())
+	_, err := socket.Open(context.Background(), nil, "octocat/hello")
+	assert.Error(t, err, "a socket cannot attach onto a nil fabric")
+}
+
+func TestOpenRejectsAnEmptyAddr(t *testing.T) {
+	t.Parallel()
+	fab := newFabric(t)
+	_, err := socket.Open(context.Background(), fab, "")
+	assert.Error(t, err, "a socket needs a durable addr identity")
+}
+
+func TestAddrIsStableAcrossParkAndResume(t *testing.T) {
+	t.Parallel()
+	fab := newFabric(t)
+	s, err := socket.Open(context.Background(), fab, "octocat/hello")
 	require.NoError(t, err)
 	addr := s.Addr()
 
@@ -39,29 +75,29 @@ func TestSocket_addrStaysStableAcrossParkAndResume(t *testing.T) {
 	assert.Equal(t, addr, s2.Addr())
 }
 
-func TestSocket_parkReleasesLiveFabricButKeepsAddrClaimed(t *testing.T) {
+// Parking used to tear the fabric down; now the fabric is host-owned, so park
+// must leave it live — the addr's warm attachment is released, the network is
+// not.
+func TestParkLeavesTheSharedFabricLive(t *testing.T) {
 	t.Parallel()
-	s, err := socket.Open(context.Background(), "127.0.0.1:0", t.TempDir())
-	require.NoError(t, err)
-	addr := s.Addr()
-
-	ticket, err := s.Park()
+	fab := newFabric(t)
+	s, err := socket.Open(context.Background(), fab, "octocat/hello")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = s.Close() })
 
-	assert.Nil(t, s.Fabric())
-
-	_, err = fabric.Bind(addr)
-	assert.Error(t, err, "the addr must stay claimed by the parked socket's placeholder")
-
-	s2, err := socket.Resume(context.Background(), ticket)
+	_, err = s.Park()
 	require.NoError(t, err)
-	_ = s2.Close()
+
+	f := s.Fabric()
+	require.NotNil(t, f, "Fabric() must stay valid across park")
+	assert.Same(t, fab, f, "Fabric() must stay valid across park")
+	assert.NoError(t, originates(t, f), "the shared fabric must still be writable after park")
 }
 
-func TestSocket_resumeRewarmsPublishOnTheSameAddr(t *testing.T) {
+func TestResumeRidesTheSameSharedFabric(t *testing.T) {
 	t.Parallel()
-	s, err := socket.Open(context.Background(), "127.0.0.1:0", t.TempDir())
+	fab := newFabric(t)
+	s, err := socket.Open(context.Background(), fab, "octocat/hello")
 	require.NoError(t, err)
 	addr := s.Addr()
 
@@ -74,13 +110,29 @@ func TestSocket_resumeRewarmsPublishOnTheSameAddr(t *testing.T) {
 	t.Cleanup(func() { _ = s2.Close() })
 
 	assert.Equal(t, addr, s2.Addr())
-	_, err = s2.Fabric().Publish(context.Background(), fabric.EventSubject("A", "i", fabric.StatusMinted, "catch"), []byte("m"))
-	assert.NoError(t, err)
+	f := s2.Fabric()
+	require.NotNil(t, f)
+	assert.Same(t, fab, f, "resume must ride the same host-owned fabric, not create one")
+	assert.NoError(t, originates(t, f))
 }
 
-func TestTicket_isSingleUse(t *testing.T) {
+// The socket never owns the fabric's lifecycle, so closing it must never take
+// the host's network down with it.
+func TestClosingASocketNeverClosesTheSharedFabric(t *testing.T) {
 	t.Parallel()
-	s, err := socket.Open(context.Background(), "127.0.0.1:0", t.TempDir())
+	fab := newFabric(t)
+	s, err := socket.Open(context.Background(), fab, "octocat/hello")
+	require.NoError(t, err)
+
+	require.NoError(t, s.Close())
+	assert.Same(t, fab, s.Fabric(), "Fabric() must stay valid after Close")
+	assert.NoError(t, originates(t, fab), "the host-owned fabric must survive the socket's Close")
+}
+
+func TestATicketRedeemsOnlyOnce(t *testing.T) {
+	t.Parallel()
+	fab := newFabric(t)
+	s, err := socket.Open(context.Background(), fab, "octocat/hello")
 	require.NoError(t, err)
 
 	ticket, err := s.Park()
@@ -95,18 +147,20 @@ func TestTicket_isSingleUse(t *testing.T) {
 	assert.Error(t, err, "a second Resume on the same ticket must error")
 }
 
-func TestSocket_closeIsIdempotentWhenListening(t *testing.T) {
+func TestCloseIsIdempotentWhileListening(t *testing.T) {
 	t.Parallel()
-	s, err := socket.Open(context.Background(), "127.0.0.1:0", t.TempDir())
+	fab := newFabric(t)
+	s, err := socket.Open(context.Background(), fab, "octocat/hello")
 	require.NoError(t, err)
 
 	require.NoError(t, s.Close())
 	assert.NoError(t, s.Close())
 }
 
-func TestSocket_closeIsIdempotentWhenParked(t *testing.T) {
+func TestCloseIsIdempotentWhileParked(t *testing.T) {
 	t.Parallel()
-	s, err := socket.Open(context.Background(), "127.0.0.1:0", t.TempDir())
+	fab := newFabric(t)
+	s, err := socket.Open(context.Background(), fab, "octocat/hello")
 	require.NoError(t, err)
 
 	_, err = s.Park()
@@ -116,9 +170,10 @@ func TestSocket_closeIsIdempotentWhenParked(t *testing.T) {
 	assert.NoError(t, s.Close())
 }
 
-func TestSocket_parkAfterCloseErrors(t *testing.T) {
+func TestParkAfterCloseIsRejected(t *testing.T) {
 	t.Parallel()
-	s, err := socket.Open(context.Background(), "127.0.0.1:0", t.TempDir())
+	fab := newFabric(t)
+	s, err := socket.Open(context.Background(), fab, "octocat/hello")
 	require.NoError(t, err)
 	require.NoError(t, s.Close())
 
@@ -126,9 +181,10 @@ func TestSocket_parkAfterCloseErrors(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestSocket_parkWhileAlreadyParkedErrors(t *testing.T) {
+func TestParkingAnAlreadyParkedSocketIsRejected(t *testing.T) {
 	t.Parallel()
-	s, err := socket.Open(context.Background(), "127.0.0.1:0", t.TempDir())
+	fab := newFabric(t)
+	s, err := socket.Open(context.Background(), fab, "octocat/hello")
 	require.NoError(t, err)
 
 	ticket, err := s.Park()
@@ -141,4 +197,20 @@ func TestSocket_parkWhileAlreadyParkedErrors(t *testing.T) {
 	s2, err := socket.Resume(context.Background(), ticket)
 	require.NoError(t, err)
 	_ = s2.Close()
+}
+
+// Closing a parked socket invalidates its outstanding ticket, so a stale
+// ticket can never resurrect an endpoint the owner already tore down.
+func TestATicketFromAClosedSocketCannotResume(t *testing.T) {
+	t.Parallel()
+	fab := newFabric(t)
+	s, err := socket.Open(context.Background(), fab, "octocat/hello")
+	require.NoError(t, err)
+
+	ticket, err := s.Park()
+	require.NoError(t, err)
+	require.NoError(t, s.Close())
+
+	_, err = socket.Resume(context.Background(), ticket)
+	assert.Error(t, err, "a ticket from a closed socket must not resume")
 }
