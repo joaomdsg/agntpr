@@ -136,7 +136,7 @@ func (DockerRunner) Run(ctx context.Context, s Spec) (Result, error) {
 	// A cancelled/timed-out run is an error, never a Result: the signal-killed
 	// client would otherwise surface as a clean ExitError and read as a real exit.
 	if ctx.Err() != nil {
-		reapOrphan(name)
+		reapOrphan(name, realClock{}, realDocker{})
 		return Result{}, fmt.Errorf("sandbox: run cancelled: %w", ctx.Err())
 	}
 	res := Result{Output: out.String()}
@@ -164,14 +164,42 @@ func (DockerRunner) Run(ctx context.Context, s Spec) (Result, error) {
 // (no new create can land for a unique name once the dead client's single request
 // has been processed). Bounded so a wedged daemon cannot hang the caller; remaining
 // best-effort, the cancellation error is the caller's signal regardless.
-func reapOrphan(name string) {
-	deadline := time.Now().Add(15 * time.Second)
+// clock is reapOrphan's time source: the poll cadence and the deadline. realClock
+// is the production wall clock; a test clock makes the loop's timing virtual.
+type clock interface {
+	Now() time.Time
+	Sleep(time.Duration)
+}
+
+type realClock struct{}
+
+func (realClock) Now() time.Time        { return time.Now() }
+func (realClock) Sleep(d time.Duration) { time.Sleep(d) }
+
+// dockerOps is reapOrphan's container-registry I/O: probe a name's existence and
+// force-remove it. realDocker shells out to the daemon; a test double lets the
+// reap loop's decision logic be exercised without one.
+type dockerOps interface {
+	Exists(name string) bool
+	Remove(name string)
+}
+
+type realDocker struct{}
+
+func (realDocker) Exists(name string) bool { return containerExists(name) }
+
+func (realDocker) Remove(name string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	_ = exec.CommandContext(ctx, "docker", "rm", "-f", name).Run()
+}
+
+func reapOrphan(name string, clk clock, dkr dockerOps) {
+	deadline := clk.Now().Add(15 * time.Second)
 	absentStreak := 0
-	for time.Now().Before(deadline) {
-		if containerExists(name) {
-			reapCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			_ = exec.CommandContext(reapCtx, "docker", "rm", "-f", name).Run()
-			cancel()
+	for clk.Now().Before(deadline) {
+		if dkr.Exists(name) {
+			dkr.Remove(name)
 			absentStreak = 0
 		} else {
 			// The create can still be in-flight; only conclude after the name has
@@ -182,7 +210,7 @@ func reapOrphan(name string) {
 				return
 			}
 		}
-		time.Sleep(100 * time.Millisecond)
+		clk.Sleep(100 * time.Millisecond)
 	}
 }
 
